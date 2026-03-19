@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JDownloader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <img src="icons/icon48.png" alt="JD" class="logo">
+    <div class="header-text">
+      <span class="title">JDownloader</span>
+      <span class="subtitle" id="statusText">Nicht verbunden</span>
+    </div>
+    <div class="status-dot" id="statusDot"></div>
+  </div>
+
+  <!-- Login view -->
+  <div id="loginView" class="view">
+    <form id="loginForm">
+      <div class="field">
+        <label for="serverUrl">Server-URL</label>
+        <input type="url" id="serverUrl" placeholder="http://localhost:3001" required>
+      </div>
+      <div class="field">
+        <label for="email">E-Mail</label>
+        <input type="email" id="email" placeholder="user@example.com" required>
+      </div>
+      <div class="field">
+        <label for="password">Passwort</label>
+        <input type="password" id="password" placeholder="••••••••" required>
+      </div>
+      <div id="loginError" class="error hidden"></div>
+      <button type="submit" id="loginBtn" class="btn btn-primary">Anmelden</button>
+    </form>
+  </div>
+
+  <!-- Connected view -->
+  <div id="connectedView" class="view hidden">
+    <div class="info-row">
+      <span class="info-label">Server</span>
+      <span class="info-value" id="connServerUrl"></span>
+    </div>
+    <div class="separator"></div>
+
+    <!-- CNL Toggle -->
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <span class="toggle-title">Click'N'Load</span>
+        <span class="toggle-desc" id="cnlDesc">Aktiv</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="cnlToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- Auto-Send Toggle -->
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <span class="toggle-title">Automatisch senden</span>
+        <span class="toggle-desc" id="autoSendDesc">Aktiv</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="autoSendToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- Queue info (hidden when empty) -->
+    <div id="queueInfo" class="queue-section hidden">
+      <div class="queue-header">
+        <span id="queueText" class="queue-count"></span>
+        <div class="queue-actions">
+          <button id="flushQueueBtn" class="btn-link">Senden</button>
+          <span class="queue-sep">·</span>
+          <button id="clearQueueBtn" class="btn-link btn-link-danger">Alle löschen</button>
+        </div>
+      </div>
+      <ul id="queueList" class="queue-list"></ul>
+    </div>
+
+    <div class="separator"></div>
+    <div class="action-row">
+      <button id="openWebBtn" class="btn btn-secondary">Web-UI öffnen</button>
+      <button id="logoutBtn" class="btn btn-danger">Abmelden</button>
+    </div>
+  </div>
+
+  <!-- Offline view -->
+  <div id="offlineView" class="view hidden">
+    <div class="offline-info">
+      <span class="offline-icon">⚠</span>
+      <span id="offlineServer"></span>
+    </div>
+    <p class="offline-hint">Server nicht erreichbar. Token bleibt gespeichert.</p>
+
+    <!-- Queue info in offline view -->
+    <div id="offlineQueueInfo" class="queue-section queue-section-offline hidden">
+      <div class="queue-header">
+        <span id="offlineQueueText" class="queue-count"></span>
+      </div>
+      <ul id="offlineQueueList" class="queue-list"></ul>
+    </div>
+
+    <div class="action-row">
+      <button id="retryBtn" class="btn btn-secondary">Erneut verbinden</button>
+      <button id="offlineLogoutBtn" class="btn btn-danger">Abmelden</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

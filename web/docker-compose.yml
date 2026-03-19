@@ -1,0 +1,17 @@
+services:
+  jdownloader-web:
+    build: .
+    ports:
+      - '3001:3001'
+    volumes:
+      - jd-data:/app/data
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      BETTER_AUTH_SECRET: change-me-use-openssl-rand-hex-32
+      BETTER_AUTH_URL: http://your-server:3001
+      TRUSTED_ORIGINS: http://your-server:3001
+    restart: unless-stopped
+
+volumes:
+  jd-data:

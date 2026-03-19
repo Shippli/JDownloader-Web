@@ -1,0 +1,46 @@
+{
+  "name": "jdownloader-web",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"bun run dev:server\" \"bun run dev:client\"",
+    "dev:server": "bun --watch src/server/index.ts",
+    "dev:client": "vite --config vite.config.js",
+    "build": "vite build --config vite.config.js",
+    "start": "bun src/server/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun src/server/db/migrate.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.5.3",
+    "@kobalte/core": "^0.13.11",
+    "@unocss/reset": "^66.6.5",
+    "better-auth": "^1.2.7",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.41.0",
+    "hono": "^4.7.4",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^7.7.3",
+    "@iconify-json/tabler": "^1.2.15",
+    "@solidjs/router": "^0.15.3",
+    "@types/bun": "latest",
+    "@unocss/preset-icons": "^0.65.3",
+    "@unocss/preset-uno": "^0.65.3",
+    "@unocss/preset-web-fonts": "^0.65.3",
+    "concurrently": "^9.1.2",
+    "drizzle-kit": "^0.30.4",
+    "eslint": "^10.0.3",
+    "eslint-plugin-solid": "^0.14.5",
+    "solid-js": "^1.9.5",
+    "typescript": "^5.7.3",
+    "unocss": "^0.65.3",
+    "vite": "^6.2.1",
+    "vite-plugin-solid": "^2.11.6"
+  }
+}
