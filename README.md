@@ -9,6 +9,8 @@
 
 <p align="center">
   100% Vibe, no code, sorry
+</p>
+<p align="center">
   Optimized for Web and Mobile, with context-menu and common keyboard shortcuts.
 </p>
 
