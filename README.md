@@ -20,10 +20,10 @@
 - **Bun** ≥ 1.1 — [install](https://bun.sh)
 - OR **Docker** for containerized deployment
 
-## Docker Quick Start
+## Quick Start
 
 ```bash
-docker compose up -d
+docker run -d --name jdownloader-web -p 3001:3001 -e BETTER_AUTH_SECRET="$(openssl rand -hex 32)" ghcr.io/shippli/jdownloader-web:latest
 ```
 
 The app will be available at `http://localhost:3001`. On first visit, register your admin account.
@@ -105,12 +105,16 @@ src/
     └── i18n/                 # translations
 ```
 
-### Docker
+## Docker
+
+```bash
+docker compose up -d
+```
 
 ```yaml
 # docker-compose.yml
 services:
-  jd-web:
+  jdownloader-web:
     build: .
     ports:
       - '3001:3001'
@@ -125,24 +129,6 @@ services:
 
 volumes:
   jd-data:
-```
-
-### Running the app on an external host (different from the build host)
-
-```yaml
-# docker-compose.yml
-services:
-  app:
-    build: .
-    image: jd-web:latest
-    platform: linux/amd64
-
-```
-
-```bash
-docker compose build --no-cache
-docker save -o images.tar $(docker compose config --images)
-docker load -i images.tar
 ```
 
 ## Extras
