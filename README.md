@@ -2,7 +2,7 @@
   JDownloader Web
 </h1>
 <p align="center">
-  A self-hosted web interface for <a href="https://jdownloader.org/)">JDownloader</a>
+  A self-hosted web interface for <a href="https://jdownloader.org/">JDownloader</a>
 </p>
 
 ![JD-Web](./.github/screenshot.png)
@@ -11,7 +11,7 @@
   100% Vibe, no code, sorry
 </p>
 <p align="center">
-  Optimized for Web and Mobile, with context-menu and common keyboard shortcuts.
+  Optimized for Desktop and Mobile, with context-menu and common keyboard shortcuts.
 </p>
 
 ## Requirements
@@ -115,7 +115,7 @@ docker compose up -d
 # docker-compose.yml
 services:
   jdownloader-web:
-    build: .
+    image: ghcr.io/shippli/jdownloader-web:latest
     ports:
       - '3001:3001'
     volumes:

@@ -124,6 +124,8 @@ export const jdApi = {
     post('/jd/grabber/addContainer', { type, content }),
   moveToDownloads: (linkIds: number[], packageIds: number[]) =>
     post('/jd/grabber/move', { linkIds, packageIds }),
+  moveToNewPackage: (linkIds: number[], packageIds: number[], name: string) =>
+    post('/jd/grabber/new-package', { linkIds, packageIds, name, downloadPath: '' }),
   removeGrabber: (linkIds: number[], packageIds: number[]) =>
     post('/jd/grabber/remove', { linkIds, packageIds }),
   renameGrabberPackage: (uuid: number, name: string) =>

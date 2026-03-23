@@ -114,6 +114,7 @@ const de = {
       checkStatus: 'Status prüfen',
       startDownload: 'Download starten',
       moveToDownloads: 'In Download-Liste verschieben',
+      newPackage: 'Neues Paket',
     },
     confirm: {
       removeSelected: 'Ausgewählte Links wirklich löschen?',
@@ -121,6 +122,10 @@ const de = {
     },
     renameModal: {
       title: 'Umbenennen',
+    },
+    newPackageModal: {
+      title: 'Neues Paket',
+      placeholder: 'Paketname…',
     },
   },
   addLinks: {

@@ -114,6 +114,7 @@ const en = {
       checkStatus: 'Check status',
       startDownload: 'Start download',
       moveToDownloads: 'Move to download list',
+      newPackage: 'New Package',
     },
     confirm: {
       removeSelected: 'Are you sure you want to remove the selected links?',
@@ -121,6 +122,10 @@ const en = {
     },
     renameModal: {
       title: 'Rename',
+    },
+    newPackageModal: {
+      title: 'New Package',
+      placeholder: 'Package name…',
     },
   },
   addLinks: {

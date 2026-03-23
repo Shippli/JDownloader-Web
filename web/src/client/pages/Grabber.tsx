@@ -34,6 +34,8 @@ const Grabber: Component = () => {
   const [editingName, setEditingName] = createSignal('');
   const [renameModal, setRenameModal] = createSignal<{ uuid: number; name: string } | null>(null);
   const [renameValue, setRenameValue] = createSignal('');
+  const [newPackageModal, setNewPackageModal] = createSignal<{ linkIds: number[]; pkgIds: number[] } | null>(null);
+  const [newPackageName, setNewPackageName] = createSignal('');
   const [priorityModal, setPriorityModal] = createSignal<{ linkIds: number[]; pkgIds: number[] } | null>(null);
   const [ctxMenu, setCtxMenu] = createSignal<{ x: number; y: number; type: 'pkg' | 'link'; uuid: number; name: string; enabled: boolean; priority?: string; touch?: boolean } | null>(null);
   const getEnabled = (apiEnabled?: boolean) => apiEnabled ?? false;
@@ -93,6 +95,25 @@ const Grabber: Component = () => {
   const closeRenameModal = () => {
     setRenameModal(null);
     setRenameValue('');
+  };
+  const closeNewPackageModal = () => {
+    setNewPackageModal(null);
+    setNewPackageName('');
+  };
+  const commitNewPackage = async () => {
+    const npm = newPackageModal();
+    const name = newPackageName().trim();
+    closeNewPackageModal();
+    if (!npm || !name) {
+      return;
+    }
+    try {
+      await jdApi.moveToNewPackage(npm.linkIds, npm.pkgIds, name);
+      clearSelection();
+      fetchData();
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
   const commitTouchRename = async () => {
     const rm = renameModal();
@@ -253,9 +274,17 @@ const Grabber: Component = () => {
 
     // Grabber-specific
     items.push({
+      label: t('grabber.ctx.newPackage'),
+      icon: 'i-tabler-folder-plus',
+      separator: true,
+      onClick: () => {
+        setNewPackageName(cm.name);
+        setNewPackageModal({ linkIds, pkgIds });
+      },
+    });
+    items.push({
       label: t('grabber.ctx.startDownload'),
       icon: 'i-tabler-player-play',
-      separator: true,
       onClick: async () => {
         await jdApi.moveToDownloads(linkIds, pkgIds).catch(e => setError((e as Error).message));
         await jdApi.start().catch(() => {});
@@ -279,7 +308,7 @@ const Grabber: Component = () => {
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       selectAll();
-    } else if (e.key === 'Backspace' && hasSelection() && editingPkgId() === null) {
+    } else if ((e.key === 'Backspace' || e.key === 'Delete') && hasSelection() && editingPkgId() === null) {
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') {
         return;
@@ -727,6 +756,30 @@ const Grabber: Component = () => {
             );
           }}
         </Show>
+      </Dialog>
+      {/* New package modal */}
+      <Dialog open={!!newPackageModal()} onClose={closeNewPackageModal} title={t('grabber.newPackageModal.title')}>
+        <div class="px-6 py-4 space-y-4">
+          <TextField
+            type="text"
+            value={newPackageName()}
+            onChange={setNewPackageName}
+            placeholder={t('grabber.newPackageModal.placeholder')}
+            inputProps={{
+              onKeyDown: (e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitNewPackage();
+                }
+              },
+              ref: el => setTimeout(() => el?.focus(), 0),
+            }}
+          />
+          <div class="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={closeNewPackageModal}>{t('common.cancel')}</Button>
+            <Button variant="default" onClick={commitNewPackage}>{t('common.save')}</Button>
+          </div>
+        </div>
       </Dialog>
       {/* Touch rename modal */}
       <Dialog open={!!renameModal()} onClose={closeRenameModal} title={t('grabber.renameModal.title')}>

@@ -132,6 +132,12 @@ jd.post('/grabber/priority', async (c) => {
   return c.json(data);
 });
 
+jd.post('/grabber/new-package', async (c) => {
+  const { linkIds, packageIds, name, downloadPath } = await c.req.json();
+  const data = await jdClient.call('/linkgrabberv2/movetoNewPackage', [linkIds ?? [], packageIds ?? [], name ?? '', downloadPath ?? '']);
+  return c.json(data);
+});
+
 jd.post('/grabber/check', async (c) => {
   const { linkIds, packageIds } = await c.req.json();
   const data = await jdClient.call('/linkgrabberv2/startOnlineStatusCheck', [linkIds ?? [], packageIds ?? []]);

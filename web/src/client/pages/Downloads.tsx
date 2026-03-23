@@ -39,10 +39,13 @@ const Downloads: Component = () => {
   const [ctxMenu, setCtxMenu] = createSignal<{ x: number; y: number; type: 'pkg' | 'link'; uuid: number; name: string; enabled: boolean; priority?: string; touch?: boolean } | null>(null);
   const getEnabled = (apiEnabled?: boolean) => apiEnabled ?? false;
 
-  // Synthetic extraction progress — records initial ETA when extraction is first detected per link.
-  // During the first 5 s the ETA from JD fluctuates heavily, so we keep updating the stored ETA
-  // to the maximum seen in that window, then lock it in as the stable baseline.
-  const extractStartMap = new Map<number, { eta: number; startMs: number; locked: boolean }>();
+  // Extraction progress: ETA from JD is in ms. We smooth it with an EMA (alpha=0.3)
+  // to filter noise without a hard threshold switch. Progress = elapsed_s / (elapsed_s + smoothedEta_s).
+  const ETA_ALPHA = 0.3;
+  const extractStartMap = new Map<number, {
+    startMs: number;
+    smoothedEtaMs: number;
+  }>();
 
   const isExtracting = (status: string) => {
     const s = status.toLowerCase();
@@ -140,17 +143,14 @@ const Downloads: Component = () => {
     }
     for (const link of d.links) {
       if (isExtracting(link.status ?? '')) {
+        const eta = link.eta ?? 0;
         if (!extractStartMap.has(link.uuid)) {
-          extractStartMap.set(link.uuid, { eta: link.eta ?? 0, startMs: Date.now(), locked: false });
-        } else {
+          extractStartMap.set(link.uuid, { startMs: Date.now(), smoothedEtaMs: eta > 0 ? eta : 0 });
+        } else if (eta > 0) {
           const entry = extractStartMap.get(link.uuid)!;
-          if (!entry.locked) {
-            if (Date.now() - entry.startMs >= 5000) {
-              entry.locked = true;
-            } else {
-              entry.eta = Math.max(entry.eta, link.eta ?? 0);
-            }
-          }
+          entry.smoothedEtaMs = entry.smoothedEtaMs === 0
+            ? eta
+            : ETA_ALPHA * eta + (1 - ETA_ALPHA) * entry.smoothedEtaMs;
         }
       } else {
         extractStartMap.delete(link.uuid);
@@ -209,7 +209,7 @@ const Downloads: Component = () => {
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       selectAll();
-    } else if (e.key === 'Backspace' && hasSelection() && editingPkgId() === null) {
+    } else if ((e.key === 'Backspace' || e.key === 'Delete') && hasSelection() && editingPkgId() === null) {
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') {
         return;
@@ -252,14 +252,14 @@ const Downloads: Component = () => {
       return null;
     }
     const entry = extractStartMap.get(link.uuid);
-    if (entry === undefined || entry.eta <= 0) {
+    if (!entry || entry.smoothedEtaMs === 0) {
       return 0;
     }
-    const currentEta = link.eta ?? 0;
-    if (currentEta <= 0) {
+    if ((link.eta ?? 0) <= 0) {
       return 99;
     }
-    return Math.max(0, Math.min(99, Math.round((1 - currentEta / entry.eta) * 100)));
+    const elapsedS = (Date.now() - entry.startMs) / 1000;
+    return Math.max(0, Math.min(99, Math.round((elapsedS / (elapsedS + entry.smoothedEtaMs / 1000)) * 100)));
   };
 
   const toggleExpand = (uuid: number) => {
@@ -823,6 +823,10 @@ const Downloads: Component = () => {
                                     return (
                                       <Show when={exProg !== null}>
                                         <span class="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                                          <Show when={(link.eta ?? 0) > 0}>
+                                            {formatEta(Math.round(link.eta / 1000))}
+                                            {' · '}
+                                          </Show>
                                           {exProg}
                                           %
                                         </span>
