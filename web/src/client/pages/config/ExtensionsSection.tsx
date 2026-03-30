@@ -137,6 +137,8 @@ const ExtensionsSection: Component = () => {
         value = Number.parseInt(editValue());
       } else if (aType === 'DOUBLE' || aType === 'FLOAT') {
         value = Number.parseFloat(editValue());
+      } else if (aType === 'STRING_LIST' || Array.isArray(entry.value) || Array.isArray(entry.defaultValue)) {
+        value = editValue().split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
       }
       await configApi.setSetting({ interfaceName: entry.interfaceName, storage: entry.storage, key: entry.key, value });
       setEditingKey(null);
