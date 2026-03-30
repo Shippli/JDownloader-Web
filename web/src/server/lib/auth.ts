@@ -18,7 +18,9 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
-  secret: process.env.BETTER_AUTH_SECRET ?? (() => { throw new Error('BETTER_AUTH_SECRET environment variable is required') })(),
+  secret: process.env.BETTER_AUTH_SECRET ?? (() => {
+    throw new Error('BETTER_AUTH_SECRET environment variable is required');
+  })(),
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',
   trustedOrigins: [
     'http://localhost:3001',

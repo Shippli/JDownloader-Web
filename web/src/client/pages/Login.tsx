@@ -75,7 +75,7 @@ const Login: Component = () => {
                 value={name()}
                 onChange={setName}
                 required
-                autocomplete="name"
+                inputProps={{ autocomplete: 'name' }}
               />
             </Show>
 
@@ -86,7 +86,7 @@ const Login: Component = () => {
               value={email()}
               onChange={setEmail}
               required
-              autocomplete="email"
+              inputProps={{ autocomplete: 'email' }}
             />
 
             <TextField
@@ -96,8 +96,7 @@ const Login: Component = () => {
               value={password()}
               onChange={setPassword}
               required
-              autocomplete={isRegister() ? 'new-password' : 'current-password'}
-              minLength={8}
+              inputProps={{ autocomplete: isRegister() ? 'new-password' : 'current-password', minLength: 8 }}
             />
 
             <Show when={error()}>
