@@ -23,6 +23,8 @@ const de = {
     filepath: 'Dateipfad',
     package: 'Paket',
     host: 'Host',
+    archiveName: 'Archiv',
+    passwordPlaceholder: 'Passwort eingeben…',
   },
   captcha: {
     label: 'Captcha',
@@ -308,7 +310,7 @@ const de = {
     },
     about: {
       label: 'Über',
-      description: 'JDownloader Web Interface — Eine Open-Source-Weboberfläche für JDownloader.',
+      description: 'JDownloader Web - Eine Open-Source-Weboberfläche für JDownloader.',
       version: 'Version',
     },
   },

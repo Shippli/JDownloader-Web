@@ -28,6 +28,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const [selectedDialog, setSelectedDialog] = createSignal<JdDialogDetail | null>(null);
   const [selectedCaptcha, setSelectedCaptcha] = createSignal<JdCaptchaDetail | null>(null);
   const [captchaSolution, setCaptchaSolution] = createSignal('');
+  const [archivePassword, setArchivePassword] = createSignal('');
   const [timeLeft, setTimeLeft] = createSignal(0);
   const [popupPos, setPopupPos] = createSignal({ bottom: 0, left: 0, width: 240 });
 
@@ -137,19 +138,22 @@ export const NotificationsPanel: Component<Props> = (props) => {
     }
   };
 
-  const closeModal = () => setSelectedDialog(null);
+  const closeModal = () => {
+    setSelectedDialog(null);
+    setArchivePassword('');
+  };
   const closeCaptchaModal = () => {
     setSelectedCaptcha(null);
     setCaptchaSolution('');
   };
 
-  const answerDialog = async (closereason: 'OK' | 'CANCEL') => {
+  const answerDialog = async (closereason: 'OK' | 'CANCEL', extra?: Record<string, unknown>) => {
     const d = selectedDialog();
     if (!d) {
       return;
     }
     try {
-      await dialogsApi.answer(d.id, { closereason });
+      await dialogsApi.answer(d.id, { closereason, ...extra });
     } catch { /* ignore */ }
     closeModal();
     sendRefresh('notifications');
@@ -312,6 +316,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
           const okText = () => p().okbuttontext || 'OK';
           const cancelText = () => p().cancelbuttontext || 'Cancel';
           const isFileExists = () => dialog().type?.includes('IfFileExists') ?? false;
+          const isExtractPassword = () => dialog().type?.includes('ExtractPasswordDialog') ?? false;
 
           return (
             <Portal>
@@ -354,7 +359,36 @@ export const NotificationsPanel: Component<Props> = (props) => {
                       </div>
                     </div>
                   </Show>
-                  <Show when={msg()}>
+                  <Show when={isExtractPassword()}>
+                    <div class="space-y-3">
+                      <Show when={p().archivename as string | undefined}>
+                        {name => (
+                          <div>
+                            <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.archiveName')}</p>
+                            <p class="text-sm text-foreground font-mono bg-muted rounded px-2 py-1.5 break-all">{name()}</p>
+                          </div>
+                        )}
+                      </Show>
+                      <Show when={msg()}>
+                        <p class="text-sm text-foreground">{msg()}</p>
+                      </Show>
+                      <TextField
+                        type="text"
+                        value={archivePassword()}
+                        onChange={setArchivePassword}
+                        placeholder={t('dialogs.passwordPlaceholder')}
+                        inputProps={{
+                          autofocus: true,
+                          onKeyDown: (e: KeyboardEvent) => {
+                            if (e.key === 'Enter') {
+                              answerDialog('OK', { text: archivePassword() });
+                            }
+                          },
+                        }}
+                      />
+                    </div>
+                  </Show>
+                  <Show when={!isExtractPassword() && msg()}>
                     <p class="text-sm text-foreground whitespace-pre-wrap">{msg()}</p>
                   </Show>
                 </div>
@@ -371,7 +405,13 @@ export const NotificationsPanel: Component<Props> = (props) => {
                     <Button variant="secondary" onClick={() => answerDialog('CANCEL')}>
                       {cancelText()}
                     </Button>
-                    <Button variant="default" onClick={() => answerDialog('OK')}>
+                    <Button
+                      variant="default"
+                      onClick={() => isExtractPassword()
+                        ? answerDialog('OK', { text: archivePassword() })
+                        : answerDialog('OK')}
+                      disabled={isExtractPassword() && archivePassword().trim() === ''}
+                    >
                       {okText()}
                     </Button>
                   </div>

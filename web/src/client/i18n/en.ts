@@ -23,6 +23,8 @@ const en = {
     filepath: 'File path',
     package: 'Package',
     host: 'Host',
+    archiveName: 'Archive',
+    passwordPlaceholder: 'Enter password…',
   },
   captcha: {
     label: 'Captcha',
@@ -308,7 +310,7 @@ const en = {
     },
     about: {
       label: 'About',
-      description: 'JDownloader Web Interface — An open-source web UI for JDownloader.',
+      description: 'JDownloader Web - An open-source web UI for JDownloader.',
       version: 'Version',
     },
   },
