@@ -1,12 +1,10 @@
-import { createRequire } from 'node:module';
+import process from 'node:process';
 import { presetIcons } from '@unocss/preset-icons';
 import { presetUno } from '@unocss/preset-uno';
 import UnoCSS from '@unocss/vite';
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
-
-const require = createRequire(import.meta.url);
-const pkg = require('./package.json');
+import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [
@@ -90,12 +88,12 @@ export default defineConfig({
     solid(),
   ],
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_VERSION__: JSON.stringify(process.env.APP_VERSION || pkg.version),
   },
   root: '.',
   build: {
     outDir: 'dist/public',
-    rollupOptions: {
+    rolldownOptions: {
       input: 'index.html',
     },
   },

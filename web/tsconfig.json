@@ -9,7 +9,7 @@
       "@/*": ["./src/*"]
     },
     "resolveJsonModule": true,
-    "types": ["bun-types"],
+    "types": ["bun-types", "vite/client"],
     "strict": true,
     "skipLibCheck": true
   },
