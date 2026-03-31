@@ -1,0 +1,56 @@
+name: Build and Publish Firefox Addon
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    name: Build and Publish Firefox Addon
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # required to upload release assets
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Parse version from tag
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          NUM="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "num=${NUM}" >> "$GITHUB_OUTPUT"
+
+      - name: Set manifest version
+        run: |
+          jq --arg v "${{ steps.version.outputs.num }}" '.version = $v' \
+            addons/firefox/manifest.json > /tmp/manifest.json
+          mv /tmp/manifest.json addons/firefox/manifest.json
+
+      - name: Build addon zip
+        id: build
+        uses: kewisch/action-web-ext@v1
+        with:
+          cmd: build
+          source: addons/firefox
+          filename: "jdownloader-web-cnl-${{ steps.version.outputs.num }}.zip"
+
+      - name: Upload zip to GitHub Release
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" \
+            "${{ steps.build.outputs.target }}" \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Submit to Firefox Add-ons (AMO)
+        uses: kewisch/action-web-ext@v1
+        with:
+          cmd: sign
+          source: addons/firefox
+          channel: listed
+          apiKey: ${{ secrets.AMO_SIGN_KEY }}
+          apiSecret: ${{ secrets.AMO_SIGN_SECRET }}
