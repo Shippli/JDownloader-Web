@@ -36,21 +36,23 @@ jobs:
         with:
           cmd: build
           source: addons/firefox
-          filename: "jdownloader-web-cnl-${{ steps.version.outputs.num }}.zip"
+          filename: "jdownloader-web-cnl-${{ steps.version.outputs.num }}.xpi"
 
-      - name: Upload zip to GitHub Release
-        run: |
-          gh release upload "${{ steps.version.outputs.tag }}" \
-            "${{ steps.build.outputs.target }}" \
-            --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Submit to Firefox Add-ons (AMO)
+      - name: Sign and submit to Firefox Add-ons (AMO)
+        id: sign
         uses: kewisch/action-web-ext@v1
         with:
           cmd: sign
-          source: addons/firefox
-          channel: listed
+          source: ${{ steps.build.outputs.target }}
+          channel: unlisted
+          metaDataFile: addons/firefox/amo_metadata.json
           apiKey: ${{ secrets.AMO_SIGN_KEY }}
           apiSecret: ${{ secrets.AMO_SIGN_SECRET }}
+
+      - name: Upload signed .xpi to GitHub Release
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" \
+            "${{ steps.sign.outputs.target }}" \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

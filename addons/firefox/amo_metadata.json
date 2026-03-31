@@ -1,0 +1,12 @@
+{
+  "summary": {
+    "en-US": "Intercepts Click'N'Load requests and forwards them to your JDownloader Web instance. Supports encrypted CNL2, offline queue, and auto-send.",
+    "de": "Fängt Click'N'Load-Anfragen ab und leitet sie an deine JDownloader-Web-Instanz weiter. Unterstützt verschlüsseltes CNL2, Offline-Warteschlange und automatisches Senden."
+  },
+  "categories": [
+    "download-management"
+  ],
+  "version": {
+    "license": "AGPL-3.0-only"
+  }
+}
