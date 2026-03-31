@@ -1,0 +1,78 @@
+{
+  "extName":             { "message": "JDownloader Web Click'N'Load" },
+  "extShortName":        { "message": "JD-Web CnL" },
+  "extDescription":      { "message": "Click'N'Load-Unterstützung via JDownloader Web" },
+  "browserActionTitle":  { "message": "JDownloader Web" },
+
+  "statusDisconnected":  { "message": "Nicht verbunden" },
+  "statusConnected":     { "message": "Verbunden" },
+  "statusOffline":       { "message": "Offline" },
+
+  "labelServerUrl":      { "message": "Server-URL" },
+  "labelEmail":          { "message": "E-Mail" },
+  "labelPassword":       { "message": "Passwort" },
+  "btnLogin":            { "message": "Anmelden" },
+  "btnLoginLoading":     { "message": "Anmelden…" },
+  "labelServer":         { "message": "Server" },
+
+  "toggleCnlActive":     { "message": "Aktiv" },
+  "toggleCnlStopped":    { "message": "Gestoppt" },
+  "toggleAutoSendTitle": { "message": "Automatisch senden" },
+  "toggleAutoSendManual":{ "message": "Manuell" },
+
+  "btnFlushQueue":         { "message": "Senden" },
+  "btnFlushQueueLoading":  { "message": "Sende…" },
+  "btnClearQueue":         { "message": "Alle löschen" },
+  "btnOpenWebUi":          { "message": "Web-UI öffnen" },
+  "btnLogout":             { "message": "Abmelden" },
+
+  "offlineHint":           { "message": "Server nicht erreichbar. Token bleibt gespeichert." },
+  "btnRetry":              { "message": "Erneut verbinden" },
+  "btnRetryLoading":       { "message": "Verbinde…" },
+
+  "errorFillFields":       { "message": "Bitte alle Felder ausfüllen." },
+  "errorNoToken":          { "message": "Kein Session-Token erhalten." },
+  "errorLoginFailed":      { "message": "Anmeldung fehlgeschlagen." },
+  "errorConnection":       {
+    "message": "Verbindungsfehler: $ERROR$",
+    "placeholders": { "error": { "content": "$1" } }
+  },
+
+  "queueItemNoName":       { "message": "(kein Name)" },
+  "queueWaiting":          {
+    "message": "$COUNT$ Paket(e) warten",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+  "queueSaved":            {
+    "message": "$COUNT$ Paket(e) gespeichert",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+  "queueItemSendTitle":    { "message": "An JDownloader senden" },
+  "queueItemDeleteTitle":  { "message": "Löschen" },
+  "linkCount1":            { "message": "1 Link" },
+  "linkCountN":            {
+    "message": "$COUNT$ Links",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+
+  "notifOfflineTitle":     { "message": "JDownloader – Offline" },
+  "notifOfflineAutoSend":  {
+    "message": "$COUNT$ Paket(e) gespeichert – werden gesendet sobald der Server erreichbar ist.",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+  "notifOfflineManual":    { "message": "Paket gespeichert – kann im Popup manuell gesendet werden." },
+  "notifSessionExpired":   { "message": "Sitzung abgelaufen – bitte erneut anmelden." },
+  "notifQueueFlushed":     {
+    "message": "$COUNT$ zwischengespeicherte(s) Paket(e) erfolgreich gesendet.",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+  "notifLinksAdded":       {
+    "message": "$COUNT$ Link(s) zu JDownloader hinzugefügt.",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+  "notifCnlError":         { "message": "JDownloader – CNL Fehler" },
+  "errorUnknownJkFormat":  {
+    "message": "Unbekanntes jk-Format (kein Hexschlüssel gefunden): $DETAILS$",
+    "placeholders": { "details": { "content": "$1" } }
+  }
+}

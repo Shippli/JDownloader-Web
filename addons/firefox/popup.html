@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +11,7 @@
     <img src="icons/icon48.png" alt="JD" class="logo">
     <div class="header-text">
       <span class="title">JDownloader</span>
-      <span class="subtitle" id="statusText">Nicht verbunden</span>
+      <span class="subtitle" id="statusText" data-i18n="statusDisconnected">Not connected</span>
     </div>
     <div class="status-dot" id="statusDot"></div>
   </div>
@@ -20,26 +20,26 @@
   <div id="loginView" class="view">
     <form id="loginForm">
       <div class="field">
-        <label for="serverUrl">Server-URL</label>
+        <label for="serverUrl" data-i18n="labelServerUrl">Server URL</label>
         <input type="url" id="serverUrl" placeholder="http://localhost:3001" required>
       </div>
       <div class="field">
-        <label for="email">E-Mail</label>
+        <label for="email" data-i18n="labelEmail">Email</label>
         <input type="email" id="email" placeholder="user@example.com" required>
       </div>
       <div class="field">
-        <label for="password">Passwort</label>
+        <label for="password" data-i18n="labelPassword">Password</label>
         <input type="password" id="password" placeholder="••••••••" required>
       </div>
       <div id="loginError" class="error hidden"></div>
-      <button type="submit" id="loginBtn" class="btn btn-primary">Anmelden</button>
+      <button type="submit" id="loginBtn" class="btn btn-primary" data-i18n="btnLogin">Sign in</button>
     </form>
   </div>
 
   <!-- Connected view -->
   <div id="connectedView" class="view hidden">
     <div class="info-row">
-      <span class="info-label">Server</span>
+      <span class="info-label" data-i18n="labelServer">Server</span>
       <span class="info-value" id="connServerUrl"></span>
     </div>
     <div class="separator"></div>
@@ -48,7 +48,7 @@
     <div class="toggle-row">
       <div class="toggle-label">
         <span class="toggle-title">Click'N'Load</span>
-        <span class="toggle-desc" id="cnlDesc">Aktiv</span>
+        <span class="toggle-desc" id="cnlDesc"></span>
       </div>
       <label class="switch">
         <input type="checkbox" id="cnlToggle" checked>
@@ -59,8 +59,8 @@
     <!-- Auto-Send Toggle -->
     <div class="toggle-row">
       <div class="toggle-label">
-        <span class="toggle-title">Automatisch senden</span>
-        <span class="toggle-desc" id="autoSendDesc">Aktiv</span>
+        <span class="toggle-title" data-i18n="toggleAutoSendTitle">Auto-send</span>
+        <span class="toggle-desc" id="autoSendDesc"></span>
       </div>
       <label class="switch">
         <input type="checkbox" id="autoSendToggle" checked>
@@ -73,9 +73,9 @@
       <div class="queue-header">
         <span id="queueText" class="queue-count"></span>
         <div class="queue-actions">
-          <button id="flushQueueBtn" class="btn-link">Senden</button>
+          <button id="flushQueueBtn" class="btn-link" data-i18n="btnFlushQueue">Send</button>
           <span class="queue-sep">·</span>
-          <button id="clearQueueBtn" class="btn-link btn-link-danger">Alle löschen</button>
+          <button id="clearQueueBtn" class="btn-link btn-link-danger" data-i18n="btnClearQueue">Delete all</button>
         </div>
       </div>
       <ul id="queueList" class="queue-list"></ul>
@@ -83,8 +83,8 @@
 
     <div class="separator"></div>
     <div class="action-row">
-      <button id="openWebBtn" class="btn btn-secondary">Web-UI öffnen</button>
-      <button id="logoutBtn" class="btn btn-danger">Abmelden</button>
+      <button id="openWebBtn" class="btn btn-secondary" data-i18n="btnOpenWebUi">Open Web UI</button>
+      <button id="logoutBtn" class="btn btn-danger" data-i18n="btnLogout">Sign out</button>
     </div>
   </div>
 
@@ -94,7 +94,7 @@
       <span class="offline-icon">⚠</span>
       <span id="offlineServer"></span>
     </div>
-    <p class="offline-hint">Server nicht erreichbar. Token bleibt gespeichert.</p>
+    <p class="offline-hint" data-i18n="offlineHint">Server unreachable. Token is kept.</p>
 
     <!-- Queue info in offline view -->
     <div id="offlineQueueInfo" class="queue-section queue-section-offline hidden">
@@ -105,8 +105,8 @@
     </div>
 
     <div class="action-row">
-      <button id="retryBtn" class="btn btn-secondary">Erneut verbinden</button>
-      <button id="offlineLogoutBtn" class="btn btn-danger">Abmelden</button>
+      <button id="retryBtn" class="btn btn-secondary" data-i18n="btnRetry">Reconnect</button>
+      <button id="offlineLogoutBtn" class="btn btn-danger" data-i18n="btnLogout">Sign out</button>
     </div>
   </div>
 

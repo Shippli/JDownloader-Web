@@ -1,8 +1,11 @@
 {
   "manifest_version": 2,
-  "name": "JDownloader",
-  "version": "1.0.0",
-  "description": "Click'N'Load support via JDownloader",
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extShortName__",
+  "version": "26.3.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  "homepage_url": "https://github.com/Shippli/JDownloader-Web",
   "permissions": [
     "webRequest",
     "webRequestBlocking",
@@ -16,12 +19,12 @@
     "persistent": true
   },
   "browser_action": {
+    "default_title": "__MSG_browserActionTitle__",
     "default_popup": "popup.html",
     "default_icon": {
       "32": "icons/icon32.png",
       "48": "icons/icon48.png"
-    },
-    "default_title": "JDownloader"
+    }
   },
   "icons": {
     "48": "icons/icon48.png",

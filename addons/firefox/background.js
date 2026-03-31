@@ -115,7 +115,7 @@ async function decryptCnl(crypted, jkScript) {
     if (m) {
       keyHex = m[1];
     } else {
-      throw new Error('Unbekanntes jk-Format (kein Hexschlüssel gefunden): ' + jkScript.slice(0, 80));
+      throw new Error(browser.i18n.getMessage('errorUnknownJkFormat', jkScript.slice(0, 80)));
     }
   }
 
@@ -158,10 +158,10 @@ async function addToQueue(links, packageName, extractPassword) {
   await saveQueue(queue);
   await updateBadge();
   showNotification(
-    config.autoSend ? 'JDownloader – Offline' : 'JDownloader',
+    config.autoSend ? browser.i18n.getMessage('notifOfflineTitle') : 'JDownloader',
     config.autoSend
-      ? `${queue.length} Paket(e) gespeichert – werden gesendet sobald der Server erreichbar ist.`
-      : `Paket gespeichert – kann im Popup manuell gesendet werden.`
+      ? browser.i18n.getMessage('notifOfflineAutoSend', String(queue.length))
+      : browser.i18n.getMessage('notifOfflineManual')
   );
 }
 
@@ -211,7 +211,7 @@ async function flushQueue() {
           config.token = null;
           await browser.storage.local.remove('token');
           await updateBadge();
-          showNotification('JDownloader', 'Sitzung abgelaufen – bitte erneut anmelden.');
+          showNotification('JDownloader', browser.i18n.getMessage('notifSessionExpired'));
           return;
         }
         // Network / server error – stop and try again later
@@ -226,7 +226,7 @@ async function flushQueue() {
       await updateBadge();
       showNotification(
         'JDownloader',
-        `${sent.length} zwischengespeicherte(s) Paket(e) erfolgreich gesendet.`
+        browser.i18n.getMessage('notifQueueFlushed', String(sent.length))
       );
     }
   } finally {
@@ -254,7 +254,7 @@ async function sendToBackend(links, packageName, extractPassword) {
       config.token = null;
       await browser.storage.local.remove('token');
       await updateBadge();
-      showNotification('JDownloader', 'Sitzung abgelaufen – bitte erneut anmelden.');
+      showNotification('JDownloader', browser.i18n.getMessage('notifSessionExpired'));
       return;
     }
     // Network error → queue for later
@@ -264,7 +264,7 @@ async function sendToBackend(links, packageName, extractPassword) {
   }
 
   const urlCount = links.trim().split(/\r?\n/).filter(u => u.trim()).length;
-  showNotification('JDownloader', `${urlCount} Link(s) zu JDownloader hinzugefügt.`);
+  showNotification('JDownloader', browser.i18n.getMessage('notifLinksAdded', String(urlCount)));
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -365,9 +365,9 @@ function handleRequest(details) {
     if (crypted && jk) {
       decryptCnl(crypted, jk)
         .then(urls => sendToBackend(urls, source, passwords))
-        .catch(err => showNotification('JDownloader – CNL Fehler', err.message));
+        .catch(err => showNotification(browser.i18n.getMessage('notifCnlError'), err.message));
     } else {
-      showNotification('JDownloader – CNL Fehler', `addcrypted2 empfangen, aber Daten fehlen (crypted=${!!crypted}, jk=${!!jk})`);
+      showNotification(browser.i18n.getMessage('notifCnlError'), `addcrypted2 empfangen, aber Daten fehlen (crypted=${!!crypted}, jk=${!!jk})`);
     }
     return { cancel: true };
   }
@@ -427,12 +427,12 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (crypted && jk) {
         decryptCnl(crypted, jk)
           .then(urls => sendToBackend(urls, packageName, passwords))
-          .catch(err => showNotification('JDownloader – CNL Fehler', err.message));
+          .catch(err => showNotification(browser.i18n.getMessage('notifCnlError'), err.message));
       }
     } else if (action.includes('/flash/add')) {
       const links       = fd.urls || fd.source || '';
       const packageName = message.packageName || fd.package || fd.refer || '';
-      if (links) sendToBackend(links, packageName).catch(err => showNotification('JDownloader – CNL Fehler', err.message));
+      if (links) sendToBackend(links, packageName).catch(err => showNotification(browser.i18n.getMessage('notifCnlError'), err.message));
     }
     sendResponse({ ok: true });
     return true;
@@ -469,14 +469,14 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         await saveQueue(updated);
         await updateBadge();
         const n = item.links.trim().split(/\r?\n/).filter(u => u.trim()).length;
-        showNotification('JDownloader', `${n} Link(s) zu JDownloader hinzugefügt.`);
+        showNotification('JDownloader', browser.i18n.getMessage('notifLinksAdded', String(n)));
         sendResponse({ ok: true, queueSize: updated.length });
       } catch (err) {
         if (err.status === 401) {
           config.token = null;
           await browser.storage.local.remove('token');
           await updateBadge();
-          showNotification('JDownloader', 'Sitzung abgelaufen – bitte erneut anmelden.');
+          showNotification('JDownloader', browser.i18n.getMessage('notifSessionExpired'));
         }
         sendResponse({ ok: false, error: err.message });
       }

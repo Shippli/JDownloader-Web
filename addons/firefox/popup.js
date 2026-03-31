@@ -1,5 +1,19 @@
 'use strict';
 
+// ─── i18n ─────────────────────────────────────────────────────────────────────
+
+function t(key, ...subs) {
+  return browser.i18n.getMessage(key, subs) || key;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+}
+
+applyI18n();
+
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 
 const loginView        = document.getElementById('loginView');
@@ -47,17 +61,17 @@ function renderQueueItems(items, listEl, inOfflineView) {
 
     const nameEl = document.createElement('span');
     nameEl.className = 'queue-item-name';
-    nameEl.textContent = item.packageName || '(kein Name)';
+    nameEl.textContent = item.packageName || t('queueItemNoName');
     nameEl.title = item.packageName || '';
 
     const metaEl = document.createElement('span');
     metaEl.className = 'queue-item-meta';
     const n = linkCount(item.links);
-    metaEl.textContent = n === 1 ? '1 Link' : `${n} Links`;
+    metaEl.textContent = n === 1 ? t('linkCount1') : t('linkCountN', String(n));
 
     const sendBtn = document.createElement('button');
     sendBtn.className = 'queue-item-send';
-    sendBtn.title = 'An JDownloader senden';
+    sendBtn.title = t('queueItemSendTitle');
     sendBtn.textContent = '▶';
     sendBtn.addEventListener('click', async () => {
       sendBtn.disabled = true;
@@ -67,7 +81,7 @@ function renderQueueItems(items, listEl, inOfflineView) {
 
     const delBtn = document.createElement('button');
     delBtn.className = 'queue-item-del';
-    delBtn.title = 'Löschen';
+    delBtn.title = t('queueItemDeleteTitle');
     delBtn.textContent = '×';
     delBtn.addEventListener('click', async () => {
       delBtn.disabled = true;
@@ -87,7 +101,7 @@ async function refreshQueueUI(inOfflineView = false) {
   const items = await browser.runtime.sendMessage({ type: 'getQueue' }).catch(() => []);
   if (inOfflineView) {
     if (items.length > 0) {
-      offlineQueueText.textContent = `${items.length} Paket(e) gespeichert`;
+      offlineQueueText.textContent = t('queueSaved', String(items.length));
       renderQueueItems(items, offlineQueueList, true);
       offlineQueueInfo.classList.remove('hidden');
     } else {
@@ -95,7 +109,7 @@ async function refreshQueueUI(inOfflineView = false) {
     }
   } else {
     if (items.length > 0) {
-      queueText.textContent = `${items.length} Paket(e) warten`;
+      queueText.textContent = t('queueWaiting', String(items.length));
       renderQueueItems(items, queueList, false);
       queueInfo.classList.remove('hidden');
     } else {
@@ -114,11 +128,11 @@ function updateQueueUI(queueSize, inOfflineView = false) {
 }
 
 flushQueueBtn.addEventListener('click', async () => {
-  flushQueueBtn.textContent = 'Sende…';
+  flushQueueBtn.textContent = t('btnFlushQueueLoading');
   flushQueueBtn.disabled = true;
   await browser.runtime.sendMessage({ type: 'flushQueue' }).catch(() => {});
   await refreshQueueUI(false);
-  flushQueueBtn.textContent = 'Senden';
+  flushQueueBtn.textContent = t('btnFlushQueue');
   flushQueueBtn.disabled = false;
 });
 
@@ -133,7 +147,7 @@ function showConnected(serverUrl, queueSize = 0) {
   loginView.classList.add('hidden');
   offlineView.classList.add('hidden');
   connectedView.classList.remove('hidden');
-  statusText.textContent = 'Verbunden';
+  statusText.textContent = t('statusConnected');
   statusDot.className = 'status-dot connected';
   connServerUrl.textContent = serverUrl.replace(/^https?:\/\//, '');
   updateQueueUI(queueSize, false);
@@ -143,7 +157,7 @@ function showOffline(serverUrl, queueSize = 0) {
   loginView.classList.add('hidden');
   connectedView.classList.add('hidden');
   offlineView.classList.remove('hidden');
-  statusText.textContent = 'Offline';
+  statusText.textContent = t('statusOffline');
   statusDot.className = 'status-dot offline';
   offlineServer.textContent = serverUrl.replace(/^https?:\/\//, '');
   updateQueueUI(queueSize, true);
@@ -153,7 +167,7 @@ function showLogin() {
   connectedView.classList.add('hidden');
   offlineView.classList.add('hidden');
   loginView.classList.remove('hidden');
-  statusText.textContent = 'Nicht verbunden';
+  statusText.textContent = t('statusDisconnected');
   statusDot.className = 'status-dot';
 }
 
@@ -169,8 +183,8 @@ function hideError() {
 function setLoading(loading) {
   loginBtn.disabled = loading;
   loginBtn.innerHTML = loading
-    ? '<span class="spinner"></span>Anmelden…'
-    : 'Anmelden';
+    ? '<span class="spinner"></span>' + t('btnLoginLoading')
+    : t('btnLogin');
 }
 
 // ─── Session check ────────────────────────────────────────────────────────────
@@ -195,9 +209,9 @@ async function checkSession(serverUrl, token) {
 // Apply both toggle states synchronously (call before making the view visible)
 function applyToggleStates(cnlActive, autoSend) {
   cnlToggle.checked          = cnlActive;
-  cnlDesc.textContent        = cnlActive ? 'Aktiv' : 'Gestoppt';
+  cnlDesc.textContent        = cnlActive ? t('toggleCnlActive') : t('toggleCnlStopped');
   autoSendToggle.checked     = autoSend;
-  autoSendDesc.textContent   = autoSend  ? 'Aktiv' : 'Manuell';
+  autoSendDesc.textContent   = autoSend  ? t('toggleCnlActive') : t('toggleAutoSendManual');
 }
 
 // ─── CNL toggle ───────────────────────────────────────────────────────────────
@@ -206,12 +220,12 @@ async function loadCnlState() {
   const data = await browser.storage.local.get('cnlActive');
   const active = data.cnlActive !== false;
   cnlToggle.checked = active;
-  cnlDesc.textContent = active ? 'Aktiv' : 'Gestoppt';
+  cnlDesc.textContent = active ? t('toggleCnlActive') : t('toggleCnlStopped');
 }
 
 cnlToggle.addEventListener('change', async () => {
   const active = cnlToggle.checked;
-  cnlDesc.textContent = active ? 'Aktiv' : 'Gestoppt';
+  cnlDesc.textContent = active ? t('toggleCnlActive') : t('toggleCnlStopped');
   await browser.storage.local.set({ cnlActive: active });
   browser.runtime.sendMessage({ type: 'setCnlActive', active }).catch(() => {});
 });
@@ -222,12 +236,12 @@ async function loadAutoSendState() {
   const data = await browser.storage.local.get('autoSend');
   const active = data.autoSend !== false;
   autoSendToggle.checked = active;
-  autoSendDesc.textContent = active ? 'Aktiv' : 'Manuell';
+  autoSendDesc.textContent = active ? t('toggleCnlActive') : t('toggleAutoSendManual');
 }
 
 autoSendToggle.addEventListener('change', async () => {
   const active = autoSendToggle.checked;
-  autoSendDesc.textContent = active ? 'Aktiv' : 'Manuell';
+  autoSendDesc.textContent = active ? t('toggleCnlActive') : t('toggleAutoSendManual');
   await browser.storage.local.set({ autoSend: active });
   browser.runtime.sendMessage({ type: 'setAutoSend', active }).catch(() => {});
 });
@@ -276,7 +290,7 @@ loginForm.addEventListener('submit', async (e) => {
   const password  = passwordInput.value;
 
   if (!serverUrl || !email || !password) {
-    showError('Bitte alle Felder ausfüllen.');
+    showError(t('errorFillFields'));
     return;
   }
 
@@ -291,7 +305,7 @@ loginForm.addEventListener('submit', async (e) => {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      showError(err.message || err.error || 'Anmeldung fehlgeschlagen.');
+      showError(err.message || err.error || t('errorLoginFailed'));
       return;
     }
 
@@ -299,7 +313,7 @@ loginForm.addEventListener('submit', async (e) => {
     const token = body?.token;
 
     if (!token) {
-      showError('Kein Session-Token erhalten.');
+      showError(t('errorNoToken'));
       return;
     }
 
@@ -311,7 +325,7 @@ loginForm.addEventListener('submit', async (e) => {
     setTimeout(() => refreshQueueUI(false), 500);
 
   } catch (err) {
-    showError('Verbindungsfehler: ' + err.message);
+    showError(t('errorConnection', err.message));
   } finally {
     setLoading(false);
   }
@@ -321,7 +335,7 @@ loginForm.addEventListener('submit', async (e) => {
 
 retryBtn.addEventListener('click', async () => {
   retryBtn.disabled = true;
-  retryBtn.textContent = 'Verbinde…';
+  retryBtn.textContent = t('btnRetryLoading');
 
   const data = await browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend']);
   if (data.token && data.serverUrl) {
@@ -344,7 +358,7 @@ retryBtn.addEventListener('click', async () => {
 
   // Still offline
   retryBtn.disabled = false;
-  retryBtn.textContent = 'Erneut verbinden';
+  retryBtn.textContent = t('btnRetry');
 });
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
