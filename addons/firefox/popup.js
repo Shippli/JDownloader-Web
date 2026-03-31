@@ -182,9 +182,13 @@ function hideError() {
 
 function setLoading(loading) {
   loginBtn.disabled = loading;
-  loginBtn.innerHTML = loading
-    ? '<span class="spinner"></span>' + t('btnLoginLoading')
-    : t('btnLogin');
+  loginBtn.textContent = '';
+  if (loading) {
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    loginBtn.appendChild(spinner);
+  }
+  loginBtn.appendChild(document.createTextNode(t(loading ? 'btnLoginLoading' : 'btnLogin')));
 }
 
 // ─── Session check ────────────────────────────────────────────────────────────

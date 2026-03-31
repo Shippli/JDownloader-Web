@@ -31,10 +31,14 @@
     "128": "icons/icon128.png"
   },
   "web_accessible_resources": ["jdcheck.js"],
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
       "id": "jdownloader-web@local",
-      "strict_min_version": "115.0"
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "required": [],
+        "optional": []
+      }
     }
   }
 }

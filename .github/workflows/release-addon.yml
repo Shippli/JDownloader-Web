@@ -36,7 +36,7 @@ jobs:
         with:
           cmd: build
           source: addons/firefox
-          filename: "jdownloader-web-cnl-${{ steps.version.outputs.num }}.xpi"
+          filename: "jdownloader-addon-cnl-${{ steps.version.outputs.num }}.xpi"
 
       - name: Sign and submit to Firefox Add-ons (AMO)
         id: sign
@@ -51,8 +51,8 @@ jobs:
 
       - name: Upload signed .xpi to GitHub Release
         run: |
-          gh release upload "${{ steps.version.outputs.tag }}" \
-            "${{ steps.sign.outputs.target }}" \
-            --clobber
+          XPI="jdownloader-addon-cnl-${{ steps.version.outputs.num }}.xpi"
+          mv "${{ steps.sign.outputs.target }}" "$XPI"
+          gh release upload "${{ steps.version.outputs.tag }}" "$XPI" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
