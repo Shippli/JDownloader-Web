@@ -8,7 +8,9 @@ import { activePopupStore } from '../stores/activePopup';
 import { notificationsStore } from '../stores/notifications';
 import { sendRefresh } from '../stores/ws';
 import { Button } from './ui/Button';
+import { Checkbox } from './ui/Checkbox';
 import { Dialog } from './ui/Dialog';
+import { RadioGroup } from './ui/RadioGroup';
 import { TextField } from './ui/TextField';
 
 type Props = {
@@ -29,7 +31,8 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const [selectedCaptcha, setSelectedCaptcha] = createSignal<JdCaptchaDetail | null>(null);
   const [captchaSolution, setCaptchaSolution] = createSignal('');
   const [archivePassword, setArchivePassword] = createSignal('');
-  const [timeLeft, setTimeLeft] = createSignal(0);
+  const [fileExistsAction, setFileExistsAction] = createSignal<'SKIP' | 'AUTO_RENAME' | 'OVERWRITE'>('SKIP');
+  const [fileExistsApplyAll, setFileExistsApplyAll] = createSignal(false);
   const [popupPos, setPopupPos] = createSignal({ bottom: 0, left: 0, width: 240 });
 
   const isOpen = () => activePopupStore.active() === PANEL_ID;
@@ -70,27 +73,6 @@ export const NotificationsPanel: Component<Props> = (props) => {
       clearTimeout(timer);
       document.removeEventListener('click', onOutsideClick);
     });
-  });
-
-  // Countdown timer when a dialog with timeout is shown
-  createEffect(() => {
-    const d = selectedDialog();
-    const ms = Number.parseInt(d?.properties?.timeout ?? '0');
-    if (d && ms > 0) {
-      setTimeLeft(Math.ceil(ms / 1000));
-      const timer = setInterval(() => {
-        setTimeLeft((s) => {
-          if (s <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return s - 1;
-        });
-      }, 1000);
-      onCleanup(() => clearInterval(timer));
-    } else {
-      setTimeLeft(0);
-    }
   });
 
   const count = () => dialogs().length + captchas().length + (updateAvailable() ? 1 : 0);
@@ -141,6 +123,8 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const closeModal = () => {
     setSelectedDialog(null);
     setArchivePassword('');
+    setFileExistsAction('SKIP');
+    setFileExistsApplyAll(false);
   };
   const closeCaptchaModal = () => {
     setSelectedCaptcha(null);
@@ -357,6 +341,23 @@ export const NotificationsPanel: Component<Props> = (props) => {
                           )}
                         </Show>
                       </div>
+                      <RadioGroup
+                        class="pt-1"
+                        value={fileExistsAction()}
+                        onChange={v => setFileExistsAction(v as 'SKIP' | 'AUTO_RENAME' | 'OVERWRITE')}
+                        options={[
+                          { value: 'SKIP', label: t('dialogs.actionSkip') },
+                          { value: 'AUTO_RENAME', label: t('dialogs.actionAutoRename') },
+                          { value: 'OVERWRITE', label: t('dialogs.actionOverwrite') },
+                        ]}
+                      />
+                      <div class="border-t pt-3 mt-1">
+                        <Checkbox
+                          checked={fileExistsApplyAll()}
+                          onChange={setFileExistsApplyAll}
+                          label={t('dialogs.applyToPackage')}
+                        />
+                      </div>
                     </div>
                   </Show>
                   <Show when={isExtractPassword()}>
@@ -392,29 +393,21 @@ export const NotificationsPanel: Component<Props> = (props) => {
                     <p class="text-sm text-foreground whitespace-pre-wrap">{msg()}</p>
                   </Show>
                 </div>
-                <div class="px-6 py-4 border-t flex items-center gap-3">
-                  <Show when={timeLeft() > 0}>
-                    <span class="text-xs text-muted-foreground">
-                      {t('dialogs.autoClose')}
-                      {' '}
-                      {timeLeft()}
-                      s
-                    </span>
-                  </Show>
-                  <div class="flex gap-2 ml-auto">
-                    <Button variant="secondary" onClick={() => answerDialog('CANCEL')}>
-                      {cancelText()}
-                    </Button>
-                    <Button
-                      variant="default"
-                      onClick={() => isExtractPassword()
-                        ? answerDialog('OK', { text: archivePassword() })
+                <div class="px-6 py-4 border-t flex gap-2 justify-end">
+                  <Button variant="secondary" onClick={() => answerDialog('CANCEL')}>
+                    {cancelText()}
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => isExtractPassword()
+                      ? answerDialog('OK', { text: archivePassword() })
+                      : isFileExists()
+                        ? answerDialog('OK', { action: fileExistsAction(), ...(fileExistsApplyAll() && { applytoall: true }) })
                         : answerDialog('OK')}
-                      disabled={isExtractPassword() && archivePassword().trim() === ''}
-                    >
-                      {okText()}
-                    </Button>
-                  </div>
+                    disabled={isExtractPassword() && archivePassword().trim() === ''}
+                  >
+                    {okText()}
+                  </Button>
                 </div>
               </Dialog>
             </Portal>
