@@ -25,6 +25,10 @@ const en = {
     host: 'Host',
     archiveName: 'Archive',
     passwordPlaceholder: 'Enter password…',
+    actionSkip: 'Skip',
+    actionOverwrite: 'Overwrite',
+    actionAutoRename: 'Rename File',
+    applyToPackage: 'Apply to complete package',
   },
   captcha: {
     label: 'Captcha',
@@ -79,8 +83,18 @@ const en = {
       remove: 'Remove',
     },
     empty: 'No downloads',
+    statusExtracted: 'Extracted',
+    statusExtracting: 'Extracting',
+    statusExtractionError: 'Extraction Error',
+    statusError: 'Error',
+    statusFinished: 'Finished',
+    statusFileExists: 'File exists',
+    statusRetry: 'Retry',
     file: 'file',
     files: 'files',
+    summaryStatus: 'Status',
+    summarySize: 'Size',
+    summaryFiles: 'Files',
     jdUnavailable: 'JDownloader unavailable — reconnecting…',
     ctx: {
       rename: 'Rename',
@@ -307,6 +321,10 @@ const en = {
     debugMode: {
       label: 'Debug Mode',
       description: 'Log all API requests to the browser console (method, path, body, response and duration)',
+    },
+    compactView: {
+      label: 'Compact View',
+      description: 'Show downloads and grabber as a flat list instead of expandable cards',
     },
     about: {
       label: 'About',
