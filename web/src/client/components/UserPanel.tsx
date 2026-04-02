@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js';
 import { A, useNavigate } from '@solidjs/router';
-import { createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createSignal, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { t } from '../i18n';
 import { activePopupStore } from '../stores/activePopup';
@@ -15,7 +15,7 @@ type Props = {
 
 export const UserPanel: Component<Props> = (props) => {
   const navigate = useNavigate();
-  const PANEL_ID = props.mobile ? 'user-panel-mobile' : 'user-panel-desktop';
+  const PANEL_ID = untrack(() => props.mobile) ? 'user-panel-mobile' : 'user-panel-desktop';
   const [popupPos, setPopupPos] = createSignal({ bottom: 0, left: 0, width: 240 });
 
   const isOpen = () => activePopupStore.active() === PANEL_ID;
@@ -67,7 +67,8 @@ export const UserPanel: Component<Props> = (props) => {
   const toggleDesktop = () => {
     if (!isOpen() && buttonRef) {
       const rect = buttonRef.getBoundingClientRect();
-      setPopupPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width: rect.width });
+      const width = props.collapsed ? 240 : rect.width;
+      setPopupPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width });
       activePopupStore.open(PANEL_ID);
     } else {
       activePopupStore.closeAll();
