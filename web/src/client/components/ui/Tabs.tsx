@@ -12,7 +12,9 @@ export const TabsList: Component<ListProps> = (props) => {
   let ref: HTMLDivElement | undefined;
 
   const onWheel = (e: WheelEvent) => {
-    if (!ref || e.deltaX !== 0) return;
+    if (!ref || e.deltaX !== 0) {
+      return;
+    }
     e.preventDefault();
     ref.scrollLeft += e.deltaY;
   };

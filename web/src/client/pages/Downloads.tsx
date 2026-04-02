@@ -210,6 +210,20 @@ const Downloads: Component = () => {
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       selectAll();
+    } else if (e.key === 'ArrowRight' && selectedPkgs().size > 0 && editingPkgId() === null) {
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        return;
+      }
+      e.preventDefault();
+      setExpandedPkgs(prev => new Set([...prev, ...selectedPkgs()]));
+    } else if (e.key === 'ArrowLeft' && selectedPkgs().size > 0 && editingPkgId() === null) {
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        return;
+      }
+      e.preventDefault();
+      setExpandedPkgs(prev => new Set([...prev].filter(id => !selectedPkgs().has(id))));
     } else if ((e.key === 'Backspace' || e.key === 'Delete') && hasSelection() && editingPkgId() === null) {
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') {
