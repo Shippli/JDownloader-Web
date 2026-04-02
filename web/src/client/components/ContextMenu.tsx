@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js';
-import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { activePopupStore } from '../stores/activePopup';
 
 export type ContextMenuItem = {
@@ -26,7 +26,7 @@ type Props = {
 
 const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; onClose: () => void }> = (props) => {
   let ref!: HTMLDivElement;
-  const [pos, setPos] = createSignal({ x: props.x, y: props.y });
+  const [pos, setPos] = createSignal({ x: untrack(() => props.x), y: untrack(() => props.y) });
   const [subIdx, setSubIdx] = createSignal<number | null>(null);
   const [subOpenLeft, setSubOpenLeft] = createSignal(false);
   let closeTimer: ReturnType<typeof setTimeout> | null = null;

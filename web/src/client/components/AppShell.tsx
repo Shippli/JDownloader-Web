@@ -1,5 +1,5 @@
 import type { Component, JSX } from 'solid-js';
-import { createEffect, createSignal, onMount } from 'solid-js';
+import { createEffect, createSignal, onCleanup, onMount } from 'solid-js';
 import { connectionStore } from '../stores/connection';
 import { SetupModal } from './SetupModal';
 import { MobileNav } from './ui/MobileNav';
@@ -10,7 +10,7 @@ export const [collapsed, setCollapsed] = createSignal(
 );
 
 // Keep --sidebar-w in sync so TouchSheet can position itself correctly on desktop
-document.documentElement.style.setProperty('--sidebar-w', collapsed() ? '64px' : '256px');
+document.documentElement.style.setProperty('--sidebar-w', localStorage.getItem('sidebar-collapsed') === 'true' ? '64px' : '256px');
 
 export function toggleSidebar() {
   const next = !collapsed();
@@ -26,7 +26,19 @@ export function syncSidebarWidth() {
 
 export const AppShell: Component<{ children: JSX.Element }> = (props) => {
   syncSidebarWidth();
-  onMount(() => connectionStore.check());
+  onMount(() => {
+    connectionStore.check();
+
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const onResize = () => {
+      const userPref = localStorage.getItem('sidebar-collapsed') === 'true';
+      setCollapsed(mq.matches || userPref);
+    };
+
+    onResize();
+    mq.addEventListener('change', onResize);
+    onCleanup(() => mq.removeEventListener('change', onResize));
+  });
 
   return (
     <>

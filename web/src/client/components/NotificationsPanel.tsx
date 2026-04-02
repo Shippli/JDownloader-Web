@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js';
 import type { JdCaptchaDetail, JdDialog, JdDialogDetail } from '../lib/api';
-import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { t } from '../i18n';
 import { captchaApi, configApi, dialogsApi } from '../lib/api';
@@ -21,7 +21,7 @@ type Props = {
 type CaptchaEntry = { kind: 'captcha'; id: number; hoster?: string };
 
 export const NotificationsPanel: Component<Props> = (props) => {
-  const PANEL_ID = props.mobile ? 'notifications-panel-mobile' : 'notifications-panel-desktop';
+  const PANEL_ID = untrack(() => props.mobile) ? 'notifications-panel-mobile' : 'notifications-panel-desktop';
   const dialogs = notificationsStore.dialogs;
   const captchas = notificationsStore.captchas;
   const updateAvailable = notificationsStore.updateAvailable;
@@ -89,7 +89,8 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const toggleDesktop = () => {
     if (!isOpen() && buttonRef) {
       const rect = buttonRef.getBoundingClientRect();
-      setPopupPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width: rect.width });
+      const width = props.collapsed ? 240 : rect.width;
+      setPopupPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width });
       activePopupStore.open(PANEL_ID);
     } else {
       activePopupStore.closeAll();

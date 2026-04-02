@@ -16,6 +16,7 @@ import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
 import { formatBytes, formatEta, formatSpeed, jdApi } from '../lib/api';
 import { getCached, setCached } from '../lib/pageCache';
+import { compactViewStore } from '../stores/compactView';
 import { jdStore } from '../stores/jd';
 import { sendRefresh, wsConnected, wsDownloads } from '../stores/ws';
 
@@ -652,136 +653,324 @@ const Downloads: Component = () => {
       </Show>
 
       {/* Package list */}
-      <div class="flex flex-col gap-3">
-        <For each={packages()}>
-          {(pkg) => {
-            const pkgLinks = () => getPackageLinks(pkg.uuid);
-            const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
-            const isExpanded = () => expandedPkgs().has(pkg.uuid);
-            const isSelected = () => selectedPkgs().has(pkg.uuid);
+      <Show
+        when={compactViewStore.enabled()}
+        fallback={(
+          <div class="flex flex-col gap-3">
+            <For each={packages()}>
+              {(pkg) => {
+                const pkgLinks = () => getPackageLinks(pkg.uuid);
+                const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
+                const isExpanded = () => expandedPkgs().has(pkg.uuid);
+                const isSelected = () => selectedPkgs().has(pkg.uuid);
 
-            return (
-              <Card
-                class="overflow-hidden transition-all"
-                selected={isSelected()}
-                data-list-card
-                onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
-                onTouchEnd={endLongPress}
-                onTouchMove={moveLongPress}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (navigator.maxTouchPoints > 0) {
-                    return;
-                  }
-                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
-                }}
-              >
-                {/* Package header */}
-                <div
-                  class="p-4 cursor-pointer select-none"
-                  onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
-                >
-                  <div class="flex items-center gap-3">
-                    {/* Checkbox */}
-                    <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
+                return (
+                  <Card
+                    class="overflow-hidden transition-all"
+                    selected={isSelected()}
+                    data-list-card
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchEnd={endLongPress}
+                    onTouchMove={moveLongPress}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (navigator.maxTouchPoints > 0) {
+                        return;
+                      }
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                    }}
+                  >
+                    {/* Package header */}
+                    <div
+                      class="p-4 cursor-pointer select-none"
+                      onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
+                    >
+                      <div class="flex items-center gap-3">
+                        {/* Checkbox */}
+                        <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
 
-                    {/* Info */}
-                    <div class="flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>
-                      <div class="flex items-start justify-between gap-2 flex-wrap">
-                        <div class="flex-1 min-w-0">
-                          <Show
-                            when={editingPkgId() === pkg.uuid}
-                            fallback={
-                              <p class="font-semibold text-foreground text-sm truncate" title={pkg.name}>{pkg.name}</p>
-                            }
-                          >
-                            <InlineInput
-                              value={editingName()}
-                              onInput={e => setEditingName(e.currentTarget.value)}
-                              onKeyDown={(e) => {
-                                e.stopPropagation();
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  commitDownloadRename();
+                        {/* Info */}
+                        <div class="flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>
+                          <div class="flex items-start justify-between gap-2 flex-wrap">
+                            <div class="flex-1 min-w-0">
+                              <Show
+                                when={editingPkgId() === pkg.uuid}
+                                fallback={
+                                  <p class="font-semibold text-foreground text-sm truncate" title={pkg.name}>{pkg.name}</p>
                                 }
-                              }}
-                              onClick={e => e.stopPropagation()}
-                              onBlur={commitDownloadRename}
-                              ref={el => setTimeout(() => el?.focus(), 0)}
-                            />
-                          </Show>
-                          <div class="flex items-center gap-3 mt-1 flex-wrap">
-                            <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} />
-                            <PriorityBadge priority={pkg.priority} />
-                            <span class="text-xs text-muted-foreground">
-                              {formatBytes(pkg.bytesLoaded)}
-                              {' '}
-                              /
-                              {formatBytes(pkg.bytesTotal)}
-                            </span>
-                            <Show when={pkg.speed > 0}>
-                              <span class="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                                {formatSpeed(pkg.speed)}
-                              </span>
-                            </Show>
-                            <Show when={pkg.eta > 0}>
-                              <span class="text-xs text-muted-foreground">
-                                ETA:
-                                {formatEta(pkg.eta)}
-                              </span>
-                            </Show>
-                            <Show when={pkg.hosts?.length > 0}>
-                              <span class="text-xs text-muted-foreground">{pkg.hosts.join(', ')}</span>
+                              >
+                                <InlineInput
+                                  value={editingName()}
+                                  onInput={e => setEditingName(e.currentTarget.value)}
+                                  onKeyDown={(e) => {
+                                    e.stopPropagation();
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      commitDownloadRename();
+                                    }
+                                  }}
+                                  onClick={e => e.stopPropagation()}
+                                  onBlur={commitDownloadRename}
+                                  ref={el => setTimeout(() => el?.focus(), 0)}
+                                />
+                              </Show>
+                              <div class="flex items-center gap-3 mt-1 flex-wrap">
+                                <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} />
+                                <PriorityBadge priority={pkg.priority} />
+                                <span class="text-xs text-muted-foreground">
+                                  {formatBytes(pkg.bytesLoaded)}
+                                  {' '}
+                                  /
+                                  {formatBytes(pkg.bytesTotal)}
+                                </span>
+                                <Show when={pkg.speed > 0}>
+                                  <span class="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                    {formatSpeed(pkg.speed)}
+                                  </span>
+                                </Show>
+                                <Show when={pkg.eta > 0}>
+                                  <span class="text-xs text-muted-foreground">
+                                    ETA:
+                                    {formatEta(pkg.eta)}
+                                  </span>
+                                </Show>
+                                <Show when={pkg.hosts?.length > 0}>
+                                  <span class="text-xs text-muted-foreground">{pkg.hosts.join(', ')}</span>
+                                </Show>
+                              </div>
+                            </div>
+
+                            {/* Expand button */}
+                            <Show when={pkg.childCount > 0}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                class="shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpand(pkg.uuid);
+                                }}
+                              >
+                                <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
+                              </Button>
                             </Show>
                           </div>
+
+                          {/* Progress bar */}
+                          <ProgressBar value={progress()} color={getProgressColor(pkg)} class="mt-2.5" />
+                          <div class="flex justify-between mt-1">
+                            <span class="text-xs text-muted-foreground">
+                              {progress()}
+                              %
+                            </span>
+                            <span class="text-xs text-muted-foreground">
+                              {pkg.childCount}
+                              {' '}
+                              {t(pkg.childCount !== 1 ? 'downloads.files' : 'downloads.file')}
+                            </span>
+                          </div>
                         </div>
-
-                        {/* Expand button */}
-                        <Show when={pkg.childCount > 0}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            class="shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleExpand(pkg.uuid);
-                            }}
-                          >
-                            <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
-                          </Button>
-                        </Show>
                       </div>
+                    </div>
 
-                      {/* Progress bar */}
-                      <ProgressBar value={progress()} color={getProgressColor(pkg)} class="mt-2.5" />
-                      <div class="flex justify-between mt-1">
-                        <span class="text-xs text-muted-foreground">
-                          {progress()}
-                          %
+                    {/* Links (expanded) */}
+                    <Show when={isExpanded() && pkgLinks().length > 0}>
+                      <div class="border-t">
+                        <For each={pkgLinks()}>
+                          {(link) => {
+                            const linkProgress = () => getProgress(link.bytesLoaded, link.bytesTotal);
+                            const isLinkSelected = () => selectedLinks().has(link.uuid);
+
+                            return (
+                              <div
+                                class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
+                                  isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-muted/50'
+                                }`}
+                                onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
+                                onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
+                                onTouchEnd={endLongPress}
+                                onTouchMove={moveLongPress}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (navigator.maxTouchPoints > 0) {
+                                    return;
+                                  }
+                                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
+                                }}
+                              >
+                                <div class="flex items-center gap-3 pl-8">
+                                  {/* Link checkbox */}
+                                  <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
+
+                                  <div class="flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>
+                                    <div class="flex items-start justify-between gap-2 flex-wrap">
+                                      <p class="text-sm text-foreground truncate" title={link.name}>{link.name}</p>
+                                      <div class="flex items-center gap-2 flex-shrink-0">
+                                        <StatusBadge status={link.status ?? ''} finished={link.finished} />
+                                      </div>
+                                    </div>
+                                    <div class="flex items-center gap-3 mt-0.5 flex-wrap">
+                                      <PriorityBadge priority={link.priority} />
+                                      <span class="text-xs text-muted-foreground">{link.host}</span>
+                                      <span class="text-xs text-muted-foreground">
+                                        {formatBytes(link.bytesLoaded)}
+                                        {' '}
+                                        /
+                                        {formatBytes(link.bytesTotal)}
+                                      </span>
+                                      <Show when={link.speed > 0}>
+                                        <span class="text-xs text-blue-500 font-medium">{formatSpeed(link.speed)}</span>
+                                      </Show>
+                                      {(() => {
+                                        const exProg = getExtractionProgress(link);
+                                        return (
+                                          <Show when={exProg !== null}>
+                                            <span class="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                                              <Show when={(link.eta ?? 0) > 0}>
+                                                {formatEta(Math.round(link.eta / 1000))}
+                                                {' · '}
+                                              </Show>
+                                              {exProg}
+                                              %
+                                            </span>
+                                          </Show>
+                                        );
+                                      })()}
+                                    </div>
+                                    {(() => {
+                                      const exProg = getExtractionProgress(link);
+                                      return (
+                                        <>
+                                          {exProg !== null
+                                            ? <ProgressBar value={exProg} color="yellow" class="mt-1.5" />
+                                            : <ProgressBar value={linkProgress()} color={link.finished ? 'green' : 'blue'} class="mt-1.5" />}
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        </For>
+                      </div>
+                    </Show>
+                  </Card>
+                );
+              }}
+            </For>
+          </div>
+        )}
+      >
+        {/* Compact list */}
+        <div class="card overflow-hidden">
+          <For each={packages()}>
+            {(pkg, index) => {
+              const pkgLinks = () => getPackageLinks(pkg.uuid);
+              const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
+              const isSelected = () => selectedPkgs().has(pkg.uuid);
+              const isExpanded = () => expandedPkgs().has(pkg.uuid);
+              const expandBg = () => index() % 2 === 0
+                ? 'bg-blue-50/50 dark:bg-blue-950/20'
+                : 'bg-background';
+
+              return (
+                <>
+                  {/* Package row */}
+                  <div
+                    class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : isExpanded() ? expandBg() : 'bg-muted/40 hover:bg-muted/70'}`}
+                    data-list-card
+                    onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchEnd={endLongPress}
+                    onTouchMove={moveLongPress}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (navigator.maxTouchPoints > 0) {
+                        return;
+                      }
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                    }}
+                  >
+                    <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
+                    <Show
+                      when={editingPkgId() === pkg.uuid}
+                      fallback={<span class="text-xs font-semibold text-foreground truncate flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>{pkg.name}</span>}
+                    >
+                      <InlineInput
+                        value={editingName()}
+                        onInput={e => setEditingName(e.currentTarget.value)}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitDownloadRename();
+                          }
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        onBlur={commitDownloadRename}
+                        ref={el => setTimeout(() => el?.focus(), 0)}
+                        class="flex-1 min-w-0 text-xs"
+                      />
+                    </Show>
+                    <PriorityBadge priority={pkg.priority} iconOnly />
+                    <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} />
+                    <Show when={pkg.speed > 0}>
+                      <span class="text-xs text-blue-600 dark:text-blue-400 font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
+                    </Show>
+                    <ProgressBar value={progress()} color={getProgressColor(pkg)} class="w-16 flex-shrink-0" />
+                    <Show when={pkg.childCount > 0}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="shrink-0 -mr-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpand(pkg.uuid);
+                        }}
+                      >
+                        <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </Show>
+                  </div>
+                  {/* Link rows */}
+                  <Show when={isExpanded()}>
+                    {/* Package summary row */}
+                    <div class={`flex border-b text-xs divide-x divide-border ${expandBg()}`}>
+                      <Show when={pkg.status}>
+                        <div class="flex flex-1 flex-col items-center justify-center gap-0.5 px-3 py-2 text-center min-w-0 overflow-hidden">
+                          <span class="text-muted-foreground uppercase tracking-wide" style={{ 'font-size': '10px' }}>{t('downloads.summaryStatus')}</span>
+                          <span class="text-foreground font-medium truncate max-w-full" title={pkg.status}>{pkg.status}</span>
+                        </div>
+                      </Show>
+                      <div class="flex flex-col items-center justify-center gap-0.5 px-3 py-2 text-center">
+                        <span class="text-muted-foreground uppercase tracking-wide" style={{ 'font-size': '10px' }}>{t('downloads.summarySize')}</span>
+                        <span class="text-foreground font-medium">
+                          {formatBytes(pkg.bytesLoaded)}
+                          {' / '}
+                          {formatBytes(pkg.bytesTotal)}
                         </span>
-                        <span class="text-xs text-muted-foreground">
-                          {pkg.childCount}
-                          {' '}
-                          {t(pkg.childCount !== 1 ? 'downloads.files' : 'downloads.file')}
+                      </div>
+                      <div class="flex flex-col items-center justify-center gap-0.5 px-3 py-2 text-center">
+                        <span class="text-muted-foreground uppercase tracking-wide" style={{ 'font-size': '10px' }}>{t('downloads.summaryFiles')}</span>
+                        <span class="text-foreground font-medium">
+                          {pkgLinks().filter(l => l.finished).length}
+                          {' / '}
+                          {pkgLinks().length}
                         </span>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Links (expanded) */}
-                <Show when={isExpanded() && pkgLinks().length > 0}>
-                  <div class="border-t">
                     <For each={pkgLinks()}>
                       {(link) => {
                         const linkProgress = () => getProgress(link.bytesLoaded, link.bytesTotal);
                         const isLinkSelected = () => selectedLinks().has(link.uuid);
+                        const exProg = () => getExtractionProgress(link);
 
                         return (
                           <div
-                            class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
-                              isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-muted/50'
-                            }`}
+                            class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : expandBg()}`}
+                            data-list-card
                             onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
                             onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
                             onTouchEnd={endLongPress}
@@ -795,68 +984,27 @@ const Downloads: Component = () => {
                               setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
                             }}
                           >
-                            <div class="flex items-center gap-3 pl-8">
-                              {/* Link checkbox */}
-                              <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-
-                              <div class="flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>
-                                <div class="flex items-start justify-between gap-2 flex-wrap">
-                                  <p class="text-sm text-foreground truncate" title={link.name}>{link.name}</p>
-                                  <div class="flex items-center gap-2 flex-shrink-0">
-                                    <StatusBadge status={link.status ?? ''} finished={link.finished} />
-                                  </div>
-                                </div>
-                                <div class="flex items-center gap-3 mt-0.5 flex-wrap">
-                                  <PriorityBadge priority={link.priority} />
-                                  <span class="text-xs text-muted-foreground">{link.host}</span>
-                                  <span class="text-xs text-muted-foreground">
-                                    {formatBytes(link.bytesLoaded)}
-                                    {' '}
-                                    /
-                                    {formatBytes(link.bytesTotal)}
-                                  </span>
-                                  <Show when={link.speed > 0}>
-                                    <span class="text-xs text-blue-500 font-medium">{formatSpeed(link.speed)}</span>
-                                  </Show>
-                                  {(() => {
-                                    const exProg = getExtractionProgress(link);
-                                    return (
-                                      <Show when={exProg !== null}>
-                                        <span class="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
-                                          <Show when={(link.eta ?? 0) > 0}>
-                                            {formatEta(Math.round(link.eta / 1000))}
-                                            {' · '}
-                                          </Show>
-                                          {exProg}
-                                          %
-                                        </span>
-                                      </Show>
-                                    );
-                                  })()}
-                                </div>
-                                {(() => {
-                                  const exProg = getExtractionProgress(link);
-                                  return (
-                                    <>
-                                      {exProg !== null
-                                        ? <ProgressBar value={exProg} color="yellow" class="mt-1.5" />
-                                        : <ProgressBar value={linkProgress()} color={link.finished ? 'green' : 'blue'} class="mt-1.5" />}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            </div>
+                            <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
+                            <span class="text-xs text-foreground truncate flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>{link.name}</span>
+                            <PriorityBadge priority={link.priority} iconOnly />
+                            <StatusBadge status={link.status ?? ''} finished={link.finished} />
+                            <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
+                            <ProgressBar
+                              value={exProg() !== null ? exProg()! : linkProgress()}
+                              color={exProg() !== null ? 'yellow' : link.finished ? 'green' : 'blue'}
+                              class="w-16 flex-shrink-0"
+                            />
                           </div>
                         );
                       }}
                     </For>
-                  </div>
-                </Show>
-              </Card>
-            );
-          }}
-        </For>
-      </div>
+                  </Show>
+                </>
+              );
+            }}
+          </For>
+        </div>
+      </Show>
       {/* Context menu — desktop: positioned menu, touch: bottom sheet */}
       <Show when={ctxMenu()} keyed>
         {cm => <ContextMenu x={cm.x} y={cm.y} touch={cm.touch} title={ctxTitle()} items={buildCtxItems()} onClose={() => setCtxMenu(null)} />}

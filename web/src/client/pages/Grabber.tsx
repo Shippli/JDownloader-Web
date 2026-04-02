@@ -16,6 +16,7 @@ import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
 import { formatBytes, jdApi } from '../lib/api';
 import { getCached, setCached } from '../lib/pageCache';
+import { compactViewStore } from '../stores/compactView';
 import { jdStore } from '../stores/jd';
 import { sendRefresh, wsConnected, wsGrabber } from '../stores/ws';
 
@@ -529,102 +530,253 @@ const Grabber: Component = () => {
       </Show>
 
       {/* Package list */}
-      <div class="flex flex-col gap-3">
-        <For each={packages()}>
-          {(pkg) => {
-            const pkgLinks = () => getPackageLinks(pkg.uuid);
-            const isExpanded = () => expandedPkgs().has(pkg.uuid);
-            const isSelected = () => selectedPkgs().has(pkg.uuid);
+      <Show
+        when={compactViewStore.enabled()}
+        fallback={(
+          <div class="flex flex-col gap-3">
+            <For each={packages()}>
+              {(pkg) => {
+                const pkgLinks = () => getPackageLinks(pkg.uuid);
+                const isExpanded = () => expandedPkgs().has(pkg.uuid);
+                const isSelected = () => selectedPkgs().has(pkg.uuid);
 
-            return (
-              <Card
-                class="overflow-hidden transition-all"
-                selected={isSelected()}
-                data-list-card
-                onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
-                onTouchEnd={endLongPress}
-                onTouchMove={moveLongPress}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (navigator.maxTouchPoints > 0) {
-                    return;
-                  }
-                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
-                }}
-              >
-                <div
-                  class="p-4 cursor-pointer select-none"
-                  onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
-                >
-                  <div class="flex items-center gap-3">
-                    {/* Checkbox */}
-                    <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
+                return (
+                  <Card
+                    class="overflow-hidden transition-all"
+                    selected={isSelected()}
+                    data-list-card
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchEnd={endLongPress}
+                    onTouchMove={moveLongPress}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (navigator.maxTouchPoints > 0) {
+                        return;
+                      }
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                    }}
+                  >
+                    <div
+                      class="p-4 cursor-pointer select-none"
+                      onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
+                    >
+                      <div class="flex items-center gap-3">
+                        {/* Checkbox */}
+                        <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
 
-                    {/* Info */}
-                    <div class="flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>
-                      <div class="flex items-start justify-between gap-2">
-                        <div class="flex-1 min-w-0">
-                          <Show
-                            when={editingPkgId() === pkg.uuid}
-                            fallback={(
-                              <p class="font-semibold text-foreground text-sm truncate" title={pkg.name}>
-                                {pkg.name}
-                              </p>
-                            )}
-                          >
-                            <InlineInput
-                              value={editingName()}
-                              onInput={e => setEditingName(e.currentTarget.value)}
-                              onKeyDown={(e) => {
-                                e.stopPropagation();
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  commitEdit();
-                                }
-                              }}
-                              onClick={e => e.stopPropagation()}
-                              onBlur={commitEdit}
-                              ref={el => setTimeout(() => el?.focus(), 0)}
-                            />
-                          </Show>
-                          <div class="flex items-center gap-3 mt-1 flex-wrap">
-                            <Show when={pkg.status}>
-                              <StatusBadge status={pkg.status!} />
-                            </Show>
-                            <PriorityBadge priority={pkg.priority} />
-                            <span class="text-xs text-muted-foreground">{formatBytes(pkg.bytesTotal)}</span>
-                            <Show when={pkg.hosts?.length}>
-                              <span class="text-xs text-muted-foreground">{pkg.hosts!.join(', ')}</span>
-                            </Show>
-                            <span class="text-xs text-muted-foreground">
-                              {pkg.childCount}
-                              {' '}
-                              Link
-                              {pkg.childCount !== 1 ? 's' : ''}
-                            </span>
+                        {/* Info */}
+                        <div class="flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>
+                          <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                              <Show
+                                when={editingPkgId() === pkg.uuid}
+                                fallback={(
+                                  <p class="font-semibold text-foreground text-sm truncate" title={pkg.name}>
+                                    {pkg.name}
+                                  </p>
+                                )}
+                              >
+                                <InlineInput
+                                  value={editingName()}
+                                  onInput={e => setEditingName(e.currentTarget.value)}
+                                  onKeyDown={(e) => {
+                                    e.stopPropagation();
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      commitEdit();
+                                    }
+                                  }}
+                                  onClick={e => e.stopPropagation()}
+                                  onBlur={commitEdit}
+                                  ref={el => setTimeout(() => el?.focus(), 0)}
+                                />
+                              </Show>
+                              <div class="flex items-center gap-3 mt-1 flex-wrap">
+                                <Show when={pkg.status}>
+                                  <StatusBadge status={pkg.status!} />
+                                </Show>
+                                <PriorityBadge priority={pkg.priority} />
+                                <span class="text-xs text-muted-foreground">{formatBytes(pkg.bytesTotal)}</span>
+                                <Show when={pkg.hosts?.length}>
+                                  <span class="text-xs text-muted-foreground">{pkg.hosts!.join(', ')}</span>
+                                </Show>
+                                <span class="text-xs text-muted-foreground">
+                                  {pkg.childCount}
+                                  {' '}
+                                  Link
+                                  {pkg.childCount !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpand(pkg.uuid);
+                                }}
+                              >
+                                <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-
-                        <div class="flex items-center gap-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleExpand(pkg.uuid);
-                            }}
-                          >
-                            <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
-                          </Button>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Links (expanded) */}
-                <Show when={isExpanded() && pkgLinks().length > 0}>
-                  <div class="border-t">
+                    {/* Links (expanded) */}
+                    <Show when={isExpanded() && pkgLinks().length > 0}>
+                      <div class="border-t">
+                        <For each={pkgLinks()}>
+                          {(link) => {
+                            const isLinkSelected = () => selectedLinks().has(link.uuid);
+                            const availColor = () => getAvailabilityColor(link.availability);
+
+                            return (
+                              <div
+                                class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
+                                  isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-muted/50'
+                                }`}
+                                onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
+                                onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
+                                onTouchEnd={endLongPress}
+                                onTouchMove={moveLongPress}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (navigator.maxTouchPoints > 0) {
+                                    return;
+                                  }
+                                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
+                                }}
+                              >
+                                <div class="flex items-center gap-3 pl-8">
+                                  {/* Link checkbox */}
+                                  <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
+
+                                  <div class="flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>
+                                    <div class="flex items-center justify-between gap-2">
+                                      <p class="text-sm text-foreground truncate" title={link.name}>{link.name}</p>
+                                      <div class="flex items-center gap-1 flex-shrink-0">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleRemoveLink(link.uuid);
+                                          }}
+                                          class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                          title={t('common.remove')}
+                                        >
+                                          <span class="i-tabler-trash w-3.5 h-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <div class="flex items-center gap-3 mt-0.5 flex-wrap">
+                                      <PriorityBadge priority={link.priority} />
+                                      <Show when={link.availability}>
+                                        <span class={`text-xs font-medium ${
+                                          availColor() === 'green'
+                                            ? 'text-green-600 dark:text-green-400'
+                                            : availColor() === 'red'
+                                              ? 'text-red-600 dark:text-red-400'
+                                              : 'text-yellow-600 dark:text-yellow-400'
+                                        }`}
+                                        >
+                                          {link.availability}
+                                        </span>
+                                      </Show>
+                                      <Show when={link.host}>
+                                        <span class="text-xs text-muted-foreground">{link.host}</span>
+                                      </Show>
+                                      <span class="text-xs text-muted-foreground">{formatBytes(link.bytesTotal)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        </For>
+                      </div>
+                    </Show>
+                  </Card>
+                );
+              }}
+            </For>
+          </div>
+        )}
+      >
+        {/* Compact list */}
+        <div class="card overflow-hidden">
+          <For each={packages()}>
+            {(pkg) => {
+              const pkgLinks = () => getPackageLinks(pkg.uuid);
+              const isSelected = () => selectedPkgs().has(pkg.uuid);
+              const isExpanded = () => expandedPkgs().has(pkg.uuid);
+
+              return (
+                <>
+                  {/* Package row */}
+                  <div
+                    class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'bg-muted/40 hover:bg-muted/70'}`}
+                    data-list-card
+                    onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchEnd={endLongPress}
+                    onTouchMove={moveLongPress}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (navigator.maxTouchPoints > 0) {
+                        return;
+                      }
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                    }}
+                  >
+                    <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
+                    <Show
+                      when={editingPkgId() === pkg.uuid}
+                      fallback={<span class="text-xs font-semibold text-foreground truncate flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>{pkg.name}</span>}
+                    >
+                      <InlineInput
+                        value={editingName()}
+                        onInput={e => setEditingName(e.currentTarget.value)}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitEdit();
+                          }
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        onBlur={commitEdit}
+                        ref={el => setTimeout(() => el?.focus(), 0)}
+                        class="flex-1 min-w-0 text-xs"
+                      />
+                    </Show>
+                    <Show when={pkg.status}><StatusBadge status={pkg.status!} /></Show>
+                    <span class="text-xs text-muted-foreground flex-shrink-0">{formatBytes(pkg.bytesTotal)}</span>
+                    <span class="text-xs text-muted-foreground flex-shrink-0">
+                      {pkg.childCount}
+                      {' '}
+                      Link
+                      {pkg.childCount !== 1 ? 's' : ''}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="shrink-0 -mr-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleExpand(pkg.uuid);
+                      }}
+                    >
+                      <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </div>
+                  {/* Link rows */}
+                  <Show when={isExpanded()}>
                     <For each={pkgLinks()}>
                       {(link) => {
                         const isLinkSelected = () => selectedLinks().has(link.uuid);
@@ -632,9 +784,8 @@ const Grabber: Component = () => {
 
                         return (
                           <div
-                            class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
-                              isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-muted/50'
-                            }`}
+                            class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-muted/50'}`}
+                            data-list-card
                             onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
                             onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
                             onTouchEnd={endLongPress}
@@ -648,60 +799,22 @@ const Grabber: Component = () => {
                               setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
                             }}
                           >
-                            <div class="flex items-center gap-3 pl-8">
-                              {/* Link checkbox */}
-                              <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-
-                              <div class="flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>
-                                <div class="flex items-center justify-between gap-2">
-                                  <p class="text-sm text-foreground truncate" title={link.name}>{link.name}</p>
-                                  <div class="flex items-center gap-1 flex-shrink-0">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRemoveLink(link.uuid);
-                                      }}
-                                      class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                      title={t('common.remove')}
-                                    >
-                                      <span class="i-tabler-trash w-3.5 h-3.5" />
-                                    </Button>
-                                  </div>
-                                </div>
-                                <div class="flex items-center gap-3 mt-0.5 flex-wrap">
-                                  <PriorityBadge priority={link.priority} />
-                                  <Show when={link.availability}>
-                                    <span class={`text-xs font-medium ${
-                                      availColor() === 'green'
-                                        ? 'text-green-600 dark:text-green-400'
-                                        : availColor() === 'red'
-                                          ? 'text-red-600 dark:text-red-400'
-                                          : 'text-yellow-600 dark:text-yellow-400'
-                                    }`}
-                                    >
-                                      {link.availability}
-                                    </span>
-                                  </Show>
-                                  <Show when={link.host}>
-                                    <span class="text-xs text-muted-foreground">{link.host}</span>
-                                  </Show>
-                                  <span class="text-xs text-muted-foreground">{formatBytes(link.bytesTotal)}</span>
-                                </div>
-                              </div>
-                            </div>
+                            <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
+                            <span class="text-xs text-foreground truncate flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>{link.name}</span>
+                            <span class={`i-tabler-circle-filled w-2 h-2 flex-shrink-0 text-${availColor()}-500`} />
+                            <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
+                            <span class="text-xs text-muted-foreground flex-shrink-0">{formatBytes(link.bytesTotal)}</span>
                           </div>
                         );
                       }}
                     </For>
-                  </div>
-                </Show>
-              </Card>
-            );
-          }}
-        </For>
-      </div>
+                  </Show>
+                </>
+              );
+            }}
+          </For>
+        </div>
+      </Show>
 
       {/* Add Links Dialog */}
       <Show when={showAddDialog()}>

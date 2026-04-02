@@ -4,6 +4,7 @@ import { For } from 'solid-js';
 import { Button } from '../../components/ui/Button';
 import { Switch } from '../../components/ui/Switch';
 import { language, languages, setLanguage, t } from '../../i18n';
+import { compactViewStore } from '../../stores/compactView';
 import { debugStore } from '../../stores/debug';
 
 const WebSection: Component = () => {
@@ -24,6 +25,17 @@ const WebSection: Component = () => {
               </Button>
             )}
           </For>
+        </div>
+      </div>
+
+      {/* Compact view */}
+      <div class="card p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-base font-semibold text-foreground mb-1">{t('config.compactView.label')}</h2>
+            <p class="text-sm text-muted-foreground">{t('config.compactView.description')}</p>
+          </div>
+          <Switch checked={compactViewStore.enabled()} onChange={() => compactViewStore.toggle()} />
         </div>
       </div>
 
