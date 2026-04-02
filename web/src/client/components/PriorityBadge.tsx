@@ -3,6 +3,7 @@ import { Show } from 'solid-js';
 
 type PriorityBadgeProps = {
   priority?: string;
+  iconOnly?: boolean;
 };
 
 function getPriorityStyle(priority: string) {
@@ -27,9 +28,9 @@ const PriorityBadge: Component<PriorityBadgeProps> = (props) => {
   return (
     <Show when={style()}>
       {s => (
-        <span class={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s().color} ${s().bg}`}>
+        <span class={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s().color} ${s().bg}`} title={props.iconOnly ? s().label : undefined}>
           <span class={`${s().icon} w-3 h-3 flex-shrink-0`} />
-          {s().label}
+          <Show when={!props.iconOnly}>{s().label}</Show>
         </span>
       )}
     </Show>
