@@ -9,12 +9,24 @@ export const TabsContent = KobalteTabs.Content;
 // Styled list container (adds border-bottom underline look)
 type ListProps = { class?: string; children?: JSX.Element };
 export const TabsList: Component<ListProps> = (props) => {
+  let ref: HTMLDivElement | undefined;
+
+  const onWheel = (e: WheelEvent) => {
+    if (!ref || e.deltaX !== 0) return;
+    e.preventDefault();
+    ref.scrollLeft += e.deltaY;
+  };
+
   return (
-    <KobalteTabs.List
-      class={cn('flex gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', props.class)}
+    <div
+      ref={ref}
+      onWheel={onWheel}
+      class={cn('overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', props.class)}
     >
-      {props.children}
-    </KobalteTabs.List>
+      <KobalteTabs.List class="flex gap-1">
+        {props.children}
+      </KobalteTabs.List>
+    </div>
   );
 };
 
