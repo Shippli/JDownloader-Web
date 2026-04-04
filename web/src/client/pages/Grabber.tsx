@@ -495,7 +495,7 @@ const Grabber: Component = () => {
         <div class="flex items-center gap-2 flex-wrap">
           <Button variant="default" onClick={() => setShowAddDialog(true)}>
             <span class="i-tabler-plus w-4 h-4" />
-            {t('grabber.addLinks')}
+            <span class="hidden sm:inline">{t('grabber.addLinks')}</span>
           </Button>
 
           <Show when={hasSelection()}>
