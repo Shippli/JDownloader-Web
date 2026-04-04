@@ -5,9 +5,40 @@ on:
     types: [published]
 
 jobs:
+  check-changes:
+    name: Check if manifest version was bumped
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if manifest.json version was increased
+        id: diff
+        run: |
+          CURRENT="${{ github.event.release.tag_name }}"
+          PREVIOUS=$(git tag --sort=-creatordate | grep -v "^${CURRENT}$" | head -1)
+          MANIFEST="addons/firefox/manifest.json"
+          NEW_VERSION=$(jq -r '.version' "$MANIFEST")
+          if [ -z "$PREVIOUS" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            OLD_VERSION=$(git show "${PREVIOUS}:${MANIFEST}" | jq -r '.version')
+            if [ "$NEW_VERSION" != "$OLD_VERSION" ]; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
   build-and-publish:
     name: Build and Publish Firefox Addon
     runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.changed == 'true'
 
     permissions:
       contents: write  # required to upload release assets
