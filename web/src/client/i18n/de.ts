@@ -87,6 +87,7 @@ const de = {
     statusExtracting: 'Entpacken',
     statusError: 'Fehler',
     statusExtractionError: 'Entpackungs Fehler',
+    statusDownloading: 'Download',
     statusFinished: 'Abgeschlossen',
     statusFileExists: 'Datei existiert',
     statusRetry: 'Wiederholen',

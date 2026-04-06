@@ -929,7 +929,7 @@ const Downloads: Component = () => {
                       />
                     </Show>
                     <PriorityBadge priority={pkg.priority} iconOnly />
-                    <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} />
+                    <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} iconOnly />
                     <Show when={pkg.speed > 0}>
                       <span class="text-xs text-blue-600 dark:text-blue-400 font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
                     </Show>
@@ -1001,7 +1001,7 @@ const Downloads: Component = () => {
                             <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
                             <span class="text-xs text-foreground truncate flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>{link.name}</span>
                             <PriorityBadge priority={link.priority} iconOnly />
-                            <StatusBadge status={link.status ?? ''} finished={link.finished} />
+                            <StatusBadge status={link.status ?? ''} finished={link.finished} iconOnly />
                             <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
                             <ProgressBar
                               value={exProg() !== null ? exProg()! : linkProgress()}

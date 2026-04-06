@@ -87,6 +87,7 @@ const en = {
     statusExtracting: 'Extracting',
     statusExtractionError: 'Extraction Error',
     statusError: 'Error',
+    statusDownloading: 'Download',
     statusFinished: 'Finished',
     statusFileExists: 'File exists',
     statusRetry: 'Retry',

@@ -1,9 +1,11 @@
 import type { Component } from 'solid-js';
+import { Show } from 'solid-js';
 import { t } from '../i18n';
 
 type StatusBadgeProps = {
   status: string;
   finished?: boolean;
+  iconOnly?: boolean;
 };
 
 type StatusStyle = { icon: string; color: string; bg: string };
@@ -31,6 +33,7 @@ const LABEL_RULES: Array<{ test: (s: string) => boolean; key: string }> = [
   { test: s => s.startsWith('extracting'), key: 'downloads.statusExtracting' },
   { test: s => s.startsWith('extraction error'), key: 'downloads.statusExtractionError' },
   { test: s => s.startsWith('an error occurred'), key: 'downloads.statusError' },
+  { test: s => s.startsWith('download'), key: 'downloads.statusDownloading' },
   { test: s => s.startsWith('finished'), key: 'downloads.statusFinished' },
   { test: s => s.startsWith('file already exists'), key: 'downloads.statusFileExists' },
   { test: s => s.startsWith('try restarting'), key: 'downloads.statusRetry' },
@@ -59,7 +62,9 @@ const StatusBadge: Component<StatusBadgeProps> = (props) => {
       title={props.status}
     >
       <span class={`${style().icon} w-3 h-3 flex-shrink-0`} />
-      <span class="truncate max-w-40">{label()}</span>
+      <Show when={!props.iconOnly}>
+        <span class="truncate max-w-40">{label()}</span>
+      </Show>
     </span>
   );
 };

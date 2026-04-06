@@ -607,7 +607,7 @@ const Grabber: Component = () => {
                               </Show>
                               <div class="flex items-center gap-3 mt-1 flex-wrap">
                                 <Show when={pkg.status}>
-                                  <StatusBadge status={pkg.status!} />
+                                  <StatusBadge status={pkg.status!} iconOnly />
                                 </Show>
                                 <PriorityBadge priority={pkg.priority} />
                                 <span class="text-xs text-muted-foreground">{formatBytes(pkg.bytesTotal)}</span>
