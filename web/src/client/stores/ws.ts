@@ -1,5 +1,6 @@
 import type { DownloadLink, DownloadPackage, GrabberLink, GrabberPackage, JdCaptcha, JdDialog } from '../lib/api';
 import { createSignal } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
 import { setJdConnected } from './jd';
 import { applyNotificationsMessage } from './notifications';
 
@@ -17,8 +18,27 @@ export type GrabberPayload = {
   links: GrabberLink[];
 };
 
-export const [wsDownloads, setWsDownloads] = createSignal<DownloadsPayload | null>(null);
-export const [wsGrabber, setWsGrabber] = createSignal<GrabberPayload | null>(null);
+// Fine-grained stores: reconcile() diffs incoming data by uuid and only
+// updates the changed fields → only those DOM nodes re-render.
+const [_dlLoaded, setDlLoaded] = createSignal(false);
+const [_dlStore, setDlStore] = createStore<DownloadsPayload>({
+  packages: [],
+  links: [],
+  state: 'IDLE',
+  speed: 0,
+});
+
+const [_grabLoaded, setGrabLoaded] = createSignal(false);
+const [_grabStore, setGrabStore] = createStore<GrabberPayload>({
+  packages: [],
+  links: [],
+});
+
+// Same public API as before: returns null until the first push arrives,
+// then returns the reactive store proxy (fine-grained tracking per field).
+export const wsDownloads = (): DownloadsPayload | null => _dlLoaded() ? _dlStore : null;
+export const wsGrabber = (): GrabberPayload | null => _grabLoaded() ? _grabStore : null;
+
 export const [wsConnected, setWsConnected] = createSignal(false);
 
 // ─── Message dispatch ─────────────────────────────────────────────────────────
@@ -35,10 +55,20 @@ function dispatch(msg: WsServerMessage) {
       setJdConnected(msg.jd);
       break;
     case 'downloads':
-      setWsDownloads({ packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed });
+      // reconcile diffs by uuid: only changed fields in changed items update →
+      // only those specific DOM nodes re-render.
+      setDlStore(reconcile(
+        { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed },
+        { key: 'uuid', merge: true },
+      ));
+      if (!_dlLoaded()) setDlLoaded(true);
       break;
     case 'grabber':
-      setWsGrabber({ packages: msg.packages, links: msg.links });
+      setGrabStore(reconcile(
+        { packages: msg.packages, links: msg.links },
+        { key: 'uuid', merge: true },
+      ));
+      if (!_grabLoaded()) setGrabLoaded(true);
       break;
     case 'notifications':
       applyNotificationsMessage({ dialogs: msg.dialogs, captchas: msg.captchas, updateAvailable: msg.updateAvailable });
