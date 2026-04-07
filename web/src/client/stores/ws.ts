@@ -61,14 +61,18 @@ function dispatch(msg: WsServerMessage) {
         { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed },
         { key: 'uuid', merge: true },
       ));
-      if (!_dlLoaded()) setDlLoaded(true);
+      if (!_dlLoaded()) {
+        setDlLoaded(true);
+      }
       break;
     case 'grabber':
       setGrabStore(reconcile(
         { packages: msg.packages, links: msg.links },
         { key: 'uuid', merge: true },
       ));
-      if (!_grabLoaded()) setGrabLoaded(true);
+      if (!_grabLoaded()) {
+        setGrabLoaded(true);
+      }
       break;
     case 'notifications':
       applyNotificationsMessage({ dialogs: msg.dialogs, captchas: msg.captchas, updateAvailable: msg.updateAvailable });
