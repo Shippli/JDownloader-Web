@@ -15,14 +15,14 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.5.6",
+    "@better-auth/drizzle-adapter": "^1.6.0",
     "@kobalte/core": "^0.13.11",
     "@unocss/reset": "^66.6.7",
-    "better-auth": "^1.5.6",
+    "better-auth": "^1.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.9",
+    "hono": "^4.12.12",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
@@ -36,12 +36,12 @@
     "@unocss/preset-uno": "^66.6.7",
     "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^10.1.0",
+    "eslint": "^10.2.0",
     "solid-js": "^1.9.12",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
     "unocss": "^66.6.7",
-    "vite": "^8.0.3",
-    "vite-plugin-solid": "^2.11.11"
+    "vite": "^8.0.5",
+    "vite-plugin-solid": "^2.11.12"
   }
 }
