@@ -12,14 +12,15 @@ type ToastItem = {
   type: ToastType;
   duration: number;
   visible: boolean;
+  onClick?: () => void;
 };
 
 let nextId = 0;
 const [toasts, setToasts] = createSignal<ToastItem[]>([]);
 
-function add(message: string, type: ToastType = 'default', duration = 5000) {
+function add(message: string, type: ToastType = 'default', duration = 5000, onClick?: () => void) {
   const id = nextId++;
-  setToasts(prev => [...prev, { id, message, type, duration, visible: true }]);
+  setToasts(prev => [...prev, { id, message, type, duration, visible: true, onClick }]);
 
   setTimeout(dismiss, duration, id);
 }
@@ -34,13 +35,15 @@ function dismiss(id: number) {
   }, 300);
 }
 
+type ToastOpts = { duration?: number; onClick?: () => void };
+
 export const toast = Object.assign(
-  (message: string, opts?: { duration?: number }) => add(message, 'default', opts?.duration),
+  (message: string, opts?: ToastOpts) => add(message, 'default', opts?.duration, opts?.onClick),
   {
-    info: (message: string, opts?: { duration?: number }) => add(message, 'info', opts?.duration),
-    success: (message: string, opts?: { duration?: number }) => add(message, 'success', opts?.duration),
-    warning: (message: string, opts?: { duration?: number }) => add(message, 'warning', opts?.duration),
-    error: (message: string, opts?: { duration?: number }) => add(message, 'error', opts?.duration),
+    info: (message: string, opts?: ToastOpts) => add(message, 'info', opts?.duration, opts?.onClick),
+    success: (message: string, opts?: ToastOpts) => add(message, 'success', opts?.duration, opts?.onClick),
+    warning: (message: string, opts?: ToastOpts) => add(message, 'warning', opts?.duration, opts?.onClick),
+    error: (message: string, opts?: ToastOpts) => add(message, 'error', opts?.duration, opts?.onClick),
   },
 );
 
@@ -53,6 +56,7 @@ const iconClass: Record<ToastType, string> = {
 };
 
 const ToastItemView: Component<{ toast: ToastItem }> = (props) => {
+  const hasClick = () => !!props.toast.onClick;
   return (
     <div
       class={cn(
@@ -60,8 +64,23 @@ const ToastItemView: Component<{ toast: ToastItem }> = (props) => {
         props.toast.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none',
       )}
     >
-      <span class={cn(iconClass[props.toast.type], 'shrink-0')} />
-      <span class="flex-1 font-medium">{props.toast.message}</span>
+      <button
+        onClick={() => {
+          if (props.toast.onClick) {
+            props.toast.onClick();
+            dismiss(props.toast.id);
+          }
+        }}
+        disabled={!hasClick()}
+        class={cn(
+          'flex items-center gap-3 flex-1 min-w-0 text-left',
+          hasClick() ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default',
+        )}
+        aria-label={hasClick() ? props.toast.message : undefined}
+      >
+        <span class={cn(iconClass[props.toast.type], 'shrink-0')} />
+        <span class="flex-1 min-w-0 font-medium truncate">{props.toast.message}</span>
+      </button>
       <button
         onClick={() => dismiss(props.toast.id)}
         class={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'shrink-0')}

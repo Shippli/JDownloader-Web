@@ -3,11 +3,17 @@ import { createSignal } from 'solid-js';
 import { toast } from '../components/ui/Toaster';
 import { t } from '../i18n';
 
-type CaptchaEntry = { kind: 'captcha'; id: number; hoster?: string };
+export type CaptchaEntry = { kind: 'captcha'; id: number; hoster?: string };
+export type PendingOpen =
+  | { kind: 'dialog'; dialog: JdDialog }
+  | { kind: 'captcha'; entry: CaptchaEntry }
+  | { kind: 'update' }
+  | null;
 
 const [dialogs, setDialogs] = createSignal<JdDialog[]>([]);
 const [captchas, setCaptchas] = createSignal<CaptchaEntry[]>([]);
 const [updateAvailable, setUpdateAvailable] = createSignal(false);
+const [pendingOpen, setPendingOpen] = createSignal<PendingOpen>(null);
 
 let knownDialogIds = new Set<number>();
 let knownCaptchaIds = new Set<number>();
@@ -24,7 +30,11 @@ export function applyNotificationsMessage(data: {
   if (!firstFetch) {
     for (const d of dialogList) {
       if (!knownDialogIds.has(d.id)) {
-        toast.info(d.properties?.title || d.type?.split('.').pop() || t('dialogs.title'), { duration: 5000 });
+        const dialog = d;
+        toast.info(d.properties?.title || d.type?.split('.').pop() || t('dialogs.title'), {
+          duration: 5000,
+          onClick: () => setPendingOpen({ kind: 'dialog', dialog }),
+        });
       }
     }
   }
@@ -40,7 +50,11 @@ export function applyNotificationsMessage(data: {
   if (!firstFetch) {
     for (const c of captchaList) {
       if (!knownCaptchaIds.has(c.id)) {
-        toast.warning(`${t('captcha.label')}${c.hoster ? ` — ${c.hoster}` : ''}`, { duration: 5000 });
+        const entry = c;
+        toast.warning(`${t('captcha.label')}${c.hoster ? ` — ${c.hoster}` : ''}`, {
+          duration: 5000,
+          onClick: () => setPendingOpen({ kind: 'captcha', entry }),
+        });
       }
     }
   }
@@ -50,7 +64,10 @@ export function applyNotificationsMessage(data: {
   // Update available
   const available = data.updateAvailable === true;
   if (available && !updateToastShown) {
-    toast.info(t('dialogs.updateEntry'), { duration: 8000 });
+    toast.info(t('dialogs.updateEntry'), {
+      duration: 8000,
+      onClick: () => setPendingOpen({ kind: 'update' }),
+    });
     updateToastShown = true;
   }
   setUpdateAvailable(available);
@@ -62,4 +79,7 @@ export const notificationsStore = {
   dialogs,
   captchas,
   updateAvailable,
+  pendingOpen,
+  openNotification: (p: PendingOpen) => setPendingOpen(p),
+  clearPendingOpen: () => setPendingOpen(null),
 };

@@ -20,11 +20,9 @@ type Props = {
 
 type CaptchaEntry = { kind: 'captcha'; id: number; hoster?: string };
 
-export const NotificationsPanel: Component<Props> = (props) => {
-  const PANEL_ID = untrack(() => props.mobile) ? 'notifications-panel-mobile' : 'notifications-panel-desktop';
-  const dialogs = notificationsStore.dialogs;
-  const captchas = notificationsStore.captchas;
-  const updateAvailable = notificationsStore.updateAvailable;
+// ─── Modals (rendered once in AppShell) ───────────────────────────────────────
+
+export const NotificationModals: Component = () => {
   const [showUpdateModal, setShowUpdateModal] = createSignal(false);
   const [restarting, setRestarting] = createSignal(false);
   const [selectedDialog, setSelectedDialog] = createSignal<JdDialogDetail | null>(null);
@@ -33,75 +31,8 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const [archivePassword, setArchivePassword] = createSignal('');
   const [fileExistsAction, setFileExistsAction] = createSignal<'SKIP' | 'AUTO_RENAME' | 'OVERWRITE'>('SKIP');
   const [fileExistsApplyAll, setFileExistsApplyAll] = createSignal(false);
-  const [popupPos, setPopupPos] = createSignal({ bottom: 0, left: 0, width: 240 });
-
-  const isOpen = () => activePopupStore.active() === PANEL_ID;
-
-  let buttonRef: HTMLButtonElement | undefined;
-  let popupRef: HTMLDivElement | undefined;
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      activePopupStore.close(PANEL_ID);
-    }
-  };
-
-  onMount(() => {
-    document.addEventListener('keydown', onKeyDown);
-    onCleanup(() => document.removeEventListener('keydown', onKeyDown));
-  });
-
-  // Close on any click outside the popup
-  createEffect(() => {
-    if (!isOpen()) {
-      return;
-    }
-    let enabled = false;
-    const timer = setTimeout(() => {
-      enabled = true;
-    }, 0);
-    const onOutsideClick = (e: MouseEvent) => {
-      if (!enabled) {
-        return;
-      }
-      if (popupRef?.contains(e.target as Node)) {
-        return;
-      }
-      activePopupStore.close(PANEL_ID);
-    };
-    document.addEventListener('click', onOutsideClick);
-    onCleanup(() => {
-      clearTimeout(timer);
-      document.removeEventListener('click', onOutsideClick);
-    });
-  });
-
-  const count = () => dialogs().length + captchas().length + (updateAvailable() ? 1 : 0);
-
-  const restartAndUpdate = async () => {
-    setRestarting(true);
-    try {
-      await configApi.restartAndUpdate();
-    } catch { /* ignore */ }
-    setRestarting(false);
-    setShowUpdateModal(false);
-  };
-
-  const toggleDesktop = () => {
-    if (!isOpen() && buttonRef) {
-      const rect = buttonRef.getBoundingClientRect();
-      const width = props.collapsed ? 240 : rect.width;
-      setPopupPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width });
-      activePopupStore.open(PANEL_ID);
-    } else {
-      activePopupStore.closeAll();
-    }
-  };
-
-  const dialogTitle = (d: JdDialog) =>
-    d.properties?.title || d.type?.split('.').pop() || String(d.id);
 
   const openDetail = async (dialog: JdDialog) => {
-    activePopupStore.closeAll();
     try {
       const detail = await dialogsApi.get(dialog.id);
       setSelectedDialog(detail ?? { ...dialog });
@@ -111,7 +42,6 @@ export const NotificationsPanel: Component<Props> = (props) => {
   };
 
   const openCaptcha = async (entry: CaptchaEntry) => {
-    activePopupStore.closeAll();
     setCaptchaSolution('');
     try {
       const detail = await captchaApi.get(entry.id);
@@ -120,6 +50,20 @@ export const NotificationsPanel: Component<Props> = (props) => {
       setSelectedCaptcha({ id: entry.id, hoster: entry.hoster });
     }
   };
+
+  // React to pendingOpen (set by toast click or panel list click)
+  createEffect(() => {
+    const p = notificationsStore.pendingOpen();
+    if (!p) return;
+    notificationsStore.clearPendingOpen();
+    if (p.kind === 'dialog') {
+      openDetail(p.dialog);
+    } else if (p.kind === 'captcha') {
+      openCaptcha(p.entry);
+    } else if (p.kind === 'update') {
+      setShowUpdateModal(true);
+    }
+  });
 
   const closeModal = () => {
     setSelectedDialog(null);
@@ -134,9 +78,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
 
   const answerDialog = async (closereason: 'OK' | 'CANCEL', extra?: Record<string, unknown>) => {
     const d = selectedDialog();
-    if (!d) {
-      return;
-    }
+    if (!d) return;
     try {
       await dialogsApi.answer(d.id, { closereason, ...extra });
     } catch { /* ignore */ }
@@ -146,9 +88,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
 
   const submitCaptcha = async () => {
     const c = selectedCaptcha();
-    if (!c) {
-      return;
-    }
+    if (!c) return;
     try {
       await captchaApi.solve(c.id, captchaSolution());
     } catch { /* ignore */ }
@@ -158,9 +98,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
 
   const skipCaptcha = async () => {
     const c = selectedCaptcha();
-    if (!c) {
-      return;
-    }
+    if (!c) return;
     try {
       await captchaApi.solve(c.id, '');
     } catch { /* ignore */ }
@@ -168,131 +106,20 @@ export const NotificationsPanel: Component<Props> = (props) => {
     sendRefresh('notifications');
   };
 
-  const BellIcon = () => (
-    <span class="relative flex items-center justify-center w-5 h-5 shrink-0">
-      <span class="i-tabler-bell w-5 h-5" />
-      <Show when={count() > 0}>
-        <span class="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-          {count() > 9 ? '9+' : count()}
-        </span>
-      </Show>
-    </span>
-  );
+  const restartAndUpdate = async () => {
+    setRestarting(true);
+    try {
+      await configApi.restartAndUpdate();
+    } catch { /* ignore */ }
+    setRestarting(false);
+    setShowUpdateModal(false);
+  };
 
-  const isMobile = () => props.mobile;
-
-  const PopupList = () => (
-    <div class={`bg-card border overflow-hidden ${isMobile() ? 'rounded-t-xl border-b-0 shadow-[0_-8px_24px_rgba(0,0,0,0.1)]' : 'rounded-xl shadow-xl'}`}>
-      <div class={`px-4 py-3 border-b ${isMobile() ? 'text-center' : ''}`}>
-        <span class="font-semibold text-sm text-foreground">{t('dialogs.title')}</span>
-      </div>
-      <div class="max-h-72 overflow-y-auto">
-        <Show
-          when={count() > 0}
-          fallback={(
-            <p class="text-sm text-muted-foreground text-center py-6 px-4">
-              {t('dialogs.empty')}
-            </p>
-          )}
-        >
-          <Show when={updateAvailable()}>
-            <button
-              onClick={() => {
-                activePopupStore.closeAll();
-                setShowUpdateModal(true);
-              }}
-              class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
-            >
-              <span class="i-tabler-refresh-alert w-4 h-4 shrink-0 text-primary" />
-              <p class="text-sm font-medium text-foreground truncate">{t('dialogs.updateEntry')}</p>
-            </button>
-          </Show>
-          <For each={captchas()}>
-            {entry => (
-              <button
-                onClick={() => openCaptcha(entry)}
-                class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
-              >
-                <span class="i-tabler-shield-lock w-4 h-4 shrink-0 text-orange-500" />
-                <p class="text-sm font-medium text-foreground truncate">
-                  {t('captcha.label')}
-                  {entry.hoster ? ` — ${entry.hoster}` : ''}
-                </p>
-              </button>
-            )}
-          </For>
-          <For each={dialogs()}>
-            {dialog => (
-              <button
-                onClick={() => openDetail(dialog)}
-                class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
-              >
-                <span class="i-tabler-info-circle w-4 h-4 shrink-0 text-blue-500" />
-                <p class="text-sm font-medium text-foreground truncate">{dialogTitle(dialog)}</p>
-              </button>
-            )}
-          </For>
-        </Show>
-      </div>
-    </div>
-  );
+  const dialogTitle = (d: JdDialog) =>
+    d.properties?.title || d.type?.split('.').pop() || String(d.id);
 
   return (
     <>
-      <Show
-        when={props.mobile}
-        fallback={(
-          /* Desktop sidebar button */
-          <div>
-            <button
-              ref={buttonRef}
-              onClick={toggleDesktop}
-              class="flex items-center gap-3 w-full rounded-lg px-3 h-9 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              title={props.collapsed ? t('nav.notifications') : undefined}
-            >
-              <BellIcon />
-              <Show when={!props.collapsed}>
-                <span class="whitespace-nowrap">{t('nav.notifications')}</span>
-              </Show>
-            </button>
-            <Show when={isOpen()}>
-              <Portal>
-                <div
-                  ref={popupRef}
-                  class="fixed z-[210]"
-                  style={{
-                    bottom: `${popupPos().bottom}px`,
-                    left: `${popupPos().left}px`,
-                    width: `${popupPos().width}px`,
-                  }}
-                >
-                  <PopupList />
-                </div>
-              </Portal>
-            </Show>
-          </div>
-        )}
-      >
-        {/* Mobile bottom-nav button */}
-        <div class="relative flex-1">
-          <button
-            onClick={() => {
-              isOpen() ? activePopupStore.closeAll() : activePopupStore.open(PANEL_ID);
-            }}
-            ref={buttonRef}
-            title={t('nav.notifications')}
-            class="w-full flex items-center justify-center py-5 text-muted-foreground"
-          >
-            <BellIcon />
-          </button>
-          <Show when={isOpen()}>
-            <div ref={popupRef} class="fixed bottom-[61px] left-0 right-0 z-[210]">
-              <PopupList />
-            </div>
-          </Show>
-        </div>
-      </Show>
-
       {/* Dialog Detail Modal */}
       <Show when={selectedDialog()}>
         {(dialog) => {
@@ -424,7 +251,6 @@ export const NotificationsPanel: Component<Props> = (props) => {
               ? `${t('captcha.label')} — ${captcha().hoster}`
               : t('captcha.label');
 
-          // Backend wraps JD's raw "image/jpeg;base64,..." string into imageData
           const imgSrc = () => captcha().imageData ? `data:${captcha().imageData}` : null;
 
           return (
@@ -472,6 +298,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
           );
         }}
       </Show>
+
       {/* Update Modal */}
       <Show when={showUpdateModal()}>
         <Portal>
@@ -493,6 +320,192 @@ export const NotificationsPanel: Component<Props> = (props) => {
             </div>
           </Dialog>
         </Portal>
+      </Show>
+    </>
+  );
+};
+
+// ─── Panel (popup list in sidebar / mobile nav) ───────────────────────────────
+
+export const NotificationsPanel: Component<Props> = (props) => {
+  const PANEL_ID = untrack(() => props.mobile) ? 'notifications-panel-mobile' : 'notifications-panel-desktop';
+  const dialogs = notificationsStore.dialogs;
+  const captchas = notificationsStore.captchas;
+  const updateAvailable = notificationsStore.updateAvailable;
+  const [popupPos, setPopupPos] = createSignal({ bottom: 0, left: 0, width: 240 });
+
+  const isOpen = () => activePopupStore.active() === PANEL_ID;
+
+  let buttonRef: HTMLButtonElement | undefined;
+  let popupRef: HTMLDivElement | undefined;
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      activePopupStore.close(PANEL_ID);
+    }
+  };
+
+  onMount(() => {
+    document.addEventListener('keydown', onKeyDown);
+    onCleanup(() => document.removeEventListener('keydown', onKeyDown));
+  });
+
+  createEffect(() => {
+    if (!isOpen()) return;
+    let enabled = false;
+    const timer = setTimeout(() => { enabled = true; }, 0);
+    const onOutsideClick = (e: MouseEvent) => {
+      if (!enabled) return;
+      if (popupRef?.contains(e.target as Node)) return;
+      activePopupStore.close(PANEL_ID);
+    };
+    document.addEventListener('click', onOutsideClick);
+    onCleanup(() => {
+      clearTimeout(timer);
+      document.removeEventListener('click', onOutsideClick);
+    });
+  });
+
+  const count = () => dialogs().length + captchas().length + (updateAvailable() ? 1 : 0);
+
+  const toggleDesktop = () => {
+    if (!isOpen() && buttonRef) {
+      const rect = buttonRef.getBoundingClientRect();
+      const width = props.collapsed ? 240 : rect.width;
+      setPopupPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width });
+      activePopupStore.open(PANEL_ID);
+    } else {
+      activePopupStore.closeAll();
+    }
+  };
+
+  const dialogTitle = (d: JdDialog) =>
+    d.properties?.title || d.type?.split('.').pop() || String(d.id);
+
+  const openItem = (item: { kind: 'dialog'; dialog: JdDialog } | { kind: 'captcha'; entry: CaptchaEntry } | { kind: 'update' }) => {
+    activePopupStore.closeAll();
+    notificationsStore.openNotification(item);
+  };
+
+  const BellIcon = () => (
+    <span class="relative flex items-center justify-center w-5 h-5 shrink-0">
+      <span class="i-tabler-bell w-5 h-5" />
+      <Show when={count() > 0}>
+        <span class="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+          {count() > 9 ? '9+' : count()}
+        </span>
+      </Show>
+    </span>
+  );
+
+  const isMobile = () => props.mobile;
+
+  const PopupList = () => (
+    <div class={`bg-card border overflow-hidden ${isMobile() ? 'rounded-t-xl border-b-0 shadow-[0_-8px_24px_rgba(0,0,0,0.1)]' : 'rounded-xl shadow-xl'}`}>
+      <div class={`px-4 py-3 border-b ${isMobile() ? 'text-center' : ''}`}>
+        <span class="font-semibold text-sm text-foreground">{t('dialogs.title')}</span>
+      </div>
+      <div class="max-h-72 overflow-y-auto">
+        <Show
+          when={count() > 0}
+          fallback={(
+            <p class="text-sm text-muted-foreground text-center py-6 px-4">
+              {t('dialogs.empty')}
+            </p>
+          )}
+        >
+          <Show when={updateAvailable()}>
+            <button
+              onClick={() => openItem({ kind: 'update' })}
+              class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
+            >
+              <span class="i-tabler-refresh-alert w-4 h-4 shrink-0 text-primary" />
+              <p class="text-sm font-medium text-foreground truncate">{t('dialogs.updateEntry')}</p>
+            </button>
+          </Show>
+          <For each={captchas()}>
+            {entry => (
+              <button
+                onClick={() => openItem({ kind: 'captcha', entry })}
+                class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
+              >
+                <span class="i-tabler-shield-lock w-4 h-4 shrink-0 text-orange-500" />
+                <p class="text-sm font-medium text-foreground truncate">
+                  {t('captcha.label')}
+                  {entry.hoster ? ` — ${entry.hoster}` : ''}
+                </p>
+              </button>
+            )}
+          </For>
+          <For each={dialogs()}>
+            {dialog => (
+              <button
+                onClick={() => openItem({ kind: 'dialog', dialog })}
+                class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
+              >
+                <span class="i-tabler-info-circle w-4 h-4 shrink-0 text-blue-500" />
+                <p class="text-sm font-medium text-foreground truncate">{dialogTitle(dialog)}</p>
+              </button>
+            )}
+          </For>
+        </Show>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <Show
+        when={props.mobile}
+        fallback={(
+          /* Desktop sidebar button */
+          <div>
+            <button
+              ref={buttonRef}
+              onClick={toggleDesktop}
+              class="flex items-center gap-3 w-full rounded-lg px-3 h-9 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              title={props.collapsed ? t('nav.notifications') : undefined}
+            >
+              <BellIcon />
+              <Show when={!props.collapsed}>
+                <span class="whitespace-nowrap">{t('nav.notifications')}</span>
+              </Show>
+            </button>
+            <Show when={isOpen()}>
+              <Portal>
+                <div
+                  ref={popupRef}
+                  class="fixed z-[210]"
+                  style={{
+                    bottom: `${popupPos().bottom}px`,
+                    left: `${popupPos().left}px`,
+                    width: `${popupPos().width}px`,
+                  }}
+                >
+                  <PopupList />
+                </div>
+              </Portal>
+            </Show>
+          </div>
+        )}
+      >
+        {/* Mobile bottom-nav button */}
+        <div class="relative flex-1">
+          <button
+            onClick={() => {
+              isOpen() ? activePopupStore.closeAll() : activePopupStore.open(PANEL_ID);
+            }}
+            ref={buttonRef}
+            title={t('nav.notifications')}
+            class="w-full flex items-center justify-center py-5 text-muted-foreground"
+          >
+            <BellIcon />
+          </button>
+          <Show when={isOpen()}>
+            <div ref={popupRef} class="fixed bottom-[61px] left-0 right-0 z-[210]">
+              <PopupList />
+            </div>
+          </Show>
+        </div>
       </Show>
     </>
   );
