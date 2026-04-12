@@ -1,3 +1,4 @@
+// @unocss-include
 import { t } from './i18n';
 
 export type NavItem = {
