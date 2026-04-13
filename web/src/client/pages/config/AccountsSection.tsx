@@ -17,7 +17,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { Switch } from '../../components/ui/Switch';
 import { TextField } from '../../components/ui/TextField';
-import { language, t } from '../../i18n';
+import { language, t, tf } from '../../i18n';
 import { configApi, formatBytes } from '../../lib/api';
 
 const AccountsSection: Component = () => {
@@ -74,6 +74,8 @@ const AccountsSection: Component = () => {
   onMount(() => document.addEventListener('keydown', onKeyDown));
   onCleanup(() => document.removeEventListener('keydown', onKeyDown));
 
+  const [confirmDeleteAcc, setConfirmDeleteAcc] = createSignal<JdAccount | null>(null);
+
   // Change-Credentials dialog
   const [credAccId, setCredAccId] = createSignal<number | null>(null);
   const [credUser, setCredUser] = createSignal('');
@@ -119,8 +121,11 @@ const AccountsSection: Component = () => {
       setBusy(null);
     });
 
-  const deleteAccount = (acc: JdAccount) =>
+  const deleteAccount = () =>
     withError(async () => {
+      const acc = confirmDeleteAcc();
+      if (!acc) return;
+      setConfirmDeleteAcc(null);
       await configApi.deleteAccount(acc.uuid);
       refetch();
     });
@@ -290,7 +295,7 @@ const AccountsSection: Component = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => deleteAccount(acc)}
+                    onClick={() => setConfirmDeleteAcc(acc)}
                     class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                     title={t('config.accounts.btnDelete')}
                   >
@@ -384,6 +389,16 @@ const AccountsSection: Component = () => {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      <Dialog open={confirmDeleteAcc() !== null} onClose={() => setConfirmDeleteAcc(null)} title={t('config.accounts.btnDelete')}>
+        <div class="px-6 py-4 space-y-4">
+          <p class="text-sm text-foreground">{tf('config.accounts.confirmDelete', confirmDeleteAcc()?.username ?? '', confirmDeleteAcc()?.hostname ?? '')}</p>
+          <div class="flex items-center gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setConfirmDeleteAcc(null)}>{t('config.accounts.addModal.cancel')}</Button>
+            <Button variant="danger" onClick={deleteAccount}>{t('config.accounts.btnDelete')}</Button>
+          </div>
+        </div>
       </Dialog>
 
       <Dialog open={credAccId() !== null} onClose={() => setCredAccId(null)} title={t('config.accounts.credsModal.title')}>

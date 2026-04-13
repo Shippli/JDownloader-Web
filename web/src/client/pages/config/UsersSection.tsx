@@ -12,7 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { TextField } from '../../components/ui/TextField';
-import { language, t } from '../../i18n';
+import { language, t, tf } from '../../i18n';
 import { userApi } from '../../lib/api';
 import { authStore } from '../../stores/auth';
 
@@ -31,6 +31,8 @@ const UsersSection: Component = () => {
   const [newPassword, setNewPassword] = createSignal('');
   const [addError, setAddError] = createSignal('');
   const [adding, setAdding] = createSignal(false);
+
+  const [confirmDeleteUser, setConfirmDeleteUser] = createSignal<UserRecord | null>(null);
 
   const currentUserId = () => authStore.user()?.id;
 
@@ -67,7 +69,10 @@ const UsersSection: Component = () => {
     }
   };
 
-  const deleteUser = async (u: UserRecord) => {
+  const deleteUser = async () => {
+    const u = confirmDeleteUser();
+    if (!u) return;
+    setConfirmDeleteUser(null);
     setError('');
     try {
       await userApi.delete(u.id);
@@ -167,6 +172,16 @@ const UsersSection: Component = () => {
         <SkeletonList rows={3} />
       </Show>
 
+      <Dialog open={confirmDeleteUser() !== null} onClose={() => setConfirmDeleteUser(null)} title={t('config.users.btnDelete')}>
+        <div class="px-6 py-4 space-y-4">
+          <p class="text-sm text-foreground">{tf('config.users.confirmDelete', confirmDeleteUser()?.name ?? '')}</p>
+          <div class="flex items-center gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setConfirmDeleteUser(null)}>{t('config.users.cancel')}</Button>
+            <Button variant="danger" onClick={deleteUser}>{t('config.users.btnDelete')}</Button>
+          </div>
+        </div>
+      </Dialog>
+
       <Show when={!users.loading}>
         <div class="card overflow-hidden">
           <For each={users()}>
@@ -200,7 +215,7 @@ const UsersSection: Component = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => deleteUser(u)}
+                            onClick={() => setConfirmDeleteUser(u)}
                             disabled={isSelf()}
                             class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30 disabled:cursor-not-allowed"
                             title={isSelf() ? t('config.users.btnCannotDelete') : t('config.users.btnDelete')}
