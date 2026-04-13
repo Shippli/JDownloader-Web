@@ -54,7 +54,9 @@ export const NotificationModals: Component = () => {
   // React to pendingOpen (set by toast click or panel list click)
   createEffect(() => {
     const p = notificationsStore.pendingOpen();
-    if (!p) return;
+    if (!p) {
+      return;
+    }
     notificationsStore.clearPendingOpen();
     if (p.kind === 'dialog') {
       openDetail(p.dialog);
@@ -78,7 +80,9 @@ export const NotificationModals: Component = () => {
 
   const answerDialog = async (closereason: 'OK' | 'CANCEL', extra?: Record<string, unknown>) => {
     const d = selectedDialog();
-    if (!d) return;
+    if (!d) {
+      return;
+    }
     try {
       await dialogsApi.answer(d.id, { closereason, ...extra });
     } catch { /* ignore */ }
@@ -88,7 +92,9 @@ export const NotificationModals: Component = () => {
 
   const submitCaptcha = async () => {
     const c = selectedCaptcha();
-    if (!c) return;
+    if (!c) {
+      return;
+    }
     try {
       await captchaApi.solve(c.id, captchaSolution());
     } catch { /* ignore */ }
@@ -98,7 +104,9 @@ export const NotificationModals: Component = () => {
 
   const skipCaptcha = async () => {
     const c = selectedCaptcha();
-    if (!c) return;
+    if (!c) {
+      return;
+    }
     try {
       await captchaApi.solve(c.id, '');
     } catch { /* ignore */ }
@@ -350,12 +358,20 @@ export const NotificationsPanel: Component<Props> = (props) => {
   });
 
   createEffect(() => {
-    if (!isOpen()) return;
+    if (!isOpen()) {
+      return;
+    }
     let enabled = false;
-    const timer = setTimeout(() => { enabled = true; }, 0);
+    const timer = setTimeout(() => {
+      enabled = true;
+    }, 0);
     const onOutsideClick = (e: MouseEvent) => {
-      if (!enabled) return;
-      if (popupRef?.contains(e.target as Node)) return;
+      if (!enabled) {
+        return;
+      }
+      if (popupRef?.contains(e.target as Node)) {
+        return;
+      }
       activePopupStore.close(PANEL_ID);
     };
     document.addEventListener('click', onOutsideClick);

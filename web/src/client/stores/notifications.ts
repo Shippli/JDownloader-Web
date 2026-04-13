@@ -4,11 +4,11 @@ import { toast } from '../components/ui/Toaster';
 import { t } from '../i18n';
 
 export type CaptchaEntry = { kind: 'captcha'; id: number; hoster?: string };
-export type PendingOpen =
-  | { kind: 'dialog'; dialog: JdDialog }
-  | { kind: 'captcha'; entry: CaptchaEntry }
-  | { kind: 'update' }
-  | null;
+export type PendingOpen
+  = | { kind: 'dialog'; dialog: JdDialog }
+    | { kind: 'captcha'; entry: CaptchaEntry }
+    | { kind: 'update' }
+    | null;
 
 const [dialogs, setDialogs] = createSignal<JdDialog[]>([]);
 const [captchas, setCaptchas] = createSignal<CaptchaEntry[]>([]);
