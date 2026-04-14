@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "__MSG_extName__",
   "short_name": "__MSG_extShortName__",
-  "version": "26.4.0",
+  "version": "26.4.1",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "homepage_url": "https://github.com/Shippli/JDownloader-Web",
@@ -34,11 +34,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "jdownloader-web@local",
-      "strict_min_version": "115.0",
-      "data_collection_permissions": {
-        "required": [],
-        "optional": []
-      }
+      "strict_min_version": "115.0"
     }
   }
 }
