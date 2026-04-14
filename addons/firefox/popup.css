@@ -12,6 +12,14 @@ body {
   background: #f8fafc;
 }
 
+@media (pointer: coarse) {
+  body {
+    width: 100vw;
+    min-height: 100dvh;
+    font-size: 15px;
+  }
+}
+
 /* ─── Header ─────────────────────────────────────────────────────────────── */
 
 .header {
