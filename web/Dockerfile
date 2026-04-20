@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM oven/bun:slim AS builder
+FROM oven/bun:alpine AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY . .
 RUN bun run build
 
 # Stage 2: Production runtime
-FROM oven/bun:slim AS runner
+FROM oven/bun:alpine AS runner
 
 WORKDIR /app
 
