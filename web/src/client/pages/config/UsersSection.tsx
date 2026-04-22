@@ -71,7 +71,9 @@ const UsersSection: Component = () => {
 
   const deleteUser = async () => {
     const u = confirmDeleteUser();
-    if (!u) return;
+    if (!u) {
+      return;
+    }
     setConfirmDeleteUser(null);
     setError('');
     try {
@@ -250,7 +252,7 @@ const UsersSection: Component = () => {
                           class="sm:col-span-2"
                         />
                       </div>
-                      <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-2 justify-end">
                         <Button variant="default" onClick={() => saveEdit(u.id)} disabled={saving()}>
                           <Show when={saving()} fallback={<span class="i-tabler-check w-4 h-4" />}>
                             <span class="i-tabler-loader-2 animate-spin w-4 h-4" />

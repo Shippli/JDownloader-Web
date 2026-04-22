@@ -169,7 +169,7 @@ const InfoSection: Component = () => {
           <Show when={rowError()}>
             <p class="text-xs text-red-500">{rowError()}</p>
           </Show>
-          <div class="flex gap-2">
+          <div class="flex gap-2 justify-end">
             <Button type="submit" variant="default" disabled={dlSaving()}>
               <Show when={dlSaving()} fallback={<span class="i-tabler-check w-4 h-4" />}>
                 <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
@@ -251,7 +251,7 @@ const InfoSection: Component = () => {
                     <NumberField label={t('config.info.port')} value={Number(connPort())} onChange={v => setConnPort(String(v))} required minValue={1} maxValue={65535} placeholder="3128" />
                   </div>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 justify-end">
                   <Button type="submit" variant="default" disabled={connSaving()}>
                     <Show when={connSaving()} fallback={<span class="i-tabler-check w-4 h-4" />}>
                       <span class="i-tabler-loader-2 animate-spin w-4 h-4" />

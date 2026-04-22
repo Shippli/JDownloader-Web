@@ -124,7 +124,9 @@ const AccountsSection: Component = () => {
   const deleteAccount = () =>
     withError(async () => {
       const acc = confirmDeleteAcc();
-      if (!acc) return;
+      if (!acc) {
+        return;
+      }
       setConfirmDeleteAcc(null);
       await configApi.deleteAccount(acc.uuid);
       refetch();
@@ -417,15 +419,15 @@ const AccountsSection: Component = () => {
             onChange={setCredPass}
             inputProps={{ required: true }}
           />
-          <div class="flex gap-2 pt-2">
-            <Button type="submit" variant="default" disabled={credSaving()} class="flex-1">
+          <div class="flex items-center gap-2 justify-end">
+            <Button type="button" variant="secondary" onClick={() => setCredAccId(null)}>
+              {t('config.accounts.credsModal.cancel')}
+            </Button>
+            <Button type="submit" variant="default" disabled={credSaving()}>
               <Show when={credSaving()} fallback={<span class="i-tabler-check w-4 h-4" />}>
                 <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
               </Show>
               {t('config.accounts.credsModal.save')}
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => setCredAccId(null)}>
-              {t('config.accounts.credsModal.cancel')}
             </Button>
           </div>
         </form>

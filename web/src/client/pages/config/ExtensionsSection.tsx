@@ -320,7 +320,7 @@ const ExtensionsSection: Component = () => {
                                       label={t('config.settings.enabled')}
                                     />
                                   </Show>
-                                  <div class="flex items-center gap-2 flex-wrap">
+                                  <div class="flex items-center gap-2 flex-wrap justify-end">
                                     <Button variant="default" onClick={() => saveEdit(entry)} disabled={saving()}>
                                       <Show when={saving()} fallback={<span class="i-tabler-check w-4 h-4" />}>
                                         <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
