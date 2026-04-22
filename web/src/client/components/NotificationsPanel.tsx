@@ -311,20 +311,22 @@ export const NotificationModals: Component = () => {
       <Show when={showUpdateModal()}>
         <Portal>
           <Dialog open={true} onClose={() => setShowUpdateModal(false)} title={t('dialogs.updateModalTitle')}>
-            <div class="px-6 py-4 flex items-start gap-3">
-              <span class="i-tabler-refresh-alert w-6 h-6 text-primary shrink-0 mt-0.5" />
-              <p class="text-sm text-foreground">{t('dialogs.updateModalDesc')}</p>
-            </div>
-            <div class="px-6 py-4 border-t flex gap-2 justify-end">
-              <Button variant="secondary" onClick={() => setShowUpdateModal(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button variant="default" onClick={restartAndUpdate} disabled={restarting()}>
-                <Show when={restarting()} fallback={<span class="i-tabler-refresh-dot w-4 h-4" />}>
-                  <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
-                </Show>
-                {t('config.system.restartAndUpdate')}
-              </Button>
+            <div class="px-6 py-4 space-y-4">
+              <div class="flex items-start gap-3">
+                <span class="i-tabler-refresh-alert w-6 h-6 text-primary shrink-0 mt-0.5" />
+                <p class="text-sm text-foreground">{t('dialogs.updateModalDesc')}</p>
+              </div>
+              <div class="flex gap-2 justify-end">
+                <Button variant="secondary" onClick={() => setShowUpdateModal(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button variant="default" onClick={restartAndUpdate} disabled={restarting()}>
+                  <Show when={restarting()} fallback={<span class="i-tabler-refresh-dot w-4 h-4" />}>
+                    <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
+                  </Show>
+                  {t('config.system.restartAndUpdate')}
+                </Button>
+              </div>
             </div>
           </Dialog>
         </Portal>

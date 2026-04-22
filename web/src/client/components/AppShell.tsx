@@ -1,6 +1,7 @@
 import type { Component, JSX } from 'solid-js';
-import { createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import { createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { connectionStore } from '../stores/connection';
+import { NotificationModals } from './NotificationsPanel';
 import { SetupModal } from './SetupModal';
 import { MobileNav } from './ui/MobileNav';
 import { SideNav } from './ui/SideNav';
@@ -24,7 +25,7 @@ export function syncSidebarWidth() {
   });
 }
 
-export const AppShell: Component<{ children: JSX.Element }> = (props) => {
+export const AppShell: Component<{ children: JSX.Element; layout?: 'default' | 'full' }> = (props) => {
   syncSidebarWidth();
   onMount(() => {
     connectionStore.check();
@@ -43,12 +44,24 @@ export const AppShell: Component<{ children: JSX.Element }> = (props) => {
   return (
     <>
       <SetupModal />
+      <NotificationModals />
       <div class="min-h-screen bg-background flex">
         <SideNav />
-        <main class="flex-1 overflow-auto">
-          <div class="max-w-5xl mx-auto p-4 md:p-8 pb-24 md:pb-8">
-            {props.children}
-          </div>
+        <main class="flex-1 overflow-hidden">
+          <Show
+            when={props.layout === 'full'}
+            fallback={(
+              <div class="h-full overflow-auto">
+                <div class="max-w-5xl mx-auto p-4 md:p-8 pb-24 md:pb-8">
+                  {props.children}
+                </div>
+              </div>
+            )}
+          >
+            <div class="h-screen flex flex-col">
+              {props.children}
+            </div>
+          </Show>
         </main>
         <MobileNav />
       </div>
