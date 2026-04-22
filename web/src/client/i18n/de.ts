@@ -53,6 +53,8 @@ const de = {
     loading: 'Lädt…',
     selectAll: 'Alle wählen',
     selected: 'ausgewählt',
+    sortNewestFirst: 'Neueste zuerst',
+    sortOldestFirst: 'Älteste zuerst',
     priority: {
       label: 'Priorität',
       highest: 'Höchste',

@@ -23,6 +23,13 @@ import { sendRefresh, wsConnected, wsGrabber } from '../stores/ws';
 const Grabber: Component = () => {
   const packages = () => wsGrabber()?.packages ?? ((getCached('grabber.packages') as GrabberPackage[] | undefined) ?? []);
   const links = () => wsGrabber()?.links ?? ((getCached('grabber.links') as GrabberLink[] | undefined) ?? []);
+  const [sortDesc, setSortDesc] = createSignal(localStorage.getItem('grabber.sortDesc') === '1');
+  const sortedPackages = () => sortDesc() ? [...packages()].reverse() : packages();
+  const toggleSort = () => {
+    const next = !sortDesc();
+    setSortDesc(next);
+    localStorage.setItem('grabber.sortDesc', next ? '1' : '0');
+  };
   const [loading, setLoading] = createSignal(getCached('grabber.packages') == null);
   const [error, setError] = createSignal('');
   const [showAddDialog, setShowAddDialog] = createSignal(false);
@@ -353,7 +360,7 @@ const Grabber: Component = () => {
   };
 
   const togglePkgSelect = (uuid: number, shiftKey: boolean) => {
-    const pkgList = packages();
+    const pkgList = sortedPackages();
     const currentIndex = pkgList.findIndex(p => p.uuid === uuid);
 
     if (shiftKey && lastPkgClicked() !== null) {
@@ -516,6 +523,11 @@ const Grabber: Component = () => {
           <Show when={!hasSelection() && packages().length > 0}>
             <Button variant="ghost" onClick={selectAll} class="text-sm">{t('common.selectAll')}</Button>
           </Show>
+          <Show when={packages().length > 0}>
+            <Button variant="ghost" size="icon" onClick={toggleSort} title={sortDesc() ? t('common.sortOldestFirst') : t('common.sortNewestFirst')}>
+              <span class={`${sortDesc() ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'} w-4 h-4`} />
+            </Button>
+          </Show>
         </div>
       </div>
 
@@ -548,7 +560,7 @@ const Grabber: Component = () => {
         when={compactViewStore.enabled()}
         fallback={(
           <div class="flex flex-col gap-3">
-            <For each={packages()}>
+            <For each={sortedPackages()}>
               {(pkg) => {
                 const pkgLinks = () => getPackageLinks(pkg.uuid);
                 const isExpanded = () => expandedPkgs().has(pkg.uuid);
@@ -724,7 +736,7 @@ const Grabber: Component = () => {
       >
         {/* Compact list */}
         <div class="card overflow-hidden">
-          <For each={packages()}>
+          <For each={sortedPackages()}>
             {(pkg) => {
               const pkgLinks = () => getPackageLinks(pkg.uuid);
               const isSelected = () => selectedPkgs().has(pkg.uuid);

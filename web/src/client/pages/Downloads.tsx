@@ -23,6 +23,13 @@ import { sendRefresh, wsConnected, wsDownloads } from '../stores/ws';
 const Downloads: Component = () => {
   const packages = () => wsDownloads()?.packages ?? ((getCached('dl.packages') as DownloadPackage[] | undefined) ?? []);
   const links = () => wsDownloads()?.links ?? ((getCached('dl.links') as DownloadLink[] | undefined) ?? []);
+  const [sortDesc, setSortDesc] = createSignal(localStorage.getItem('dl.sortDesc') === '1');
+  const sortedPackages = () => sortDesc() ? [...packages()].reverse() : packages();
+  const toggleSort = () => {
+    const next = !sortDesc();
+    setSortDesc(next);
+    localStorage.setItem('dl.sortDesc', next ? '1' : '0');
+  };
   const state = () => wsDownloads()?.state ?? ((getCached('dl.state') as string | undefined) ?? 'IDLE');
   const speed = () => wsDownloads()?.speed ?? ((getCached('dl.speed') as number | undefined) ?? 0);
   const [loading, setLoading] = createSignal(getCached('dl.packages') == null);
@@ -290,7 +297,7 @@ const Downloads: Component = () => {
   };
 
   const togglePkgSelect = (uuid: number, shiftKey: boolean) => {
-    const pkgList = packages();
+    const pkgList = sortedPackages();
     const currentIndex = pkgList.findIndex(p => p.uuid === uuid);
 
     if (shiftKey && lastPkgClicked() !== null) {
@@ -639,6 +646,11 @@ const Downloads: Component = () => {
           <Show when={!hasSelection() && packages().length > 0}>
             <Button variant="ghost" onClick={selectAll} class="text-sm">{t('common.selectAll')}</Button>
           </Show>
+          <Show when={packages().length > 0}>
+            <Button variant="ghost" size="icon" onClick={toggleSort} title={sortDesc() ? t('common.sortOldestFirst') : t('common.sortNewestFirst')}>
+              <span class={`${sortDesc() ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'} w-4 h-4`} />
+            </Button>
+          </Show>
         </div>
       </div>
 
@@ -671,7 +683,7 @@ const Downloads: Component = () => {
         when={compactViewStore.enabled()}
         fallback={(
           <div class="flex flex-col gap-3">
-            <For each={packages()}>
+            <For each={sortedPackages()}>
               {(pkg) => {
                 const pkgLinks = () => getPackageLinks(pkg.uuid);
                 const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
@@ -879,7 +891,7 @@ const Downloads: Component = () => {
       >
         {/* Compact list */}
         <div class="card overflow-hidden">
-          <For each={packages()}>
+          <For each={sortedPackages()}>
             {(pkg, index) => {
               const pkgLinks = () => getPackageLinks(pkg.uuid);
               const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);

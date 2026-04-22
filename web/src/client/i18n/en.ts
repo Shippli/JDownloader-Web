@@ -53,6 +53,8 @@ const en = {
     loading: 'Loading…',
     selectAll: 'Select all',
     selected: 'selected',
+    sortNewestFirst: 'Newest first',
+    sortOldestFirst: 'Oldest first',
     priority: {
       label: 'Priority',
       highest: 'Highest',
