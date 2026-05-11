@@ -1,7 +1,7 @@
 {
   "name": "jdownloader-web",
   "type": "module",
-  "version": "26.3.2",
+  "version": "26.5.0",
   "private": true,
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"bun run dev:server\" \"bun run dev:client\"",
