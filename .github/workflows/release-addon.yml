@@ -63,7 +63,7 @@ jobs:
 
       - name: Build addon zip
         id: build
-        uses: kewisch/action-web-ext@v1
+        uses: kewisch/action-web-ext@v2
         with:
           cmd: build
           source: addons/firefox
@@ -71,7 +71,7 @@ jobs:
 
       - name: Sign and submit to Firefox Add-ons (AMO)
         id: sign
-        uses: kewisch/action-web-ext@v1
+        uses: kewisch/action-web-ext@v2
         with:
           cmd: sign
           source: ${{ steps.build.outputs.target }}
