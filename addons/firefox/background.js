@@ -136,6 +136,7 @@ async function decryptCnl(crypted, jkScript) {
 // ─── Offline Queue ────────────────────────────────────────────────────────────
 
 const QUEUE_KEY = 'cnlQueue';
+const pendingOfflineNotifIds = [];
 
 async function loadQueue() {
   const data = await browser.storage.local.get(QUEUE_KEY);
@@ -157,12 +158,15 @@ async function addToQueue(links, packageName, extractPassword) {
   });
   await saveQueue(queue);
   await updateBadge();
-  showNotification(
-    config.autoSend ? browser.i18n.getMessage('notifOfflineTitle') : 'JDownloader',
-    config.autoSend
-      ? (queue.length === 1 ? browser.i18n.getMessage('notifOfflineAutoSend1') : browser.i18n.getMessage('notifOfflineAutoSendN', String(queue.length)))
-      : browser.i18n.getMessage('notifOfflineManual')
-  );
+  if (config.autoSend) {
+    const id = await showNotification(
+      browser.i18n.getMessage('notifOfflineTitle'),
+      queue.length === 1 ? browser.i18n.getMessage('notifOfflineAutoSend1') : browser.i18n.getMessage('notifOfflineAutoSendN', String(queue.length))
+    );
+    if (id) pendingOfflineNotifIds.push(id);
+  } else {
+    showNotification('JDownloader', browser.i18n.getMessage('notifOfflineManual'));
+  }
 }
 
 // Sends one item directly (throws on network error / auth error)
@@ -224,6 +228,9 @@ async function flushQueue() {
       queue = queue.filter(i => !sent.includes(i.id));
       await saveQueue(queue);
       await updateBadge();
+      for (const id of pendingOfflineNotifIds.splice(0)) {
+        browser.notifications.clear(id).catch(() => {});
+      }
       showNotification(
         'JDownloader',
         sent.length === 1 ? browser.i18n.getMessage('notifQueueFlushed1') : browser.i18n.getMessage('notifQueueFlushedN', String(sent.length))
@@ -270,9 +277,9 @@ async function sendToBackend(links, packageName, extractPassword) {
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 function showNotification(title, message) {
-  browser.notifications.create({
-    type:     'basic',
-    iconUrl:  'icons/icon48.png',
+  return browser.notifications.create({
+    type:    'basic',
+    iconUrl: 'icons/icon48.png',
     title,
     message,
   }).catch(() => {});
