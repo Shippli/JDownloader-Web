@@ -101,7 +101,7 @@ async function refreshQueueUI(inOfflineView = false) {
   const items = await browser.runtime.sendMessage({ type: 'getQueue' }).catch(() => []);
   if (inOfflineView) {
     if (items.length > 0) {
-      offlineQueueText.textContent = t('queueSaved', String(items.length));
+      offlineQueueText.textContent = items.length === 1 ? t('queueSaved1') : t('queueSavedN', String(items.length));
       renderQueueItems(items, offlineQueueList, true);
       offlineQueueInfo.classList.remove('hidden');
     } else {
@@ -109,7 +109,7 @@ async function refreshQueueUI(inOfflineView = false) {
     }
   } else {
     if (items.length > 0) {
-      queueText.textContent = t('queueWaiting', String(items.length));
+      queueText.textContent = items.length === 1 ? t('queueWaiting1') : t('queueWaitingN', String(items.length));
       renderQueueItems(items, queueList, false);
       queueInfo.classList.remove('hidden');
     } else {

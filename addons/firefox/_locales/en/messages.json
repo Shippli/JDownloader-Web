@@ -39,14 +39,10 @@
   },
 
   "queueItemNoName":       { "message": "(no name)" },
-  "queueWaiting":          {
-    "message": "$COUNT$ package(s) waiting",
-    "placeholders": { "count": { "content": "$1" } }
-  },
-  "queueSaved":            {
-    "message": "$COUNT$ package(s) saved",
-    "placeholders": { "count": { "content": "$1" } }
-  },
+  "queueWaiting1":         { "message": "Package waiting" },
+  "queueWaitingN":         { "message": "$COUNT$ packages waiting", "placeholders": { "count": { "content": "$1" } } },
+  "queueSaved1":           { "message": "Package saved" },
+  "queueSavedN":           { "message": "$COUNT$ packages saved", "placeholders": { "count": { "content": "$1" } } },
   "queueItemSendTitle":    { "message": "Send to JDownloader" },
   "queueItemDeleteTitle":  { "message": "Delete" },
   "linkCount1":            { "message": "1 link" },
@@ -56,20 +52,14 @@
   },
 
   "notifOfflineTitle":     { "message": "JDownloader – Offline" },
-  "notifOfflineAutoSend":  {
-    "message": "$COUNT$ package(s) saved – will be sent once the server is reachable.",
-    "placeholders": { "count": { "content": "$1" } }
-  },
+  "notifOfflineAutoSend1": { "message": "Package saved – will be sent once the server is reachable." },
+  "notifOfflineAutoSendN": { "message": "$COUNT$ packages saved – will be sent once the server is reachable.", "placeholders": { "count": { "content": "$1" } } },
   "notifOfflineManual":    { "message": "Package saved – can be sent manually from the popup." },
   "notifSessionExpired":   { "message": "Session expired – please sign in again." },
-  "notifQueueFlushed":     {
-    "message": "$COUNT$ queued package(s) sent successfully.",
-    "placeholders": { "count": { "content": "$1" } }
-  },
-  "notifLinksAdded":       {
-    "message": "$COUNT$ link(s) added to JDownloader.",
-    "placeholders": { "count": { "content": "$1" } }
-  },
+  "notifQueueFlushed1":    { "message": "Queued package sent successfully." },
+  "notifQueueFlushedN":    { "message": "$COUNT$ queued packages sent successfully.", "placeholders": { "count": { "content": "$1" } } },
+  "notifLinksAdded1":      { "message": "Link added to JDownloader." },
+  "notifLinksAddedN":      { "message": "$COUNT$ links added to JDownloader.", "placeholders": { "count": { "content": "$1" } } },
   "notifCnlError":         { "message": "JDownloader – CNL Error" },
   "errorUnknownJkFormat":  {
     "message": "Unknown jk format (no hex key found): $DETAILS$",

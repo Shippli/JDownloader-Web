@@ -39,14 +39,10 @@
   },
 
   "queueItemNoName":       { "message": "(kein Name)" },
-  "queueWaiting":          {
-    "message": "$COUNT$ Paket(e) warten",
-    "placeholders": { "count": { "content": "$1" } }
-  },
-  "queueSaved":            {
-    "message": "$COUNT$ Paket(e) gespeichert",
-    "placeholders": { "count": { "content": "$1" } }
-  },
+  "queueWaiting1":         { "message": "Paket wartet" },
+  "queueWaitingN":         { "message": "$COUNT$ Pakete warten", "placeholders": { "count": { "content": "$1" } } },
+  "queueSaved1":           { "message": "Paket gespeichert" },
+  "queueSavedN":           { "message": "$COUNT$ Pakete gespeichert", "placeholders": { "count": { "content": "$1" } } },
   "queueItemSendTitle":    { "message": "An JDownloader senden" },
   "queueItemDeleteTitle":  { "message": "Löschen" },
   "linkCount1":            { "message": "1 Link" },
@@ -56,20 +52,14 @@
   },
 
   "notifOfflineTitle":     { "message": "JDownloader – Offline" },
-  "notifOfflineAutoSend":  {
-    "message": "$COUNT$ Paket(e) gespeichert – werden gesendet sobald der Server erreichbar ist.",
-    "placeholders": { "count": { "content": "$1" } }
-  },
+  "notifOfflineAutoSend1": { "message": "Paket gespeichert – wird gesendet sobald der Server erreichbar ist." },
+  "notifOfflineAutoSendN": { "message": "$COUNT$ Pakete gespeichert – werden gesendet sobald der Server erreichbar ist.", "placeholders": { "count": { "content": "$1" } } },
   "notifOfflineManual":    { "message": "Paket gespeichert – kann im Popup manuell gesendet werden." },
   "notifSessionExpired":   { "message": "Sitzung abgelaufen – bitte erneut anmelden." },
-  "notifQueueFlushed":     {
-    "message": "$COUNT$ zwischengespeicherte(s) Paket(e) erfolgreich gesendet.",
-    "placeholders": { "count": { "content": "$1" } }
-  },
-  "notifLinksAdded":       {
-    "message": "$COUNT$ Link(s) zu JDownloader hinzugefügt.",
-    "placeholders": { "count": { "content": "$1" } }
-  },
+  "notifQueueFlushed1":    { "message": "Zwischengespeichertes Paket erfolgreich gesendet." },
+  "notifQueueFlushedN":    { "message": "$COUNT$ zwischengespeicherte Pakete erfolgreich gesendet.", "placeholders": { "count": { "content": "$1" } } },
+  "notifLinksAdded1":      { "message": "Link zu JDownloader hinzugefügt." },
+  "notifLinksAddedN":      { "message": "$COUNT$ Links zu JDownloader hinzugefügt.", "placeholders": { "count": { "content": "$1" } } },
   "notifCnlError":         { "message": "JDownloader – CNL Fehler" },
   "errorUnknownJkFormat":  {
     "message": "Unbekanntes jk-Format (kein Hexschlüssel gefunden): $DETAILS$",

@@ -160,7 +160,7 @@ async function addToQueue(links, packageName, extractPassword) {
   showNotification(
     config.autoSend ? browser.i18n.getMessage('notifOfflineTitle') : 'JDownloader',
     config.autoSend
-      ? browser.i18n.getMessage('notifOfflineAutoSend', String(queue.length))
+      ? (queue.length === 1 ? browser.i18n.getMessage('notifOfflineAutoSend1') : browser.i18n.getMessage('notifOfflineAutoSendN', String(queue.length)))
       : browser.i18n.getMessage('notifOfflineManual')
   );
 }
@@ -226,7 +226,7 @@ async function flushQueue() {
       await updateBadge();
       showNotification(
         'JDownloader',
-        browser.i18n.getMessage('notifQueueFlushed', String(sent.length))
+        sent.length === 1 ? browser.i18n.getMessage('notifQueueFlushed1') : browser.i18n.getMessage('notifQueueFlushedN', String(sent.length))
       );
     }
   } finally {
@@ -264,7 +264,7 @@ async function sendToBackend(links, packageName, extractPassword) {
   }
 
   const urlCount = links.trim().split(/\r?\n/).filter(u => u.trim()).length;
-  showNotification('JDownloader', browser.i18n.getMessage('notifLinksAdded', String(urlCount)));
+  showNotification('JDownloader', urlCount === 1 ? browser.i18n.getMessage('notifLinksAdded1') : browser.i18n.getMessage('notifLinksAddedN', String(urlCount)));
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -469,7 +469,7 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         await saveQueue(updated);
         await updateBadge();
         const n = item.links.trim().split(/\r?\n/).filter(u => u.trim()).length;
-        showNotification('JDownloader', browser.i18n.getMessage('notifLinksAdded', String(n)));
+        showNotification('JDownloader', n === 1 ? browser.i18n.getMessage('notifLinksAdded1') : browser.i18n.getMessage('notifLinksAddedN', String(n)));
         sendResponse({ ok: true, queueSize: updated.length });
       } catch (err) {
         if (err.status === 401) {
