@@ -492,7 +492,7 @@ const Grabber: Component = () => {
       <div class="flex items-center justify-between gap-3 mb-6">
         <div class="min-w-0 flex-1">
           <h1 class="text-2xl font-bold tracking-tight text-foreground truncate">{t('grabber.title')}</h1>
-          <p class="text-sm text-muted-foreground mt-1">
+          <p class="text-sm text-muted-foreground mt-1 truncate">
             {packages().length}
             {' '}
             {t('grabber.packages')}

@@ -598,12 +598,12 @@ const Downloads: Component = () => {
       <div class="flex items-center justify-between gap-3 mb-6">
         <div class="min-w-0 flex-1">
           <h1 class="text-2xl font-bold tracking-tight text-foreground truncate">{t('downloads.title')}</h1>
-          <div class="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
+          <div class="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground overflow-hidden">
             <span class={`${stateIconClass()} inline-block w-4 h-4 flex-shrink-0`} />
-            <span>{stateLabel()}</span>
+            <span class="invisible sm:visible truncate">{stateLabel()}</span>
             <Show when={speed() > 0}>
-              <span>·</span>
-              <span class="text-blue-600 dark:text-blue-400 font-medium">{formatSpeed(speed())}</span>
+              <span class="hidden sm:inline">·</span>
+              <span class="text-blue-600 dark:text-blue-400 font-medium flex-shrink-0">{formatSpeed(speed())}</span>
             </Show>
           </div>
         </div>
