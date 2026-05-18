@@ -121,16 +121,17 @@ const AccountsSection: Component = () => {
       setBusy(null);
     });
 
-  const deleteAccount = () =>
+  const deleteAccount = () => {
+    const acc = confirmDeleteAcc();
+    if (!acc) {
+      return;
+    }
     withError(async () => {
-      const acc = confirmDeleteAcc();
-      if (!acc) {
-        return;
-      }
       setConfirmDeleteAcc(null);
       await configApi.deleteAccount(acc.uuid);
       refetch();
     });
+  };
 
   const submitAdd = async (e: Event) => {
     e.preventDefault();
