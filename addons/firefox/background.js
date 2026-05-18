@@ -285,73 +285,28 @@ function showNotification(title, message) {
   }).catch(() => {});
 }
 
-// ─── CNL Inject Code Builder ─────────────────────────────────────────────────
-//
-// Builds the content-script code injected into a CNL helper page when jdcheck.js
-// is intercepted. It does two things:
-//   1. Injects a <script> tag into the page context that sets window.jdownloader=true
-//      AND overrides HTMLFormElement.prototype.submit to capture CNL form data before
-//      the browser can block the HTTP-to-localhost POST as mixed content.
-//   2. Adds a content-script event listener that relays the captured data to the
-//      background via browser.runtime.sendMessage.
-
-function buildCnlInjectCode() {
-  // This script runs in the PAGE context (not the content-script sandbox) so it can
-  // override HTMLFormElement.prototype.submit. It dispatches a custom event with the
-  // form data so the content-script layer can pick it up.
-  const pageScript = (
-    'window.jdownloader=true;' +
-    'if(!window.__jdFormIntercepted){' +
-      'window.__jdFormIntercepted=true;' +
-      'var _o=HTMLFormElement.prototype.submit;' +
-      'HTMLFormElement.prototype.submit=function(){' +
-        'var a=this.action||"";' +
-        'if(a.indexOf("9666")!==-1||a.indexOf("/flash/add")!==-1){' +
-          'var d={};var els=this.querySelectorAll("[name]");' +
-          'for(var i=0;i<els.length;i++){d[els[i].name]=els[i].value;}' +
-          'var pn=(window.JDData&&window.JDData[3])||d.source||"";' +
-          'document.dispatchEvent(new CustomEvent("__jd_cnl_submit",{detail:{action:a,data:d,packageName:pn}}));' +
-          'return;' +
-        '}' +
-        '_o.call(this);' +
-      '};' +
-    '}'
-  );
-
-  // Content-script wrapper: inject the page script once per tab, then listen for its event.
-  return (
-    '(function(){' +
-      'if(window.__jdCnlInjected)return;window.__jdCnlInjected=true;' +
-      'var s=document.createElement("script");' +
-      's.text=' + JSON.stringify(pageScript) + ';' +
-      '(document.body||document.head||document.documentElement).appendChild(s);' +
-      'document.addEventListener("__jd_cnl_submit",function(e){' +
-        'browser.runtime.sendMessage({type:"cnlFormIntercept",action:e.detail.action,formData:e.detail.data,packageName:e.detail.packageName});' +
-      '});' +
-    '})();'
-  );
-}
-
 // ─── WebRequest Interceptor ───────────────────────────────────────────────────
 
 function handleRequest(details) {
   const url = details.url;
+
+  if (!url.includes('localhost:9666') && !url.includes('127.0.0.1:9666')) return {};
+
+  // Not ready (no token or CNL disabled) → don't intercept; site gets natural connection error
+  if (!config.cnlActive || !config.token) return {};
 
   if (matchesCnlHost(url, '/jdcheck.js')) {
     // Inject window.jdownloader=true AND a form.submit() interceptor into the page context.
     // The interceptor captures CNL form data before the browser can block the HTTP→localhost
     // submission as mixed content (which happens before webRequest fires).
     if (details.tabId > 0) {
-      browser.tabs.executeScript(details.tabId, { code: buildCnlInjectCode() }).catch(() => {});
+      browser.tabs.executeScript(details.tabId, { file: 'content/cnl-inject.js' }).catch(() => {});
     }
     // Redirect to the extension's own jdcheck.js — proper JS MIME type, no CSP issues.
-    return { redirectUrl: browser.runtime.getURL('jdcheck.js') };
+    return { redirectUrl: browser.runtime.getURL('content/jdcheck.js') };
   }
   if (matchesCnlHost(url, '/crossdomain.xml')) return { cancel: true };
   if (url.includes('?fromExtension'))          return {};
-
-  // CNL stopped → let requests fail naturally (nothing listens on 9666)
-  if (!config.cnlActive) return { cancel: true };
 
   // Plain links
   if (matchesCnlHost(url, '/flash/add')) {

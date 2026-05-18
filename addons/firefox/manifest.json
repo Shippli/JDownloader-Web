@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "__MSG_extName__",
   "short_name": "__MSG_extShortName__",
-  "version": "26.5.0",
+  "version": "26.5.1",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "homepage_url": "https://github.com/Shippli/JDownloader-Web",
@@ -20,7 +20,7 @@
   },
   "browser_action": {
     "default_title": "__MSG_browserActionTitle__",
-    "default_popup": "popup.html",
+    "default_popup": "popup/popup.html",
     "default_icon": {
       "32": "icons/icon32.png",
       "48": "icons/icon48.png"
@@ -30,7 +30,7 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "web_accessible_resources": ["jdcheck.js"],
+  "web_accessible_resources": ["content/jdcheck.js", "content/cnl-page.js"],
   "browser_specific_settings": {
     "gecko": {
       "id": "jdownloader-web@local",
