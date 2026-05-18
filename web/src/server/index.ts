@@ -7,6 +7,7 @@ import { auth } from './lib/auth';
 import { startBroadcaster, websocketHandler } from './lib/broadcaster';
 import authRouter from './routes/auth';
 import jdRouter from './routes/jdownloader';
+import setupRouter from './routes/setup';
 import usersRouter from './routes/users';
 
 const app = new Hono();
@@ -79,6 +80,7 @@ app.use('/api/jd/*', async (c, next) => {
 // Routes
 app.route('/api/auth', authRouter);
 app.route('/api/jd', jdRouter);
+app.route('/api/setup', setupRouter);
 app.route('/api/users', usersRouter);
 
 // Serve frontend static files in production

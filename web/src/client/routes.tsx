@@ -1,11 +1,13 @@
 import type { Component } from 'solid-js';
-import { Route } from '@solidjs/router';
-import { lazy, Show } from 'solid-js';
+import { Route, useNavigate } from '@solidjs/router';
+import { lazy, onMount, Show } from 'solid-js';
 import { AppShell } from './components/AppShell';
 import { Skeleton } from './components/ui/Skeleton';
+import { setupApi } from './lib/api';
 import { authStore } from './stores/auth';
 
 const Login = lazy(() => import('./pages/Login'));
+const Setup = lazy(() => import('./pages/Setup'));
 const Downloads = lazy(() => import('./pages/Downloads'));
 const Grabber = lazy(() => import('./pages/Grabber'));
 const Config = lazy(() => import('./pages/Config'));
@@ -25,13 +27,44 @@ const ProtectedLayout: Component<{ children?: any }> = props => (
   </Show>
 );
 
+const SetupGuard: Component = () => {
+  const navigate = useNavigate();
+
+  onMount(async () => {
+    try {
+      const { setupComplete } = await setupApi.getStatus();
+      if (setupComplete) {
+        navigate('/downloads', { replace: true });
+      }
+    } catch {}
+  });
+
+  return <Setup />;
+};
+
+const AppGuard: Component<{ children?: any }> = (props) => {
+  const navigate = useNavigate();
+
+  onMount(async () => {
+    try {
+      const { setupComplete } = await setupApi.getStatus();
+      if (!setupComplete) {
+        navigate('/setup', { replace: true });
+      }
+    } catch {}
+  });
+
+  return <ProtectedLayout>{props.children}</ProtectedLayout>;
+};
+
 export const AppRoutes: Component = () => (
   <>
-    <Route path="/login" component={Login} />
-    <Route path="/" component={() => <ProtectedLayout><Downloads /></ProtectedLayout>} />
-    <Route path="/downloads" component={() => <ProtectedLayout><Downloads /></ProtectedLayout>} />
-    <Route path="/grabber" component={() => <ProtectedLayout><Grabber /></ProtectedLayout>} />
-    <Route path="/config" component={() => <ProtectedLayout><Config /></ProtectedLayout>} />
-    <Route path="*" component={() => <ProtectedLayout><Downloads /></ProtectedLayout>} />
+    <Route path="/login" component={() => <AppGuard><Login /></AppGuard>} />
+    <Route path="/setup" component={SetupGuard} />
+    <Route path="/" component={() => <AppGuard><Downloads /></AppGuard>} />
+    <Route path="/downloads" component={() => <AppGuard><Downloads /></AppGuard>} />
+    <Route path="/grabber" component={() => <AppGuard><Grabber /></AppGuard>} />
+    <Route path="/config" component={() => <AppGuard><Config /></AppGuard>} />
+    <Route path="*" component={() => <AppGuard><Downloads /></AppGuard>} />
   </>
 );

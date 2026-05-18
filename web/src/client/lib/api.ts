@@ -196,6 +196,15 @@ export const configApi = {
   restartAndUpdate: () => post('/jd/system/restart-and-update'),
 };
 
+// ─── Setup API ────────────────────────────────────────────────────────────
+
+export const setupApi = {
+  getStatus: () => get<{ setupComplete: boolean }>('/setup/status'),
+  testConnection: (host: string, port: string) =>
+    post<{ ok: boolean; error?: string }>('/setup/test-connection', { host, port }),
+  complete: () => post<{ ok: boolean }>('/setup/complete'),
+};
+
 // ─── Extensions API ───────────────────────────────────────────────────────
 
 export const extensionsApi = {
