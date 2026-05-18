@@ -595,9 +595,9 @@ const Downloads: Component = () => {
   return (
     <div>
       {/* Header */}
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight text-foreground">{t('downloads.title')}</h1>
+      <div class="flex items-center justify-between gap-3 mb-6">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-2xl font-bold tracking-tight text-foreground truncate">{t('downloads.title')}</h1>
           <div class="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
             <span class={`${stateIconClass()} inline-block w-4 h-4 flex-shrink-0`} />
             <span>{stateLabel()}</span>
@@ -609,7 +609,7 @@ const Downloads: Component = () => {
         </div>
 
         {/* Controller buttons */}
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-shrink-0">
           <Button variant="default" onClick={handleTogglePlay}>
             <Show
               when={shouldShowStop()}

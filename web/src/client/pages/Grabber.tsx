@@ -489,9 +489,9 @@ const Grabber: Component = () => {
   return (
     <div>
       {/* Header */}
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight text-foreground">{t('grabber.title')}</h1>
+      <div class="flex items-center justify-between gap-3 mb-6">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-2xl font-bold tracking-tight text-foreground truncate">{t('grabber.title')}</h1>
           <p class="text-sm text-muted-foreground mt-1">
             {packages().length}
             {' '}
@@ -499,7 +499,7 @@ const Grabber: Component = () => {
           </p>
         </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-shrink-0">
           <Button variant="default" onClick={() => setShowAddDialog(true)}>
             <span class="i-tabler-plus w-4 h-4" />
             <span class="hidden sm:inline">{t('grabber.addLinks')}</span>
