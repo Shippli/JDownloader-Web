@@ -618,7 +618,7 @@ const Downloads: Component = () => {
             <span class="invisible sm:visible truncate">{stateLabel()}</span>
             <Show when={speed() > 0}>
               <span class="hidden sm:inline">·</span>
-              <span class="text-blue-600 dark:text-blue-400 font-medium flex-shrink-0">{formatSpeed(speed())}</span>
+              <span class="text-muted-foreground font-medium flex-shrink-0">{formatSpeed(speed())}</span>
             </Show>
           </div>
         </div>
@@ -767,7 +767,7 @@ const Downloads: Component = () => {
                                   {formatBytes(pkg.bytesTotal)}
                                 </span>
                                 <Show when={pkg.speed > 0}>
-                                  <span class="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                  <span class="text-xs text-muted-foreground font-medium">
                                     {formatSpeed(pkg.speed)}
                                   </span>
                                 </Show>
@@ -863,7 +863,7 @@ const Downloads: Component = () => {
                                         {formatBytes(link.bytesTotal)}
                                       </span>
                                       <Show when={link.speed > 0}>
-                                        <span class="text-xs text-blue-500 font-medium">{formatSpeed(link.speed)}</span>
+                                        <span class="text-xs text-muted-foreground font-medium">{formatSpeed(link.speed)}</span>
                                       </Show>
                                       {(() => {
                                         const exProg = getExtractionProgress(link);
@@ -960,7 +960,7 @@ const Downloads: Component = () => {
                     <PriorityBadge priority={pkg.priority} iconOnly />
                     <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} iconOnly />
                     <Show when={pkg.speed > 0}>
-                      <span class="text-xs text-blue-600 dark:text-blue-400 font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
+                      <span class="text-xs text-muted-foreground font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
                     </Show>
                     <ProgressBar value={progress()} color={getProgressColor(pkg)} class="w-16 flex-shrink-0" />
                     <Show when={pkg.childCount > 0}>
