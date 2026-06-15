@@ -55,6 +55,9 @@ const de = {
     selected: 'ausgewählt',
     sortNewestFirst: 'Neueste zuerst',
     sortOldestFirst: 'Älteste zuerst',
+    sortByDate: 'Datum',
+    sortByName: 'Name',
+    sortByStatus: 'Status',
     priority: {
       label: 'Priorität',
       highest: 'Höchste',

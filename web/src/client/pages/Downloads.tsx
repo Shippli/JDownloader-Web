@@ -1,5 +1,6 @@
 import type { Component } from 'solid-js';
 import type { ContextMenuItem } from '../components/ContextMenu';
+import type { SortState } from '../components/ui/SortDropdown';
 import type { DownloadLink, DownloadPackage } from '../lib/api';
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import ContextMenu from '../components/ContextMenu';
@@ -12,6 +13,7 @@ import { Dialog } from '../components/ui/Dialog';
 import { InlineInput } from '../components/ui/Input';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { SkeletonList } from '../components/ui/Skeleton';
+import { SortDropdown } from '../components/ui/SortDropdown';
 import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
 import { formatBytes, formatEta, formatSpeed, jdApi } from '../lib/api';
@@ -23,12 +25,32 @@ import { sseDownloads } from '../stores/sse';
 const Downloads: Component = () => {
   const packages = () => sseDownloads()?.packages ?? ((getCached('dl.packages') as DownloadPackage[] | undefined) ?? []);
   const links = () => sseDownloads()?.links ?? ((getCached('dl.links') as DownloadLink[] | undefined) ?? []);
-  const [sortDesc, setSortDesc] = createSignal(localStorage.getItem('dl.sortDesc') === '1');
-  const sortedPackages = () => sortDesc() ? [...packages()].reverse() : packages();
-  const toggleSort = () => {
-    const next = !sortDesc();
-    setSortDesc(next);
-    localStorage.setItem('dl.sortDesc', next ? '1' : '0');
+  const STATUS_ORDER = ['RUNNING', 'WAITING', 'QUEUED', 'STOPPED', 'FINISHED'];
+  const savedSort = (): SortState => {
+    try {
+      return JSON.parse(localStorage.getItem('dl.sort') ?? '') as SortState;
+    } catch {
+      return { field: 'date', dir: 'desc' };
+    }
+  };
+  const [sortState, setSortState] = createSignal<SortState>(savedSort());
+  const onSortChange = (next: SortState) => {
+    setSortState(next);
+    localStorage.setItem('dl.sort', JSON.stringify(next));
+  };
+  const sortedPackages = () => {
+    const pkgs = [...packages()];
+    const { field, dir } = sortState();
+    if (field === 'name') {
+      pkgs.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (field === 'status') {
+      pkgs.sort((a, b) => {
+        const ai = STATUS_ORDER.indexOf(a.status);
+        const bi = STATUS_ORDER.indexOf(b.status);
+        return (ai === -1 ? STATUS_ORDER.length : ai) - (bi === -1 ? STATUS_ORDER.length : bi);
+      });
+    }
+    return dir === 'desc' ? pkgs.reverse() : pkgs;
   };
   const state = () => sseDownloads()?.state ?? ((getCached('dl.state') as string | undefined) ?? 'IDLE');
   const speed = () => sseDownloads()?.speed ?? ((getCached('dl.speed') as number | undefined) ?? 0);
@@ -640,9 +662,11 @@ const Downloads: Component = () => {
             <Button variant="ghost" onClick={selectAll} class="text-sm">{t('common.selectAll')}</Button>
           </Show>
           <Show when={packages().length > 0}>
-            <Button variant="ghost" size="icon" onClick={toggleSort} title={sortDesc() ? t('common.sortOldestFirst') : t('common.sortNewestFirst')}>
-              <span class={`${sortDesc() ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'} w-4 h-4`} />
-            </Button>
+            <SortDropdown
+              value={sortState()}
+              onChange={onSortChange}
+              labels={{ date: t('common.sortByDate'), name: t('common.sortByName'), status: t('common.sortByStatus') }}
+            />
           </Show>
         </div>
       </div>
