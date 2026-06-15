@@ -11,6 +11,7 @@ export type DownloadsPayload = {
   links: DownloadLink[];
   state: string;
   speed: number;
+  exProgress: Record<number, number>;
 };
 
 export type GrabberPayload = {
@@ -24,6 +25,7 @@ const [_dlStore, setDlStore] = createStore<DownloadsPayload>({
   links: [],
   state: 'IDLE',
   speed: 0,
+  exProgress: {},
 });
 
 const [_grabLoaded, setGrabLoaded] = createSignal(false);
@@ -41,7 +43,7 @@ export const [sseConnected, setSseConnected] = createSignal(false);
 
 type SseServerMessage
   = | { type: 'health'; jd: boolean }
-    | { type: 'downloads'; packages: DownloadPackage[]; links: DownloadLink[]; state: string; speed: number }
+    | { type: 'downloads'; packages: DownloadPackage[]; links: DownloadLink[]; state: string; speed: number; exProgress: Record<number, number> }
     | { type: 'grabber'; packages: GrabberPackage[]; links: GrabberLink[] }
     | { type: 'notifications'; dialogs: JdDialog[]; captchas: JdCaptcha[]; updateAvailable: boolean };
 
@@ -52,7 +54,7 @@ function dispatch(msg: SseServerMessage) {
       break;
     case 'downloads':
       setDlStore(reconcile(
-        { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed },
+        { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed, exProgress: msg.exProgress },
         { key: 'uuid', merge: true },
       ));
       if (!_dlLoaded()) {

@@ -69,18 +69,7 @@ const Downloads: Component = () => {
   const [ctxMenu, setCtxMenu] = createSignal<{ x: number; y: number; type: 'pkg' | 'link'; uuid: number; name: string; enabled: boolean; priority?: string; touch?: boolean } | null>(null);
   const getEnabled = (apiEnabled?: boolean) => apiEnabled ?? false;
 
-  // Extraction progress: ETA from JD is in ms. We smooth it with an EMA (alpha=0.3)
-  // to filter noise without a hard threshold switch. Progress = elapsed_s / (elapsed_s + smoothedEta_s).
-  const ETA_ALPHA = 0.3;
-  const extractStartMap = new Map<number, {
-    startMs: number;
-    smoothedEtaMs: number;
-  }>();
-
-  const isExtracting = (status: string) => {
-    const s = status.toLowerCase();
-    return s.includes('extracting');
-  };
+  const isExtracting = (status: string) => status.toLowerCase().includes('extracting');
 
   const selectAll = () => {
     setSelectedPkgs(new Set(packages().map(p => p.uuid)));
@@ -163,21 +152,6 @@ const Downloads: Component = () => {
     const d = sseDownloads();
     if (d === null) {
       return;
-    }
-    for (const link of d.links) {
-      if (isExtracting(link.status ?? '')) {
-        const eta = link.eta ?? 0;
-        if (!extractStartMap.has(link.uuid)) {
-          extractStartMap.set(link.uuid, { startMs: Date.now(), smoothedEtaMs: eta > 0 ? eta : 0 });
-        } else if (eta > 0) {
-          const entry = extractStartMap.get(link.uuid)!;
-          entry.smoothedEtaMs = entry.smoothedEtaMs === 0
-            ? eta
-            : ETA_ALPHA * eta + (1 - ETA_ALPHA) * entry.smoothedEtaMs;
-        }
-      } else {
-        extractStartMap.delete(link.uuid);
-      }
     }
     setCached('dl.packages', d.packages);
     setCached('dl.links', d.links);
@@ -288,15 +262,7 @@ const Downloads: Component = () => {
     if (!isExtracting(link.status ?? '')) {
       return null;
     }
-    const entry = extractStartMap.get(link.uuid);
-    if (!entry || entry.smoothedEtaMs === 0) {
-      return 0;
-    }
-    if ((link.eta ?? 0) <= 0) {
-      return 99;
-    }
-    const elapsedS = (Date.now() - entry.startMs) / 1000;
-    return Math.max(0, Math.min(99, Math.round((elapsedS / (elapsedS + entry.smoothedEtaMs / 1000)) * 100)));
+    return sseDownloads()?.exProgress[link.uuid] ?? 0;
   };
 
   const toggleExpand = (uuid: number) => {
@@ -704,6 +670,16 @@ const Downloads: Component = () => {
               {(pkg) => {
                 const pkgLinks = () => getPackageLinks(pkg.uuid);
                 const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
+                const pkgExProgress = () => {
+                  const links = pkgLinks();
+                  const extractingLink = links.find(l => isExtracting(l.status ?? ''));
+                  if (!extractingLink) {
+                    return null;
+                  }
+                  const doneCount = links.filter(l => (l.status ?? '').toLowerCase().includes('extraction ok')).length;
+                  const currentFraction = (sseDownloads()?.exProgress[extractingLink.uuid] ?? 0) / 100;
+                  return Math.round((doneCount + currentFraction) / (doneCount + 1) * 100);
+                };
                 const isExpanded = () => expandedPkgs().has(pkg.uuid);
                 const isSelected = () => selectedPkgs().has(pkg.uuid);
 
@@ -800,7 +776,7 @@ const Downloads: Component = () => {
                           </div>
 
                           {/* Progress bar */}
-                          <ProgressBar value={progress()} color={getProgressColor(pkg)} class="mt-2.5" />
+                          <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : getProgressColor(pkg)} class="mt-2.5" />
                           <div class="flex justify-between mt-1">
                             <span class="text-xs text-muted-foreground">
                               {progress()}
@@ -912,6 +888,16 @@ const Downloads: Component = () => {
             {(pkg, index) => {
               const pkgLinks = () => getPackageLinks(pkg.uuid);
               const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
+              const pkgExProgress = () => {
+                const links = pkgLinks();
+                const extractingLink = links.find(l => isExtracting(l.status ?? ''));
+                if (!extractingLink) {
+                  return null;
+                }
+                const doneCount = links.filter(l => (l.status ?? '').toLowerCase().includes('extraction ok')).length;
+                const currentFraction = (sseDownloads()?.exProgress[extractingLink.uuid] ?? 0) / 100;
+                return Math.round((doneCount + currentFraction) / (doneCount + 1) * 100);
+              };
               const isSelected = () => selectedPkgs().has(pkg.uuid);
               const isExpanded = () => expandedPkgs().has(pkg.uuid);
               const expandBg = () => index() % 2 === 0
@@ -962,7 +948,7 @@ const Downloads: Component = () => {
                     <Show when={pkg.speed > 0}>
                       <span class="text-xs text-muted-foreground font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
                     </Show>
-                    <ProgressBar value={progress()} color={getProgressColor(pkg)} class="w-16 flex-shrink-0" />
+                    <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : getProgressColor(pkg)} class="w-16 flex-shrink-0" />
                     <Show when={pkg.childCount > 0}>
                       <Button
                         variant="ghost"
