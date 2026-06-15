@@ -18,11 +18,11 @@ import { formatBytes, formatEta, formatSpeed, jdApi } from '../lib/api';
 import { getCached, setCached } from '../lib/pageCache';
 import { compactViewStore } from '../stores/compactView';
 import { jdStore } from '../stores/jd';
-import { sendRefresh, wsConnected, wsDownloads } from '../stores/ws';
+import { sseDownloads } from '../stores/sse';
 
 const Downloads: Component = () => {
-  const packages = () => wsDownloads()?.packages ?? ((getCached('dl.packages') as DownloadPackage[] | undefined) ?? []);
-  const links = () => wsDownloads()?.links ?? ((getCached('dl.links') as DownloadLink[] | undefined) ?? []);
+  const packages = () => sseDownloads()?.packages ?? ((getCached('dl.packages') as DownloadPackage[] | undefined) ?? []);
+  const links = () => sseDownloads()?.links ?? ((getCached('dl.links') as DownloadLink[] | undefined) ?? []);
   const [sortDesc, setSortDesc] = createSignal(localStorage.getItem('dl.sortDesc') === '1');
   const sortedPackages = () => sortDesc() ? [...packages()].reverse() : packages();
   const toggleSort = () => {
@@ -30,8 +30,8 @@ const Downloads: Component = () => {
     setSortDesc(next);
     localStorage.setItem('dl.sortDesc', next ? '1' : '0');
   };
-  const state = () => wsDownloads()?.state ?? ((getCached('dl.state') as string | undefined) ?? 'IDLE');
-  const speed = () => wsDownloads()?.speed ?? ((getCached('dl.speed') as number | undefined) ?? 0);
+  const state = () => sseDownloads()?.state ?? ((getCached('dl.state') as string | undefined) ?? 'IDLE');
+  const speed = () => sseDownloads()?.speed ?? ((getCached('dl.speed') as number | undefined) ?? 0);
   const [loading, setLoading] = createSignal(getCached('dl.packages') == null);
   const [expandedPkgs, setExpandedPkgs] = createSignal<Set<number>>(new Set());
   const [selectedPkgs, setSelectedPkgs] = createSignal<Set<number>>(new Set());
@@ -73,7 +73,7 @@ const Downloads: Component = () => {
 
   const hasSelection = () => selectedPkgs().size > 0 || selectedLinks().size > 0;
 
-  const fetchData = () => sendRefresh('downloads');
+  const fetchData = () => {};
 
   const [deleteModal, setDeleteModal] = createSignal<{ linkIds: number[]; pkgIds: number[]; message: string } | null>(null);
   const [deleteWithFiles, setDeleteWithFiles] = createSignal(false);
@@ -137,15 +137,8 @@ const Downloads: Component = () => {
     }
   };
 
-  fetchData();
-  // Re-request when WS opens (fetchData at mount is a no-op if WS wasn't ready yet)
   createEffect(() => {
-    if (wsConnected()) {
-      fetchData();
-    }
-  });
-  createEffect(() => {
-    const d = wsDownloads();
+    const d = sseDownloads();
     if (d === null) {
       return;
     }

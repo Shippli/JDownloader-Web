@@ -4,7 +4,7 @@ import { createStore, reconcile } from 'solid-js/store';
 import { setJdConnected } from './jd';
 import { applyNotificationsMessage } from './notifications';
 
-// ─── Per-topic signals (fed by WS pushes) ────────────────────────────────────
+// ─── Per-topic signals (fed by SSE pushes) ───────────────────────────────────
 
 export type DownloadsPayload = {
   packages: DownloadPackage[];
@@ -18,8 +18,6 @@ export type GrabberPayload = {
   links: GrabberLink[];
 };
 
-// Fine-grained stores: reconcile() diffs incoming data by uuid and only
-// updates the changed fields → only those DOM nodes re-render.
 const [_dlLoaded, setDlLoaded] = createSignal(false);
 const [_dlStore, setDlStore] = createStore<DownloadsPayload>({
   packages: [],
@@ -34,29 +32,25 @@ const [_grabStore, setGrabStore] = createStore<GrabberPayload>({
   links: [],
 });
 
-// Same public API as before: returns null until the first push arrives,
-// then returns the reactive store proxy (fine-grained tracking per field).
-export const wsDownloads = (): DownloadsPayload | null => _dlLoaded() ? _dlStore : null;
-export const wsGrabber = (): GrabberPayload | null => _grabLoaded() ? _grabStore : null;
+export const sseDownloads = (): DownloadsPayload | null => _dlLoaded() ? _dlStore : null;
+export const sseGrabber = (): GrabberPayload | null => _grabLoaded() ? _grabStore : null;
 
-export const [wsConnected, setWsConnected] = createSignal(false);
+export const [sseConnected, setSseConnected] = createSignal(false);
 
 // ─── Message dispatch ─────────────────────────────────────────────────────────
 
-type WsServerMessage
+type SseServerMessage
   = | { type: 'health'; jd: boolean }
     | { type: 'downloads'; packages: DownloadPackage[]; links: DownloadLink[]; state: string; speed: number }
     | { type: 'grabber'; packages: GrabberPackage[]; links: GrabberLink[] }
     | { type: 'notifications'; dialogs: JdDialog[]; captchas: JdCaptcha[]; updateAvailable: boolean };
 
-function dispatch(msg: WsServerMessage) {
+function dispatch(msg: SseServerMessage) {
   switch (msg.type) {
     case 'health':
       setJdConnected(msg.jd);
       break;
     case 'downloads':
-      // reconcile diffs by uuid: only changed fields in changed items update →
-      // only those specific DOM nodes re-render.
       setDlStore(reconcile(
         { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed },
         { key: 'uuid', merge: true },
@@ -82,67 +76,34 @@ function dispatch(msg: WsServerMessage) {
 
 // ─── Connection management ────────────────────────────────────────────────────
 
-let ws: WebSocket | null = null;
-let retryDelay = 1000;
-let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let es: EventSource | null = null;
 let started = false;
 
-function getWsUrl(): string {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // In dev mode (Vite), connect directly to the backend — Vite's WS proxy
-  // is unreliable for app WS connections alongside its own HMR socket.
-  if (import.meta.env.DEV) {
-    return `${proto}//localhost:3001/ws`;
-  }
-  return `${proto}//${location.host}/ws`;
-}
-
-function scheduleReconnect() {
-  if (retryTimer !== null) {
-    return;
-  }
-  retryTimer = setTimeout(connect, retryDelay);
-  retryDelay = Math.min(retryDelay * 2, 30_000);
-}
-
 function connect() {
-  retryTimer = null;
-  ws = new WebSocket(getWsUrl());
+  es = new EventSource('/api/sse', { withCredentials: true });
 
-  ws.onopen = () => {
-    setWsConnected(true);
-    retryDelay = 1000;
-  };
+  es.onopen = () => setSseConnected(true);
 
-  ws.onmessage = (event) => {
-    try {
-      const msg = JSON.parse(event.data as string) as WsServerMessage;
-      dispatch(msg);
-    } catch { /* ignore malformed messages */ }
-  };
-
-  ws.onclose = () => {
-    setWsConnected(false);
-    ws = null;
+  es.onerror = () => {
+    setSseConnected(false);
     setJdConnected(null);
-    scheduleReconnect();
+    // EventSource auto-reconnects — no manual retry needed
   };
 
-  ws.onerror = () => {
-    // onclose fires after onerror — reconnect is handled there
-  };
+  for (const event of ['health', 'downloads', 'grabber', 'notifications'] as const) {
+    es.addEventListener(event, (e: MessageEvent) => {
+      try {
+        const msg = JSON.parse(e.data as string) as SseServerMessage;
+        dispatch(msg);
+      } catch { /* ignore malformed messages */ }
+    });
+  }
 }
 
-export function startWs() {
+export function startSse() {
   if (started) {
     return;
   }
   started = true;
   connect();
-}
-
-export function sendRefresh(topic: 'downloads' | 'grabber' | 'notifications') {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'refresh', topic }));
-  }
 }

@@ -6,7 +6,6 @@ import { t } from '../i18n';
 import { captchaApi, configApi, dialogsApi } from '../lib/api';
 import { activePopupStore } from '../stores/activePopup';
 import { notificationsStore } from '../stores/notifications';
-import { sendRefresh } from '../stores/ws';
 import { Button } from './ui/Button';
 import { Checkbox } from './ui/Checkbox';
 import { Dialog } from './ui/Dialog';
@@ -87,7 +86,6 @@ export const NotificationModals: Component = () => {
       await dialogsApi.answer(d.id, { closereason, ...extra });
     } catch { /* ignore */ }
     closeModal();
-    sendRefresh('notifications');
   };
 
   const submitCaptcha = async () => {
@@ -99,7 +97,6 @@ export const NotificationModals: Component = () => {
       await captchaApi.solve(c.id, captchaSolution());
     } catch { /* ignore */ }
     closeCaptchaModal();
-    sendRefresh('notifications');
   };
 
   const skipCaptcha = async () => {
@@ -111,7 +108,6 @@ export const NotificationModals: Component = () => {
       await captchaApi.solve(c.id, '');
     } catch { /* ignore */ }
     closeCaptchaModal();
-    sendRefresh('notifications');
   };
 
   const restartAndUpdate = async () => {

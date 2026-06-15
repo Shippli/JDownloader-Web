@@ -18,11 +18,11 @@ import { formatBytes, jdApi } from '../lib/api';
 import { getCached, setCached } from '../lib/pageCache';
 import { compactViewStore } from '../stores/compactView';
 import { jdStore } from '../stores/jd';
-import { sendRefresh, wsConnected, wsGrabber } from '../stores/ws';
+import { sseGrabber } from '../stores/sse';
 
 const Grabber: Component = () => {
-  const packages = () => wsGrabber()?.packages ?? ((getCached('grabber.packages') as GrabberPackage[] | undefined) ?? []);
-  const links = () => wsGrabber()?.links ?? ((getCached('grabber.links') as GrabberLink[] | undefined) ?? []);
+  const packages = () => sseGrabber()?.packages ?? ((getCached('grabber.packages') as GrabberPackage[] | undefined) ?? []);
+  const links = () => sseGrabber()?.links ?? ((getCached('grabber.links') as GrabberLink[] | undefined) ?? []);
   const [sortDesc, setSortDesc] = createSignal(localStorage.getItem('grabber.sortDesc') === '1');
   const sortedPackages = () => sortDesc() ? [...packages()].reverse() : packages();
   const toggleSort = () => {
@@ -61,17 +61,9 @@ const Grabber: Component = () => {
 
   const hasSelection = () => selectedPkgs().size > 0 || selectedLinks().size > 0;
 
-  const fetchData = () => sendRefresh('grabber');
-
-  fetchData();
-  // Re-request when WS opens (fetchData at mount is a no-op if WS wasn't ready yet)
+  const fetchData = () => {};
   createEffect(() => {
-    if (wsConnected()) {
-      fetchData();
-    }
-  });
-  createEffect(() => {
-    const d = wsGrabber();
+    const d = sseGrabber();
     if (d === null) {
       return;
     }

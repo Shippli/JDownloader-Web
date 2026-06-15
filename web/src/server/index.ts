@@ -1,10 +1,10 @@
-import type { Server } from 'bun';
 import process from 'node:process';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { cors } from 'hono/cors';
+import { streamSSE } from 'hono/streaming';
 import { auth } from './lib/auth';
-import { startBroadcaster, websocketHandler } from './lib/broadcaster';
+import { addSseClient, removeSseClient, startBroadcaster } from './lib/broadcaster';
 import authRouter from './routes/auth';
 import jdRouter from './routes/jdownloader';
 import setupRouter from './routes/setup';
@@ -59,6 +59,7 @@ async function requireAuth(c: any, next: any) {
 
 app.use('/api/jd/*', requireAuth);
 app.use('/api/users/*', requireAuth);
+app.use('/api/sse', requireAuth);
 
 function isJdConnErr(code: string | undefined) {
   return code === 'ConnectionRefused' || code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'JD_UNAVAILABLE';
@@ -83,6 +84,20 @@ app.route('/api/jd', jdRouter);
 app.route('/api/setup', setupRouter);
 app.route('/api/users', usersRouter);
 
+// SSE stream — one connection per client, all topics multiplexed
+app.get('/api/sse', (c) => {
+  return streamSSE(c, async (stream) => {
+    const write = (event: string, data: string) => {
+      void stream.writeSSE({ event, data });
+    };
+    addSseClient(write);
+    await new Promise<void>((resolve) => {
+      stream.onAbort(resolve);
+    });
+    removeSseClient(write);
+  });
+});
+
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
   app.use('/*', serveStatic({ root: './dist/public' }));
@@ -99,29 +114,13 @@ app.onError((err, c) => {
   return c.json({ error: err.message }, status as 500);
 });
 
-// WebSocket upgrade handler — auth check before upgrading
-async function handleWsUpgrade(req: Request, server: Server<unknown>): Promise<Response | undefined> {
-  const session = await auth.api.getSession({ headers: req.headers });
-  if (!session) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-  server.upgrade(req, { data: undefined });
-  return undefined;
-}
-
-// Use Bun's native server with WebSocket support
+// Use Bun's native server
 const server = Bun.serve({
-  async fetch(req, srv) {
-    if (new URL(req.url).pathname === '/ws') {
-      return handleWsUpgrade(req, srv as Server<unknown>);
-    }
-    return app.fetch(req);
-  },
-  websocket: websocketHandler,
+  fetch: app.fetch,
   port: PORT,
 });
 
 console.warn(`Server running on http://localhost:${server.port}`);
 
-// Start broadcaster — owns server-side JD polling and pushes to WS clients
+// Start broadcaster — owns server-side JD polling and pushes to SSE clients
 startBroadcaster();

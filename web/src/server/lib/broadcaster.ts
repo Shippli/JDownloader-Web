@@ -1,4 +1,3 @@
-import type { ServerWebSocket, WebSocketHandler } from 'bun';
 import {
   DEFAULT_GRABBER_LINK_QUERY,
   DEFAULT_GRABBER_PACKAGE_QUERY,
@@ -9,22 +8,33 @@ import {
 
 // ─── Message types ────────────────────────────────────────────────────────────
 
-export type WsServerMessage
+export type SseServerMessage
   = | { type: 'health'; jd: boolean }
     | { type: 'downloads'; packages: unknown[]; links: unknown[]; state: string; speed: number }
     | { type: 'grabber'; packages: unknown[]; links: unknown[] }
     | { type: 'notifications'; dialogs: unknown[]; captchas: unknown[]; updateAvailable: boolean };
 
-type WsClientMessage = { type: 'refresh'; topic: 'downloads' | 'grabber' | 'notifications' };
-
 // ─── Client registry ──────────────────────────────────────────────────────────
 
-const clients = new Set<ServerWebSocket<unknown>>();
+type SseWriter = (event: string, data: string) => void;
+const clients = new Set<SseWriter>();
 
-function broadcast(msg: WsServerMessage) {
-  const text = JSON.stringify(msg);
-  for (const ws of clients) {
-    ws.send(text);
+export function addSseClient(writer: SseWriter) {
+  clients.add(writer);
+  void pollHealth();
+  void pollDownloads();
+  void pollGrabber();
+  void pollNotifications();
+}
+
+export function removeSseClient(writer: SseWriter) {
+  clients.delete(writer);
+}
+
+function broadcast(msg: SseServerMessage) {
+  const data = JSON.stringify(msg);
+  for (const write of clients) {
+    write(msg.type, data);
   }
 }
 
@@ -132,36 +142,6 @@ async function pollNotifications() {
     }
   }
 }
-
-// ─── WebSocket handler ────────────────────────────────────────────────────────
-
-export const websocketHandler: WebSocketHandler<unknown> = {
-  open(ws) {
-    clients.add(ws);
-    // Immediately push current state to all clients (new client gets it, others get a refresh)
-    void pollHealth();
-    void pollDownloads();
-    void pollGrabber();
-    void pollNotifications();
-  },
-  close(ws) {
-    clients.delete(ws);
-  },
-  message(_ws, raw) {
-    try {
-      const msg = JSON.parse(String(raw)) as WsClientMessage;
-      if (msg.type === 'refresh') {
-        if (msg.topic === 'downloads') {
-          void pollDownloads();
-        } else if (msg.topic === 'grabber') {
-          void pollGrabber();
-        } else if (msg.topic === 'notifications') {
-          void pollNotifications();
-        }
-      }
-    } catch { /* ignore malformed messages */ }
-  },
-};
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
