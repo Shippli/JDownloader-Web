@@ -357,6 +357,10 @@ const en = {
       label: 'Compact View',
       description: 'Show downloads and grabber as a flat list instead of expandable cards',
     },
+    autoNavigate: {
+      label: 'Auto-navigate after adding',
+      description: 'Automatically switch to the Downloads or Link Collector page after adding links',
+    },
     about: {
       label: 'About',
       description: 'JDownloader Web - An open-source web UI for JDownloader.',

@@ -357,6 +357,10 @@ const de = {
       label: 'Kompakte Ansicht',
       description: 'Downloads und Grabber als flache Liste statt aufklappbare Karten anzeigen',
     },
+    autoNavigate: {
+      label: 'Automatisch navigieren',
+      description: 'Nach dem Hinzufügen von Links automatisch zur Download- oder Linksammler-Seite wechseln',
+    },
     about: {
       label: 'Über',
       description: 'JDownloader Web - Eine Open-Source-Weboberfläche für JDownloader.',

@@ -3,6 +3,7 @@ import type { ContextMenuItem } from '../components/ContextMenu';
 import type { SortState } from '../components/ui/SortDropdown';
 import type { GrabberLink, GrabberPackage } from '../lib/api';
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import AddLinksDialog from '../components/AddLinksDialog';
 import ContextMenu from '../components/ContextMenu';
 import PriorityBadge from '../components/PriorityBadge';
@@ -18,11 +19,13 @@ import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
 import { formatBytes, jdApi } from '../lib/api';
 import { getCached, setCached } from '../lib/pageCache';
+import { autoNavigateStore } from '../stores/autoNavigate';
 import { compactViewStore } from '../stores/compactView';
 import { jdStore } from '../stores/jd';
 import { sseGrabber } from '../stores/sse';
 
 const Grabber: Component = () => {
+  const navigate = useNavigate();
   const packages = () => sseGrabber()?.packages ?? ((getCached('grabber.packages') as GrabberPackage[] | undefined) ?? []);
   const links = () => sseGrabber()?.links ?? ((getCached('grabber.links') as GrabberLink[] | undefined) ?? []);
   const STATUS_ORDER = ['RUNNING', 'WAITING', 'QUEUED', 'STOPPED', 'FINISHED'];
@@ -312,6 +315,7 @@ const Grabber: Component = () => {
         await jdApi.start().catch(() => {});
         clearSelection();
         fetchData();
+        if (autoNavigateStore.enabled()) navigate('/downloads');
       },
     });
 
@@ -462,6 +466,7 @@ const Grabber: Component = () => {
       await jdApi.moveToDownloads([...selectedLinks()], [...selectedPkgs()]);
       clearSelection();
       fetchData();
+      if (autoNavigateStore.enabled()) navigate('/downloads');
     } catch (e) {
       setError((e as Error).message);
     }
@@ -860,7 +865,13 @@ const Grabber: Component = () => {
 
       {/* Add Links Dialog */}
       <Show when={showAddDialog()}>
-        <AddLinksDialog onClose={() => setShowAddDialog(false)} onAdded={fetchData} />
+        <AddLinksDialog
+          onClose={() => setShowAddDialog(false)}
+          onAdded={(autostarted) => {
+            fetchData();
+            if (autoNavigateStore.enabled()) navigate(autostarted ? '/downloads' : '/grabber');
+          }}
+        />
       </Show>
 
       {/* Context menu — desktop: positioned menu, touch: bottom sheet */}

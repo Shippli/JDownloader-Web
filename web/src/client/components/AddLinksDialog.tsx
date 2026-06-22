@@ -12,7 +12,7 @@ import { TextField } from './ui/TextField';
 
 type Props = {
   onClose: () => void;
-  onAdded: () => void;
+  onAdded: (autostarted: boolean) => void;
 };
 
 const AddLinksDialog: Component<Props> = (props) => {
@@ -38,7 +38,7 @@ const AddLinksDialog: Component<Props> = (props) => {
         extractPassword: extractPass() || undefined,
         autostart: autostart(),
       });
-      props.onAdded();
+      props.onAdded(autostart());
       props.onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -57,7 +57,7 @@ const AddLinksDialog: Component<Props> = (props) => {
       // DLC content can be pasted as base64 or file content
       const content = dlcContent().trim();
       await jdApi.addContainer('dlc', content);
-      props.onAdded();
+      props.onAdded(false);
       props.onClose();
     } catch (e) {
       setError((e as Error).message);
