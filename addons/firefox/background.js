@@ -196,12 +196,12 @@ async function sendItem(item) {
 let flushRunning = false;
 async function flushQueue() {
   if (flushRunning || !config.serverUrl || !config.token) return;
-  if (!await isCompanionReady()) return;
   flushRunning = true;
 
   try {
     let queue = await loadQueue();
     if (queue.length === 0) return;
+    if (!await isCompanionReady()) return;
 
     const sent = [];
     for (const item of queue) {
@@ -241,9 +241,10 @@ async function flushQueue() {
 }
 
 // Periodic retry every 30 seconds (only when autoSend is on)
-setInterval(() => {
-  if (config.token && config.autoSend) flushQueue();
-}, 30_000);
+browser.alarms.create('flushQueue', { periodInMinutes: 0.5 });
+browser.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'flushQueue' && config.token && config.autoSend) flushQueue();
+});
 
 // ─── Backend Communication ────────────────────────────────────────────────────
 
