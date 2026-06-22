@@ -175,12 +175,10 @@ async function sendItem(item) {
   if (item.extractPassword) body.extractPassword = item.extractPassword;
 
   const response = await fetch(config.serverUrl.replace(/\/$/, '') + '/api/jd/grabber/add', {
-    method:  'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': 'Bearer ' + config.token,
-    },
-    body: JSON.stringify(body),
+    method:      'POST',
+    credentials: 'include',
+    headers:     { 'Content-Type': 'application/json' },
+    body:        JSON.stringify(body),
   });
 
   if (response.status === 401) {
@@ -198,6 +196,7 @@ async function sendItem(item) {
 let flushRunning = false;
 async function flushQueue() {
   if (flushRunning || !config.serverUrl || !config.token) return;
+  if (!await isCompanionReady()) return;
   flushRunning = true;
 
   try {
@@ -248,8 +247,26 @@ setInterval(() => {
 
 // ─── Backend Communication ────────────────────────────────────────────────────
 
+async function isCompanionReady() {
+  if (!config.serverUrl || !config.token) return false;
+  try {
+    const res = await fetch(config.serverUrl.replace(/\/$/, '') + '/api/jd/status', { credentials: 'include' });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.configured === true && data.connected === true;
+  } catch {
+    return false;
+  }
+}
+
 async function sendToBackend(links, packageName, extractPassword) {
   if (!config.serverUrl || !config.token || !config.autoSend) {
+    await addToQueue(links, packageName, extractPassword);
+    return;
+  }
+
+  if (!await isCompanionReady()) {
+    console.info('[JD-CNL] App not ready, queueing links');
     await addToQueue(links, packageName, extractPassword);
     return;
   }

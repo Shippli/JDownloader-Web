@@ -195,9 +195,7 @@ function setLoading(loading) {
 
 async function checkSession(serverUrl, token) {
   try {
-    const res = await fetch(serverUrl.replace(/\/$/, '') + '/api/auth/get-session', {
-      headers: { 'Authorization': 'Bearer ' + token },
-    });
+    const res = await fetch(serverUrl.replace(/\/$/, '') + '/api/auth/get-session', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       return (data && data.user) ? 'connected' : 'invalid';
@@ -302,9 +300,10 @@ loginForm.addEventListener('submit', async (e) => {
 
   try {
     const res = await fetch(serverUrl + '/api/auth/sign-in-ext', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email, password }),
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ email, password }),
     });
 
     if (!res.ok) {
