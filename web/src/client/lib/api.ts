@@ -178,7 +178,6 @@ export const configApi = {
   // Connection
   getConnection: () => get<{ host: string; port: string; configured: boolean }>('/jd/connection'),
   setConnection: (host: string, port: string) => post('/jd/connection', { host, port }),
-  testConnection: () => post<{ ok: boolean; error?: string }>('/jd/connection/test'),
 
   // JD Info
   getInfo: () => get<JdInfo>('/jd/info'),

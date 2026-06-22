@@ -39,7 +39,7 @@ const WebSection: Component = () => {
           <Switch checked={compactViewStore.enabled()} onChange={() => compactViewStore.toggle()} />
         </div>
       </div>
-      
+
       {/* Auto-navigate */}
       <div class="card p-6">
         <div class="flex items-start justify-between gap-4">

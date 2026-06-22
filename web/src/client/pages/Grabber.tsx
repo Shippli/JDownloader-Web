@@ -2,8 +2,8 @@ import type { Component } from 'solid-js';
 import type { ContextMenuItem } from '../components/ContextMenu';
 import type { SortState } from '../components/ui/SortDropdown';
 import type { GrabberLink, GrabberPackage } from '../lib/api';
-import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import AddLinksDialog from '../components/AddLinksDialog';
 import ContextMenu from '../components/ContextMenu';
 import PriorityBadge from '../components/PriorityBadge';
@@ -315,7 +315,9 @@ const Grabber: Component = () => {
         await jdApi.start().catch(() => {});
         clearSelection();
         fetchData();
-        if (autoNavigateStore.enabled()) navigate('/downloads');
+        if (autoNavigateStore.enabled()) {
+          navigate('/downloads');
+        }
       },
     });
 
@@ -466,7 +468,9 @@ const Grabber: Component = () => {
       await jdApi.moveToDownloads([...selectedLinks()], [...selectedPkgs()]);
       clearSelection();
       fetchData();
-      if (autoNavigateStore.enabled()) navigate('/downloads');
+      if (autoNavigateStore.enabled()) {
+        navigate('/downloads');
+      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -869,7 +873,9 @@ const Grabber: Component = () => {
           onClose={() => setShowAddDialog(false)}
           onAdded={(autostarted) => {
             fetchData();
-            if (autoNavigateStore.enabled()) navigate(autostarted ? '/downloads' : '/grabber');
+            if (autoNavigateStore.enabled()) {
+              navigate(autostarted ? '/downloads' : '/grabber');
+            }
           }}
         />
       </Show>

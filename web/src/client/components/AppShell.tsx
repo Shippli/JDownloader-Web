@@ -1,8 +1,6 @@
 import type { Component, JSX } from 'solid-js';
 import { createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { connectionStore } from '../stores/connection';
 import { NotificationModals } from './NotificationsPanel';
-import { SetupModal } from './SetupModal';
 import { MobileNav } from './ui/MobileNav';
 import { SideNav } from './ui/SideNav';
 
@@ -28,8 +26,6 @@ export function syncSidebarWidth() {
 export const AppShell: Component<{ children: JSX.Element; layout?: 'default' | 'full' }> = (props) => {
   syncSidebarWidth();
   onMount(() => {
-    connectionStore.check();
-
     const mq = window.matchMedia('(max-width: 1023px)');
     const onResize = () => {
       const userPref = localStorage.getItem('sidebar-collapsed') === 'true';
@@ -43,7 +39,6 @@ export const AppShell: Component<{ children: JSX.Element; layout?: 'default' | '
 
   return (
     <>
-      <SetupModal />
       <NotificationModals />
       <div class="min-h-screen bg-background flex">
         <SideNav />
