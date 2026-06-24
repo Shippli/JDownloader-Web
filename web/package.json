@@ -15,14 +15,14 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.6.18",
+    "@better-auth/drizzle-adapter": "^1.6.20",
     "@kobalte/core": "^0.13.11",
     "@unocss/reset": "^66.7.2",
-    "better-auth": "^1.6.18",
+    "better-auth": "^1.6.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.25",
+    "hono": "^4.12.27",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
@@ -30,18 +30,18 @@
     "@iconify-json/tabler": "^1.2.35",
     "@solidjs/router": "^0.16.1",
     "@types/bun": "latest",
-    "@typescript-eslint/eslint-plugin": "^8.61.0",
-    "@typescript-eslint/parser": "^8.61.0",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
+    "@typescript-eslint/parser": "^8.62.0",
     "@unocss/preset-icons": "^66.7.2",
     "@unocss/preset-uno": "^66.7.2",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.3",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.5.0",
     "solid-js": "^1.9.13",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.0",
+    "typescript-eslint": "^8.62.0",
     "unocss": "^66.7.2",
-    "vite": "^8.0.16",
+    "vite": "^8.1.0",
     "vite-plugin-solid": "^2.11.12"
   }
 }
