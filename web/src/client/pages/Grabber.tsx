@@ -48,8 +48,8 @@ const Grabber: Component = () => {
       pkgs.sort((a, b) => a.name.localeCompare(b.name));
     } else if (field === 'status') {
       pkgs.sort((a, b) => {
-        const ai = STATUS_ORDER.indexOf(a.status);
-        const bi = STATUS_ORDER.indexOf(b.status);
+        const ai = STATUS_ORDER.indexOf(a.status ?? '');
+        const bi = STATUS_ORDER.indexOf(b.status ?? '');
         return (ai === -1 ? STATUS_ORDER.length : ai) - (bi === -1 ? STATUS_ORDER.length : bi);
       });
     }
