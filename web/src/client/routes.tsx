@@ -12,21 +12,6 @@ const Downloads = lazy(() => import('./pages/Downloads'));
 const Grabber = lazy(() => import('./pages/Grabber'));
 const Config = lazy(() => import('./pages/Config'));
 
-const ProtectedLayout: Component<{ children?: any }> = props => (
-  <Show
-    when={!authStore.loading()}
-    fallback={(
-      <div class="flex justify-center items-center h-full py-16">
-        <Skeleton class="w-8 h-8 rounded-full" />
-      </div>
-    )}
-  >
-    <Show when={authStore.user()} fallback={<Login />}>
-      <AppShell>{props.children}</AppShell>
-    </Show>
-  </Show>
-);
-
 const SetupGuard: Component = () => {
   const navigate = useNavigate();
 
@@ -42,7 +27,7 @@ const SetupGuard: Component = () => {
   return <Setup />;
 };
 
-const AppGuard: Component<{ children?: any }> = (props) => {
+const AuthenticatedLayout: Component<{ children?: any }> = (props) => {
   const navigate = useNavigate();
 
   onMount(async () => {
@@ -54,17 +39,32 @@ const AppGuard: Component<{ children?: any }> = (props) => {
     } catch {}
   });
 
-  return <ProtectedLayout>{props.children}</ProtectedLayout>;
+  return (
+    <Show
+      when={!authStore.loading()}
+      fallback={(
+        <div class="flex justify-center items-center h-full py-16">
+          <Skeleton class="w-8 h-8 rounded-full" />
+        </div>
+      )}
+    >
+      <Show when={authStore.user()} fallback={<Login />}>
+        <AppShell>{props.children}</AppShell>
+      </Show>
+    </Show>
+  );
 };
 
 export const AppRoutes: Component = () => (
   <>
-    <Route path="/login" component={() => <AppGuard><Login /></AppGuard>} />
+    <Route path="/" component={AuthenticatedLayout}>
+      <Route path="/" component={Downloads} />
+      <Route path="/downloads" component={Downloads} />
+      <Route path="/grabber" component={Grabber} />
+      <Route path="/config" component={Config} />
+      <Route path="/login" component={Login} />
+      <Route path="*" component={Downloads} />
+    </Route>
     <Route path="/setup" component={SetupGuard} />
-    <Route path="/" component={() => <AppGuard><Downloads /></AppGuard>} />
-    <Route path="/downloads" component={() => <AppGuard><Downloads /></AppGuard>} />
-    <Route path="/grabber" component={() => <AppGuard><Grabber /></AppGuard>} />
-    <Route path="/config" component={() => <AppGuard><Config /></AppGuard>} />
-    <Route path="*" component={() => <AppGuard><Downloads /></AppGuard>} />
   </>
 );

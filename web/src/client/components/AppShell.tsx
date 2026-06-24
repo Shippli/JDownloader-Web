@@ -1,5 +1,6 @@
 import type { Component, JSX } from 'solid-js';
 import { createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { startSse, stopSse } from '../stores/sse';
 import { NotificationModals } from './NotificationsPanel';
 import { MobileNav } from './ui/MobileNav';
 import { SideNav } from './ui/SideNav';
@@ -25,6 +26,9 @@ export function syncSidebarWidth() {
 
 export const AppShell: Component<{ children: JSX.Element; layout?: 'default' | 'full' }> = (props) => {
   syncSidebarWidth();
+  onMount(() => startSse());
+  onCleanup(() => stopSse());
+
   onMount(() => {
     const mq = window.matchMedia('(max-width: 1023px)');
     const onResize = () => {
