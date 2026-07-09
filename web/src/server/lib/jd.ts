@@ -69,7 +69,7 @@ export class JDownloaderClient {
     return code === 'ConnectionRefused' || code === 'ECONNREFUSED' || code === 'ECONNRESET';
   }
 
-  private async post(path: string, params: unknown[]): Promise<unknown> {
+  private async post(path: string, params: unknown[], signal?: AbortSignal): Promise<unknown> {
     const rid = this.nextRid();
     const adapted = this.adaptParams(params);
     const payload: Record<string, unknown> = { apiVer: 1, url: path, params: adapted, rid };
@@ -80,6 +80,7 @@ export class JDownloaderClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body,
+      signal,
     });
 
     if (!res.ok) {
@@ -119,6 +120,33 @@ export class JDownloaderClient {
         this.unavailableSince = Date.now();
       }
       throw e;
+    }
+  }
+
+  // Long-poll variant for /events/listen. Bypasses the circuit breaker's
+  // availability short-circuit: a listen call parked for up to ~25 s (JD's
+  // server-side pollTimeout) is normal operation, and the dedicated event
+  // listener loop does its own backoff on failures. Connection-level errors
+  // still trip the breaker so regular calls fail fast.
+  async callLongPoll(path: string, params: unknown[] = [], timeoutMs = 35_000, signal?: AbortSignal): Promise<unknown> {
+    if (!this.isConfigured()) {
+      throw Object.assign(new Error('JDownloader not configured'), { code: 'JD_NOT_CONFIGURED', status: 503 });
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(new DOMException('listen timeout', 'TimeoutError')), timeoutMs);
+    const onAbort = () => ctrl.abort(signal?.reason);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      return await this.post(path, params, ctrl.signal);
+    } catch (e) {
+      if (this.isConnRefused(e)) {
+        this.available = false;
+        this.unavailableSince = Date.now();
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
 
