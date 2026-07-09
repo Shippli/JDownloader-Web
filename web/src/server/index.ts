@@ -1,6 +1,7 @@
 import process from 'node:process';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
+import { compress } from 'hono/compress';
 import { cors } from 'hono/cors';
 import { streamSSE } from 'hono/streaming';
 import { auth } from './lib/auth';
@@ -48,12 +49,14 @@ app.get('/api/cnl/jdcheck.js', (c) => {
   });
 });
 
-// Auth middleware for protected routes
+// Auth middleware for protected routes. Stores the session in context so
+// downstream handlers don't need a second getSession() lookup.
 async function requireAuth(c: any, next: any) {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
+  c.set('session', session);
   return next();
 }
 
@@ -100,6 +103,24 @@ app.get('/api/sse', (c) => {
 
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
+  // Registered after the /api routes, so API responses (incl. SSE) are untouched.
+  // Compresses static assets and the SPA shell.
+  app.use('/*', compress());
+  // Cache policy:
+  //  - HTML (index.html / SPA fallback) must always revalidate → no-cache
+  //  - hashed files under /assets are immutable → cache forever
+  app.use('/*', async (c, next) => {
+    await next();
+    if (!c.res.ok) {
+      return;
+    }
+    const contentType = c.res.headers.get('Content-Type') ?? '';
+    if (contentType.includes('text/html')) {
+      c.res.headers.set('Cache-Control', 'no-cache');
+    } else if (c.req.path.startsWith('/assets/')) {
+      c.res.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  });
   app.use('/*', serveStatic({ root: './dist/public' }));
   app.get('*', serveStatic({ path: './dist/public/index.html' }));
 }

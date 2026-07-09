@@ -4,7 +4,14 @@ import { db } from '../db';
 import { account, user } from '../db/schema';
 import { auth } from '../lib/auth';
 
-const usersRouter = new Hono();
+type Env = {
+  Variables: {
+    // Set by the requireAuth middleware in src/server/index.ts
+    session: { user: { id: string } };
+  };
+};
+
+const usersRouter = new Hono<Env>();
 
 // GET /api/users – list all users
 usersRouter.get('/', async (c) => {
@@ -77,7 +84,8 @@ usersRouter.patch('/:id/password', async (c) => {
 usersRouter.delete('/:id', async (c) => {
   const id = c.req.param('id');
 
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  // Session was resolved and stored in context by the requireAuth middleware.
+  const session = c.get('session');
   if (session?.user.id === id) {
     return c.json({ error: 'Du kannst deinen eigenen Account nicht löschen' }, 400);
   }

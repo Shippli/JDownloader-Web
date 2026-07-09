@@ -18,6 +18,14 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
+  session: {
+    // Signed cookie cache: skips the SQLite session lookup on most requests.
+    // Trade-off: a revoked session may remain usable for up to maxAge seconds.
+    cookieCache: {
+      enabled: true,
+      maxAge: 300,
+    },
+  },
   secret: process.env.BETTER_AUTH_SECRET ?? (() => {
     throw new Error('BETTER_AUTH_SECRET environment variable is required');
   })(),
