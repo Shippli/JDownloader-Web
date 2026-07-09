@@ -3,7 +3,7 @@ import type { ContextMenuItem } from '../components/ContextMenu';
 import type { SortState } from '../components/ui/SortDropdown';
 import type { GrabberLink, GrabberPackage } from '../lib/api';
 import { useNavigate } from '@solidjs/router';
-import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import AddLinksDialog from '../components/AddLinksDialog';
 import ContextMenu from '../components/ContextMenu';
 import PriorityBadge from '../components/PriorityBadge';
@@ -28,7 +28,8 @@ const Grabber: Component = () => {
   const navigate = useNavigate();
   const packages = () => sseGrabber()?.packages ?? ((getCached('grabber.packages') as GrabberPackage[] | undefined) ?? []);
   const links = () => sseGrabber()?.links ?? ((getCached('grabber.links') as GrabberLink[] | undefined) ?? []);
-  const STATUS_ORDER = ['RUNNING', 'WAITING', 'QUEUED', 'STOPPED', 'FINISHED'];
+  const STATUS_RANK: Record<string, number> = { RUNNING: 0, WAITING: 1, QUEUED: 2, STOPPED: 3, FINISHED: 4 };
+  const STATUS_RANK_MAX = 5;
   const savedSort = (): SortState => {
     try {
       return JSON.parse(localStorage.getItem('grabber.sort') ?? '') as SortState;
@@ -41,20 +42,17 @@ const Grabber: Component = () => {
     setSortState(next);
     localStorage.setItem('grabber.sort', JSON.stringify(next));
   };
-  const sortedPackages = () => {
+  // Memoized: sorting runs once per data/sort change instead of once per consumer.
+  const sortedPackages = createMemo(() => {
     const pkgs = [...packages()];
     const { field, dir } = sortState();
     if (field === 'name') {
       pkgs.sort((a, b) => a.name.localeCompare(b.name));
     } else if (field === 'status') {
-      pkgs.sort((a, b) => {
-        const ai = STATUS_ORDER.indexOf(a.status ?? '');
-        const bi = STATUS_ORDER.indexOf(b.status ?? '');
-        return (ai === -1 ? STATUS_ORDER.length : ai) - (bi === -1 ? STATUS_ORDER.length : bi);
-      });
+      pkgs.sort((a, b) => (STATUS_RANK[a.status ?? ''] ?? STATUS_RANK_MAX) - (STATUS_RANK[b.status ?? ''] ?? STATUS_RANK_MAX));
     }
     return dir === 'desc' ? pkgs.reverse() : pkgs;
-  };
+  });
   const [loading, setLoading] = createSignal(getCached('grabber.packages') == null);
   const [error, setError] = createSignal('');
   const [showAddDialog, setShowAddDialog] = createSignal(false);
@@ -364,8 +362,22 @@ const Grabber: Component = () => {
     document.removeEventListener('keydown', onKeyDown);
   });
 
+  // Group links by package once per store update (O(L)) instead of filtering the
+  // full link list per package per render (O(P*L)).
+  const linksByPkg = createMemo(() => {
+    const map = new Map<number, GrabberLink[]>();
+    for (const l of links()) {
+      const arr = map.get(l.packageUUID);
+      if (arr) {
+        arr.push(l);
+      } else {
+        map.set(l.packageUUID, [l]);
+      }
+    }
+    return map;
+  });
   const getPackageLinks = (pkgUUID: number) =>
-    links().filter(l => l.packageUUID === pkgUUID);
+    linksByPkg().get(pkgUUID) ?? [];
 
   const toggleExpand = (uuid: number) => {
     setExpandedPkgs((prev) => {

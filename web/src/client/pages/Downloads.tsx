@@ -2,7 +2,7 @@ import type { Component } from 'solid-js';
 import type { ContextMenuItem } from '../components/ContextMenu';
 import type { SortState } from '../components/ui/SortDropdown';
 import type { DownloadLink, DownloadPackage } from '../lib/api';
-import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import ContextMenu from '../components/ContextMenu';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -25,7 +25,8 @@ import { sseDownloads } from '../stores/sse';
 const Downloads: Component = () => {
   const packages = () => sseDownloads()?.packages ?? ((getCached('dl.packages') as DownloadPackage[] | undefined) ?? []);
   const links = () => sseDownloads()?.links ?? ((getCached('dl.links') as DownloadLink[] | undefined) ?? []);
-  const STATUS_ORDER = ['RUNNING', 'WAITING', 'QUEUED', 'STOPPED', 'FINISHED'];
+  const STATUS_RANK: Record<string, number> = { RUNNING: 0, WAITING: 1, QUEUED: 2, STOPPED: 3, FINISHED: 4 };
+  const STATUS_RANK_MAX = 5;
   const savedSort = (): SortState => {
     try {
       return JSON.parse(localStorage.getItem('dl.sort') ?? '') as SortState;
@@ -38,20 +39,18 @@ const Downloads: Component = () => {
     setSortState(next);
     localStorage.setItem('dl.sort', JSON.stringify(next));
   };
-  const sortedPackages = () => {
+  // Memoized: sorting runs once per data/sort change instead of once per consumer
+  // (desktop + compact list both read this on every SSE delta).
+  const sortedPackages = createMemo(() => {
     const pkgs = [...packages()];
     const { field, dir } = sortState();
     if (field === 'name') {
       pkgs.sort((a, b) => a.name.localeCompare(b.name));
     } else if (field === 'status') {
-      pkgs.sort((a, b) => {
-        const ai = STATUS_ORDER.indexOf(a.status);
-        const bi = STATUS_ORDER.indexOf(b.status);
-        return (ai === -1 ? STATUS_ORDER.length : ai) - (bi === -1 ? STATUS_ORDER.length : bi);
-      });
+      pkgs.sort((a, b) => (STATUS_RANK[a.status] ?? STATUS_RANK_MAX) - (STATUS_RANK[b.status] ?? STATUS_RANK_MAX));
     }
     return dir === 'desc' ? pkgs.reverse() : pkgs;
-  };
+  });
   const state = () => sseDownloads()?.state ?? ((getCached('dl.state') as string | undefined) ?? 'IDLE');
   const speed = () => sseDownloads()?.speed ?? ((getCached('dl.speed') as number | undefined) ?? 0);
   const [loading, setLoading] = createSignal(getCached('dl.packages') == null);
@@ -234,8 +233,22 @@ const Downloads: Component = () => {
     document.removeEventListener('keydown', onKeyDown);
   });
 
+  // Group links by package once per store update (O(L)) instead of filtering the
+  // full link list per package per render (O(P*L)).
+  const linksByPkg = createMemo(() => {
+    const map = new Map<number, DownloadLink[]>();
+    for (const l of links()) {
+      const arr = map.get(l.packageUUID);
+      if (arr) {
+        arr.push(l);
+      } else {
+        map.set(l.packageUUID, [l]);
+      }
+    }
+    return map;
+  });
   const getPackageLinks = (pkgUUID: number) =>
-    links().filter(l => l.packageUUID === pkgUUID);
+    linksByPkg().get(pkgUUID) ?? [];
 
   const getProgress = (loaded: number, total: number) => {
     if (!total || total <= 0) {

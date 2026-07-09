@@ -78,25 +78,33 @@ function dispatch(msg: SseServerMessage) {
         lastSeq = msg.seq;
         setDlStore(produce((s) => {
           if (msg.removedPackages?.length) {
-            s.packages = s.packages.filter(p => !msg.removedPackages!.includes(p.uuid));
+            const removed = new Set(msg.removedPackages);
+            s.packages = s.packages.filter(p => !removed.has(p.uuid));
           }
           if (msg.removedLinks?.length) {
-            s.links = s.links.filter(l => !msg.removedLinks!.includes(l.uuid));
+            const removed = new Set(msg.removedLinks);
+            s.links = s.links.filter(l => !removed.has(l.uuid));
           }
-          for (const pkg of msg.packages ?? []) {
-            const i = s.packages.findIndex(p => p.uuid === pkg.uuid);
-            if (i >= 0) {
-              s.packages[i] = pkg;
-            } else {
-              s.packages.push(pkg);
+          if (msg.packages?.length) {
+            const idx = new Map(s.packages.map((p, i) => [p.uuid, i]));
+            for (const pkg of msg.packages) {
+              const i = idx.get(pkg.uuid);
+              if (i !== undefined) {
+                s.packages[i] = pkg;
+              } else {
+                s.packages.push(pkg);
+              }
             }
           }
-          for (const lnk of msg.links ?? []) {
-            const i = s.links.findIndex(l => l.uuid === lnk.uuid);
-            if (i >= 0) {
-              s.links[i] = lnk;
-            } else {
-              s.links.push(lnk);
+          if (msg.links?.length) {
+            const idx = new Map(s.links.map((l, i) => [l.uuid, i]));
+            for (const lnk of msg.links) {
+              const i = idx.get(lnk.uuid);
+              if (i !== undefined) {
+                s.links[i] = lnk;
+              } else {
+                s.links.push(lnk);
+              }
             }
           }
           if (msg.state !== undefined) {
@@ -130,25 +138,33 @@ function dispatch(msg: SseServerMessage) {
         lastSeq = msg.seq;
         setGrabStore(produce((s) => {
           if (msg.removedPackages?.length) {
-            s.packages = s.packages.filter(p => !msg.removedPackages!.includes(p.uuid));
+            const removed = new Set(msg.removedPackages);
+            s.packages = s.packages.filter(p => !removed.has(p.uuid));
           }
           if (msg.removedLinks?.length) {
-            s.links = s.links.filter(l => !msg.removedLinks!.includes(l.uuid));
+            const removed = new Set(msg.removedLinks);
+            s.links = s.links.filter(l => !removed.has(l.uuid));
           }
-          for (const pkg of msg.packages ?? []) {
-            const i = s.packages.findIndex(p => p.uuid === pkg.uuid);
-            if (i >= 0) {
-              s.packages[i] = pkg;
-            } else {
-              s.packages.push(pkg);
+          if (msg.packages?.length) {
+            const idx = new Map(s.packages.map((p, i) => [p.uuid, i]));
+            for (const pkg of msg.packages) {
+              const i = idx.get(pkg.uuid);
+              if (i !== undefined) {
+                s.packages[i] = pkg;
+              } else {
+                s.packages.push(pkg);
+              }
             }
           }
-          for (const lnk of msg.links ?? []) {
-            const i = s.links.findIndex(l => l.uuid === lnk.uuid);
-            if (i >= 0) {
-              s.links[i] = lnk;
-            } else {
-              s.links.push(lnk);
+          if (msg.links?.length) {
+            const idx = new Map(s.links.map((l, i) => [l.uuid, i]));
+            for (const lnk of msg.links) {
+              const i = idx.get(lnk.uuid);
+              if (i !== undefined) {
+                s.links[i] = lnk;
+              } else {
+                s.links.push(lnk);
+              }
             }
           }
         }));
