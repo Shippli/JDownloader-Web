@@ -1,4 +1,4 @@
-import type { EventTopic } from './jdEvents';
+import type { EntityPatch, EventTopic } from './jdEvents';
 import process from 'node:process';
 import {
   DEFAULT_GRABBER_LINK_QUERY,
@@ -151,24 +151,18 @@ export function shallowEntityEqual(a: Record<string, unknown>, b: Record<string,
   return true;
 }
 
-// ─── Event-driven mode ────────────────────────────────────────────────────────
+// ─── Event-driven updates ─────────────────────────────────────────────────────
 //
-// Default: JD's /events subscription API triggers the polls above only when
-// something actually changed (see events-plan.md). 'legacy' keeps the previous
-// fixed-interval polling — used as automatic fallback when the events API is
-// unavailable, or forced via JD_EVENTS=off.
-
-type BroadcastMode = 'events' | 'legacy';
-let mode: BroadcastMode = process.env.JD_EVENTS === 'off' ? 'legacy' : 'events';
-let legacyTimersStarted = false;
-let reconcileTimer: ReturnType<typeof setInterval> | null = null;
+// JD's /events subscription API triggers queries only when something actually
+// changed; per-field diff events update the cache directly. Requires a JD build
+// that exposes /events/listpublisher.
 
 // Coalesce event bursts (e.g. "50 links added") into a single query per topic.
 const TOPIC_DEBOUNCE_MS = 150;
 const topicPollers: Record<EventTopic, () => Promise<void>> = {
-  downloads: pollDownloads,
-  grabber: pollGrabber,
-  notifications: pollNotifications,
+  downloads: syncDownloads,
+  grabber: syncGrabber,
+  notifications: syncNotifications,
 };
 const topicTimers = new Map<EventTopic, ReturnType<typeof setTimeout>>();
 
@@ -182,55 +176,165 @@ function scheduleTopicPoll(topic: EventTopic) {
   }, TOPIC_DEBOUNCE_MS));
 }
 
-// While downloads run or archives extract, bytesLoaded/speed/eta change
-// continuously without emitting structure events, and the extraction-progress
-// heuristic needs regular wall-clock sampling — so keep the old 2 s cadence,
-// but only for as long as there is actual activity.
-let progressTicker: ReturnType<typeof setInterval> | null = null;
+// Cache-only tick (no JD calls). Re-derives extraction % — the elapsed/ETA
+// interpolation needs wall-clock sampling between diff events — while extracting.
+let exProgressTicker: ReturnType<typeof setInterval> | null = null;
 
-function downloadsActive(): boolean {
-  return cachedDownloads !== null
-    && (cachedDownloads.state === 'RUNNING' || Object.keys(cachedDownloads.exProgress).length > 0);
+function extractionsActive(): boolean {
+  return cachedDownloads !== null && Object.keys(cachedDownloads.exProgress).length > 0;
 }
 
-function updateProgressTicker() {
-  if (mode !== 'events') {
-    return;
-  }
-  const shouldRun = clients.size > 0 && downloadsActive();
-  if (shouldRun && progressTicker === null) {
-    progressTicker = setInterval(() => void pollDownloads(), 2_000);
-  } else if (!shouldRun && progressTicker !== null) {
-    clearInterval(progressTicker);
-    progressTicker = null;
+function updateExtractionTicker() {
+  const wantEx = clients.size > 0 && extractionsActive();
+  if (wantEx && exProgressTicker === null) {
+    exProgressTicker = setInterval(recomputeExProgress, 2_000);
+  } else if (!wantEx && exProgressTicker !== null) {
+    clearInterval(exProgressTicker);
+    exProgressTicker = null;
   }
 }
 
-function startLegacyTimers() {
-  if (legacyTimersStarted) {
+// Cache-only re-derivation of extraction progress percentages. Reads the cached
+// links, makes no JD call, and emits a delta only when a % actually moved.
+function recomputeExProgress() {
+  if (!cachedDownloads || clients.size === 0) {
     return;
   }
-  legacyTimersStarted = true;
-  setInterval(() => void pollDownloads(), 2_000);
-  setInterval(() => void pollGrabber(), 3_000);
-  setInterval(() => void pollNotifications(), 5_000);
+  const exProgress = updateExtractionProgress(cachedDownloads.links);
+  const exProgressStr = JSON.stringify(exProgress);
+  if (exProgressStr === cachedDownloads.exProgressStr) {
+    return;
+  }
+  seq++;
+  cachedDownloads = { ...cachedDownloads, exProgress, exProgressStr, seq };
+  broadcast({ type: 'downloads', full: false, seq, exProgress });
 }
 
-function switchToLegacy(reason: string) {
-  if (mode === 'legacy') {
+export type PatchInput = {
+  linkMap: Map<number, Record<string, unknown>>;
+  pkgMap: Map<number, Record<string, unknown>>;
+  links: unknown[];
+  packages: unknown[];
+};
+
+export type PatchResult = {
+  linkMap: Map<number, Record<string, unknown>>;
+  pkgMap: Map<number, Record<string, unknown>>;
+  links: unknown[];
+  packages: unknown[];
+  changedLinks: unknown[];
+  changedPkgs: unknown[];
+  speed: number;
+  unknownUuids: boolean;
+};
+
+export function applyPatchesToCache(input: PatchInput, patches: EntityPatch[]): PatchResult {
+  const linkFields = new Map<number, Record<string, unknown>>();
+  const pkgFields = new Map<number, Record<string, unknown>>();
+  let unknownUuids = false;
+  for (const p of patches) {
+    const cacheMap = p.kind === 'link' ? input.linkMap : input.pkgMap;
+    if (!cacheMap.has(p.uuid)) {
+      unknownUuids = true;
+      continue;
+    }
+    const target = p.kind === 'link' ? linkFields : pkgFields;
+    const merged = target.get(p.uuid) ?? {};
+    Object.assign(merged, p.fields);
+    target.set(p.uuid, merged);
+  }
+
+  const newLinkMap = new Map(input.linkMap);
+  const newPkgMap = new Map(input.pkgMap);
+  const links = [...input.links];
+  const packages = [...input.packages];
+  const changedLinks: unknown[] = [];
+  const changedPkgs: unknown[] = [];
+
+  if (linkFields.size > 0) {
+    const idx = new Map(links.map((l, i) => [(l as { uuid: number }).uuid, i]));
+    for (const [uuid, fields] of linkFields) {
+      const prev = input.linkMap.get(uuid)!;
+      const next = { ...prev, ...fields };
+      if (shallowEntityEqual(prev, next)) {
+        continue;
+      }
+      newLinkMap.set(uuid, next);
+      const i = idx.get(uuid);
+      if (i !== undefined) {
+        links[i] = next;
+      }
+      changedLinks.push(next);
+    }
+  }
+  if (pkgFields.size > 0) {
+    const idx = new Map(packages.map((p, i) => [(p as { uuid: number }).uuid, i]));
+    for (const [uuid, fields] of pkgFields) {
+      const prev = input.pkgMap.get(uuid)!;
+      const next = { ...prev, ...fields };
+      if (shallowEntityEqual(prev, next)) {
+        continue;
+      }
+      newPkgMap.set(uuid, next);
+      const i = idx.get(uuid);
+      if (i !== undefined) {
+        packages[i] = next;
+      }
+      changedPkgs.push(next);
+    }
+  }
+
+  // Total speed = Σ running-link speeds (replaces getSpeedInBps polling).
+  let speed = 0;
+  for (const l of newLinkMap.values()) {
+    const s = (l as { speed?: number }).speed;
+    if (typeof s === 'number' && s > 0) {
+      speed += s;
+    }
+  }
+
+  return { linkMap: newLinkMap, pkgMap: newPkgMap, links, packages, changedLinks, changedPkgs, speed, unknownUuids };
+}
+
+// Apply a batch of validated per-field diffs into the cache and emit one
+// standard SSE delta, identical in shape to a poll-diff delta.
+function applyFieldPatches(patches: EntityPatch[]) {
+  if (!cachedDownloads || clients.size === 0) {
     return;
   }
-  console.warn(`[broadcaster] falling back to fixed-interval polling: ${reason}`);
-  mode = 'legacy';
-  if (reconcileTimer !== null) {
-    clearInterval(reconcileTimer);
-    reconcileTimer = null;
+  const cache = cachedDownloads;
+  const r = applyPatchesToCache(cache, patches);
+  if (r.unknownUuids) {
+    scheduleTopicPoll('downloads');
   }
-  if (progressTicker !== null) {
-    clearInterval(progressTicker);
-    progressTicker = null;
+
+  const exProgress = updateExtractionProgress(r.links);
+  const exProgressStr = JSON.stringify(exProgress);
+  const speedChanged = r.speed !== cache.speed;
+  const exProgressChanged = exProgressStr !== cache.exProgressStr;
+
+  if (r.changedLinks.length === 0 && r.changedPkgs.length === 0 && !speedChanged && !exProgressChanged) {
+    return;
   }
-  startLegacyTimers();
+
+  seq++;
+  cachedDownloads = { pkgMap: r.pkgMap, linkMap: r.linkMap, packages: r.packages, links: r.links, state: cache.state, speed: r.speed, exProgress, exProgressStr, seq };
+
+  const delta: SseServerMessage & { type: 'downloads'; full: false } = { type: 'downloads', full: false, seq };
+  if (r.changedPkgs.length > 0) {
+    delta.packages = r.changedPkgs;
+  }
+  if (r.changedLinks.length > 0) {
+    delta.links = r.changedLinks;
+  }
+  if (speedChanged) {
+    delta.speed = r.speed;
+  }
+  if (exProgressChanged) {
+    delta.exProgress = exProgress;
+  }
+  broadcast(delta);
+  updateExtractionTicker();
 }
 
 const eventListener = new JdEventListener(jdClient, {
@@ -241,12 +345,13 @@ const eventListener = new JdEventListener(jdClient, {
   },
   onResync: () => {
     // We may have missed events while unsubscribed — re-baseline everything.
-    void pollDownloads();
-    void pollGrabber();
-    void pollNotifications();
+    void syncDownloads();
+    void syncGrabber();
+    void syncNotifications();
   },
-  onUnsupported: () => switchToLegacy('JD events API unavailable or missing required publishers'),
+  onUnsupported: () => console.error('[broadcaster] JD events API unavailable — real-time updates disabled. Ensure your JD build exposes /events/listpublisher.'),
   onConnectionError: () => reportJdDown(),
+  onDiffEvents: patches => applyFieldPatches(patches),
 });
 
 // Best-effort unsubscribe on shutdown (the subscription would self-expire in
@@ -275,21 +380,19 @@ export function addSseClient(writer: SseWriter) {
   clients.add(writer);
   // only trigger immediate polls when we have no cached state yet
   if (!cachedDownloads) {
-    void pollDownloads();
+    void syncDownloads();
   }
   if (!cachedGrabber) {
-    void pollGrabber();
+    void syncGrabber();
   }
   if (lastHealthJd === null) {
     void pollHealth();
   }
   if (!lastNotificationsStr) {
-    void pollNotifications();
+    void syncNotifications();
   }
-  if (mode === 'events') {
-    eventListener.start();
-    updateProgressTicker();
-  }
+  eventListener.start();
+  updateExtractionTicker();
 }
 
 export function removeSseClient(writer: SseWriter) {
@@ -298,7 +401,7 @@ export function removeSseClient(writer: SseWriter) {
     // No one is watching: park everything. The JD-side subscription expires on
     // its own (maxKeepalive), stop() also unsubscribes best-effort.
     void eventListener.stop();
-    updateProgressTicker();
+    updateExtractionTicker();
   }
 }
 
@@ -366,6 +469,11 @@ async function pollHealth() {
     }
     lastHealthJd = jd;
     broadcast({ type: 'health', jd });
+    // Restart the event listener when JD comes back (covers the case where
+    // the listener exited unexpectedly while clients were connected).
+    if (jd && clients.size > 0) {
+      eventListener.start();
+    }
   } catch {
     if (lastHealthJd === false) {
       return;
@@ -375,7 +483,7 @@ async function pollHealth() {
   }
 }
 
-async function pollDownloads() {
+async function syncDownloads() {
   if (clients.size === 0) {
     return;
   }
@@ -398,7 +506,7 @@ async function pollDownloads() {
       seq++;
       cachedDownloads = { pkgMap: toUuidMap(pkgArr as Array<{ uuid: number }>), linkMap: toUuidMap(linkArr as Array<{ uuid: number }>), packages: pkgArr, links: linkArr, state: currState, speed: currSpeed, exProgress, exProgressStr, seq };
       broadcast({ type: 'downloads', full: true, seq, packages: pkgArr, links: linkArr, state: currState, speed: currSpeed, exProgress });
-      updateProgressTicker();
+      updateExtractionTicker();
       return;
     }
 
@@ -418,7 +526,7 @@ async function pollDownloads() {
         || exProgressChanged;
 
     if (!hasChanges) {
-      updateProgressTicker();
+      updateExtractionTicker();
       return;
     }
 
@@ -449,7 +557,7 @@ async function pollDownloads() {
     }
 
     broadcast(delta);
-    updateProgressTicker();
+    updateExtractionTicker();
   } catch (e) {
     if (isJdConnErr(e)) {
       reportJdDown();
@@ -457,7 +565,7 @@ async function pollDownloads() {
   }
 }
 
-async function pollGrabber() {
+async function syncGrabber() {
   if (clients.size === 0) {
     return;
   }
@@ -514,7 +622,7 @@ async function pollGrabber() {
   }
 }
 
-async function pollNotifications() {
+async function syncNotifications() {
   if (clients.size === 0) {
     return;
   }
@@ -574,16 +682,12 @@ export function startBroadcaster() {
   void pollHealth();
   setInterval(() => void pollHealth(), 5_000);
   setInterval(broadcastHeartbeat, 5_000);
-  if (mode === 'legacy') {
-    startLegacyTimers();
-    return;
-  }
   // Safety net for missed/dropped events: cheap periodic reconciliation.
   // Also refreshes total speed / update-availability during long idle phases.
-  reconcileTimer = setInterval(() => {
-    void pollDownloads();
-    void pollGrabber();
-    void pollNotifications();
+  setInterval(() => {
+    void syncDownloads();
+    void syncGrabber();
+    void syncNotifications();
   }, 60_000);
   // The event listener itself starts with the first SSE client (addSseClient)
   // and stops with the last — no clients means no JD traffic beyond health.
