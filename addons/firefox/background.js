@@ -121,16 +121,46 @@ async function decryptCnl(crypted, jkScript) {
 
   if (!keyHex || typeof keyHex !== 'string') throw new Error('jk did not return a valid hex key');
 
-  const keyBytes  = await hexToBytes(keyHex.trim());
-  const iv        = keyBytes.slice(0, 16);
-  const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, 'AES-CBC', false, ['decrypt']);
+  const keyBytes = await hexToBytes(keyHex.trim());
+  const iv       = keyBytes.slice(0, 16);
 
   const ciphertextStr   = atob(crypted);
   const ciphertextBytes = new Uint8Array(ciphertextStr.length);
   for (let i = 0; i < ciphertextStr.length; i++) ciphertextBytes[i] = ciphertextStr.charCodeAt(i);
 
-  const decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, cryptoKey, ciphertextBytes);
-  return new TextDecoder('utf-8').decode(decrypted);
+  const decKey = await crypto.subtle.importKey('raw', keyBytes, 'AES-CBC', false, ['decrypt']);
+
+  // WebCrypto AES-CBC enforces PKCS#7; CNL2 uses zero padding. Try PKCS#7 first,
+  // fall back to no-padding decrypt on the resulting OperationError.
+  try {
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, decKey, ciphertextBytes);
+    return new TextDecoder('utf-8').decode(decrypted).replace(/\0+$/, '');
+  } catch (e) {
+    if (e.name !== 'OperationError') throw e;
+    return decryptCbcNoPadding(keyBytes, iv, ciphertextBytes);
+  }
+}
+
+// AES-CBC decrypt without PKCS#7 check: append a block that decrypts to a valid
+// 0x10×16 pad (= AES_enc(0x10^16 XOR C_last)), let WebCrypto strip it, trim NULs.
+async function decryptCbcNoPadding(keyBytes, iv, ciphertextBytes) {
+  const cLast = ciphertextBytes.slice(ciphertextBytes.length - 16);
+  const x = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) x[i] = 0x10 ^ cLast[i];
+
+  const encKey = await crypto.subtle.importKey('raw', keyBytes, 'AES-CBC', false, ['encrypt']);
+  const encOut = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv: new Uint8Array(16) }, encKey, x));
+  const cExtra = encOut.slice(0, 16); // = AES_enc(x)
+
+  const extended = new Uint8Array(ciphertextBytes.length + 16);
+  extended.set(ciphertextBytes);
+  extended.set(cExtra, ciphertextBytes.length);
+
+  const decKey    = await crypto.subtle.importKey('raw', keyBytes, 'AES-CBC', false, ['decrypt']);
+  const decrypted = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, decKey, extended));
+  let end = decrypted.length;
+  while (end > 0 && decrypted[end - 1] === 0) end--;
+  return new TextDecoder('utf-8').decode(decrypted.slice(0, end));
 }
 
 // ─── Offline Queue ────────────────────────────────────────────────────────────
@@ -337,14 +367,15 @@ function handleRequest(details) {
 
   // Encrypted links
   if (matchesCnlHost(url, '/flash/addcrypted2')) {
-    const fd        = readFormData(details.requestBody || {});
-    const crypted   = fd.crypted   || '';
-    const jk        = fd.jk        || '';
-    const source    = fd.source    || '';
-    const passwords = fd.passwords || '';
+    const fd          = readFormData(details.requestBody || {});
+    const crypted     = fd.crypted   || '';
+    const jk          = fd.jk        || '';
+    // Package name comes from the `package` field, not `source` (the referer URL).
+    const packageName = fd.package   || '';
+    const passwords   = fd.passwords || '';
     if (crypted && jk) {
       decryptCnl(crypted, jk)
-        .then(urls => sendToBackend(urls, source, passwords))
+        .then(urls => sendToBackend(urls, packageName, passwords))
         .catch(err => showNotification(browser.i18n.getMessage('notifCnlError'), err.message));
     } else {
       showNotification(browser.i18n.getMessage('notifCnlError'), `addcrypted2 empfangen, aber Daten fehlen (crypted=${!!crypted}, jk=${!!jk})`);
@@ -402,7 +433,9 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (action.includes('/flash/addcrypted2')) {
       const crypted     = fd.crypted   || '';
       const jk          = fd.jk        || '';
-      const packageName = message.packageName || fd.source || '';
+      // Prefer the name captured on the page (package field / JDData[3]); fall
+      // back to the raw `package` field. Never `source` — that is the referer URL.
+      const packageName = message.packageName || fd.package || '';
       const passwords   = fd.passwords || '';
       if (crypted && jk) {
         decryptCnl(crypted, jk)

@@ -11,7 +11,9 @@ if (!window.__jdFormIntercepted) {
       const data = {};
       const els = this.querySelectorAll('[name]');
       for (let i = 0; i < els.length; i++) data[els[i].name] = els[i].value;
-      const packageName = (window.JDData && window.JDData[3]) || data.source || '';
+      // Name from the `package` field (JDData[3] as backup), never `source` —
+      // that is the referer URL. Empty → JD names from the filename.
+      const packageName = data.package || (window.JDData && window.JDData[3]) || '';
       document.dispatchEvent(new CustomEvent('__jd_cnl_submit', {
         detail: { action, data, packageName },
       }));
