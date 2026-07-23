@@ -19,6 +19,9 @@
   "toggleCnlStopped":    { "message": "Stopped" },
   "toggleAutoSendTitle": { "message": "Auto-send" },
   "toggleAutoSendManual":{ "message": "Manual" },
+  "toggleNotifTitle":    { "message": "Notifications" },
+  "toggleNotifOn":       { "message": "On" },
+  "toggleNotifOff":      { "message": "Off" },
 
   "btnFlushQueue":         { "message": "Send" },
   "btnFlushQueueLoading":  { "message": "Sending…" },

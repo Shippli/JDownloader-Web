@@ -37,6 +37,8 @@ const offlineLogoutBtn = document.getElementById('offlineLogoutBtn');
 const offlineServer    = document.getElementById('offlineServer');
 const autoSendToggle   = document.getElementById('autoSendToggle');
 const autoSendDesc     = document.getElementById('autoSendDesc');
+const notifToggle      = document.getElementById('notifToggle');
+const notifDesc        = document.getElementById('notifDesc');
 // Queue elements
 const queueInfo        = document.getElementById('queueInfo');
 const queueText        = document.getElementById('queueText');
@@ -209,11 +211,13 @@ async function checkSession(serverUrl, token) {
 // ─── Toggle state helpers ─────────────────────────────────────────────────────
 
 // Apply both toggle states synchronously (call before making the view visible)
-function applyToggleStates(cnlActive, autoSend) {
+function applyToggleStates(cnlActive, autoSend, notifications = true) {
   cnlToggle.checked          = cnlActive;
   cnlDesc.textContent        = cnlActive ? t('toggleCnlActive') : t('toggleCnlStopped');
   autoSendToggle.checked     = autoSend;
   autoSendDesc.textContent   = autoSend  ? t('toggleCnlActive') : t('toggleAutoSendManual');
+  notifToggle.checked        = notifications;
+  notifDesc.textContent      = notifications ? t('toggleNotifOn') : t('toggleNotifOff');
 }
 
 // ─── CNL toggle ───────────────────────────────────────────────────────────────
@@ -248,17 +252,32 @@ autoSendToggle.addEventListener('change', async () => {
   browser.runtime.sendMessage({ type: 'setAutoSend', active }).catch(() => {});
 });
 
+// ─── Notifications toggle ─────────────────────────────────────────────────────
+
+async function loadNotifState() {
+  const data = await browser.storage.local.get('notifications');
+  const active = data.notifications !== false;
+  notifToggle.checked = active;
+  notifDesc.textContent = active ? t('toggleNotifOn') : t('toggleNotifOff');
+}
+
+notifToggle.addEventListener('change', async () => {
+  const active = notifToggle.checked;
+  notifDesc.textContent = active ? t('toggleNotifOn') : t('toggleNotifOff');
+  await browser.storage.local.set({ notifications: active });
+});
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
-  const data = await browser.storage.local.get(['serverUrl', 'token', 'email', 'cnlActive', 'autoSend']);
+  const data = await browser.storage.local.get(['serverUrl', 'token', 'email', 'cnlActive', 'autoSend', 'notifications']);
 
   if (data.serverUrl) serverUrlInput.value = data.serverUrl;
   if (data.email)     emailInput.value     = data.email;
 
   if (data.token && data.serverUrl) {
     // Apply toggle states before the view becomes visible to avoid the flash
-    applyToggleStates(data.cnlActive !== false, data.autoSend !== false);
+    applyToggleStates(data.cnlActive !== false, data.autoSend !== false, data.notifications !== false);
 
     const result = await checkSession(data.serverUrl, data.token);
 
@@ -323,6 +342,7 @@ loginForm.addEventListener('submit', async (e) => {
     await browser.storage.local.set({ serverUrl, token, email });
     await loadCnlState();
     await loadAutoSendState();
+    await loadNotifState();
     showConnected(serverUrl);
     // token change triggers flushQueue in background; wait briefly then refresh list
     setTimeout(() => refreshQueueUI(false), 500);
@@ -340,9 +360,9 @@ retryBtn.addEventListener('click', async () => {
   retryBtn.disabled = true;
   retryBtn.textContent = t('btnRetryLoading');
 
-  const data = await browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend']);
+  const data = await browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend', 'notifications']);
   if (data.token && data.serverUrl) {
-    applyToggleStates(data.cnlActive !== false, data.autoSend !== false);
+    applyToggleStates(data.cnlActive !== false, data.autoSend !== false, data.notifications !== false);
     const result = await checkSession(data.serverUrl, data.token);
 
     if (result === 'connected') {

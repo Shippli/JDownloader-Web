@@ -7,13 +7,15 @@ const config = {
   token: null,
   cnlActive: true,
   autoSend: true,   // when false, all packages are queued for manual dispatch
+  notifications: true,   // when false, no desktop notifications are shown
 };
 
-browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend']).then((data) => {
-  config.serverUrl = data.serverUrl || '';
-  config.token     = data.token     || null;
-  config.cnlActive = data.cnlActive !== false;
-  config.autoSend  = data.autoSend  !== false;
+browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend', 'notifications']).then((data) => {
+  config.serverUrl     = data.serverUrl || '';
+  config.token         = data.token     || null;
+  config.cnlActive     = data.cnlActive !== false;
+  config.autoSend      = data.autoSend  !== false;
+  config.notifications = data.notifications !== false;
   updateBadge();
   // Try to flush any items queued while the background was unloaded
   if (config.token && config.autoSend) flushQueue();
@@ -23,6 +25,7 @@ browser.storage.onChanged.addListener((changes) => {
   if (changes.serverUrl) config.serverUrl = changes.serverUrl.newValue || '';
   if (changes.cnlActive) config.cnlActive = changes.cnlActive.newValue !== false;
   if (changes.autoSend)  config.autoSend  = changes.autoSend.newValue  !== false;
+  if (changes.notifications) config.notifications = changes.notifications.newValue !== false;
   if (changes.token) {
     const hadToken = !!config.token;
     config.token = changes.token.newValue || null;
@@ -325,6 +328,7 @@ async function sendToBackend(links, packageName, extractPassword) {
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 function showNotification(title, message) {
+  if (!config.notifications) return Promise.resolve(null);
   return browser.notifications.create({
     type:    'basic',
     iconUrl: 'icons/icon48.png',
