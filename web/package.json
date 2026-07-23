@@ -15,33 +15,33 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.6.23",
-    "better-auth": "^1.6.23",
+    "@better-auth/drizzle-adapter": "^1.6.25",
+    "better-auth": "^1.6.25",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.28"
+    "hono": "^4.12.31"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
-    "@iconify-json/tabler": "^1.2.35",
+    "@iconify-json/tabler": "^1.2.37",
     "@kobalte/core": "^0.13.12",
-    "@solidjs/router": "^0.16.1",
+    "@solidjs/router": "^0.16.2",
     "@types/bun": "latest",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
     "@unocss/preset-icons": "^66.7.5",
     "@unocss/preset-uno": "^66.7.5",
     "@unocss/reset": "^66.7.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "concurrently": "^9.2.3",
+    "concurrently": "^9.2.4",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^10.6.0",
+    "eslint": "^10.7.0",
     "solid-js": "^1.9.14",
     "tailwind-merge": "^3.6.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.63.0",
+    "typescript-eslint": "^8.65.0",
     "unocss": "^66.7.5",
-    "vite": "^8.1.4",
-    "vite-plugin-solid": "^2.11.12"
+    "vite": "^8.1.5",
+    "vite-plugin-solid": "^2.11.13"
   }
 }
