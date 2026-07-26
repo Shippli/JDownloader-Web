@@ -516,27 +516,12 @@ const Downloads: Component = () => {
 
   const isRunning = () => state() === 'RUNNING';
 
-  // True if any selected item is currently enabled (= should show Stop)
-  const selectionIsActive = () => {
-    const selPkgs = selectedPkgs();
-    const selLinks = selectedLinks();
-    return (
-      packages().some(p => selPkgs.has(p.uuid) && p.enabled)
-      || links().some(l => selLinks.has(l.uuid) && l.enabled)
-    );
-  };
-
   const handleTogglePlay = async () => {
     try {
-      if (!hasSelection()) {
-        if (isRunning()) {
-          await jdApi.stop();
-        } else {
-          await jdApi.start();
-        }
+      if (isRunning()) {
+        await jdApi.stop();
       } else {
-        const enable = !selectionIsActive();
-        await jdApi.enableDownloads(enable, [...selectedLinks()], [...selectedPkgs()]);
+        await jdApi.start();
       }
       fetchData();
     } catch (e) {
@@ -544,7 +529,7 @@ const Downloads: Component = () => {
     }
   };
 
-  const shouldShowStop = () => hasSelection() ? selectionIsActive() : isRunning();
+  const shouldShowStop = () => isRunning();
 
   const stateLabel = () => {
     const s = state();
