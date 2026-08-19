@@ -29,4 +29,7 @@ RUN mkdir -p /app/data
 
 EXPOSE 3001
 
+# Disable Better Auth telemetry
+ENV BETTER_AUTH_TELEMETRY=0
+
 CMD ["bun", "src/server/index.ts"]
