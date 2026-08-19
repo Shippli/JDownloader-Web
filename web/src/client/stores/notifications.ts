@@ -20,6 +20,28 @@ let knownCaptchaIds = new Set<number>();
 let updateToastShown = false;
 let firstFetch = true;
 
+// Suppresses toasts for a package's dialogs for a limited time.
+const suppressedPackages = new Map<string, number>();
+
+export function suppressPackageDialogToasts(packageid: string, forMs = 5 * 60_000) {
+  suppressedPackages.set(packageid, Date.now() + forMs);
+}
+
+function isPackageSuppressed(packageid: unknown): boolean {
+  if (typeof packageid !== 'string') {
+    return false;
+  }
+  const until = suppressedPackages.get(packageid);
+  if (until === undefined) {
+    return false;
+  }
+  if (Date.now() > until) {
+    suppressedPackages.delete(packageid);
+    return false;
+  }
+  return true;
+}
+
 export function applyNotificationsMessage(data: {
   dialogs: JdDialog[];
   captchas: JdCaptcha[];
@@ -29,7 +51,7 @@ export function applyNotificationsMessage(data: {
   const dialogList = data.dialogs;
   if (!firstFetch) {
     for (const d of dialogList) {
-      if (!knownDialogIds.has(d.id)) {
+      if (!knownDialogIds.has(d.id) && !isPackageSuppressed(d.properties?.packageid)) {
         const dialog = d;
         toast.info(d.properties?.title || d.type?.split('.').pop() || t('dialogs.title'), {
           duration: 5000,

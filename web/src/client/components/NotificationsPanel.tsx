@@ -5,7 +5,7 @@ import { Portal } from 'solid-js/web';
 import { t } from '../i18n';
 import { captchaApi, configApi, dialogsApi } from '../lib/api';
 import { activePopupStore } from '../stores/activePopup';
-import { notificationsStore } from '../stores/notifications';
+import { notificationsStore, suppressPackageDialogToasts } from '../stores/notifications';
 import { Button } from './ui/Button';
 import { Checkbox } from './ui/Checkbox';
 import { Dialog } from './ui/Dialog';
@@ -231,11 +231,24 @@ export const NotificationModals: Component = () => {
                   </Button>
                   <Button
                     variant="default"
-                    onClick={() => isExtractPassword()
-                      ? answerDialog('OK', { text: archivePassword() })
-                      : isFileExists()
-                        ? answerDialog('OK', { action: fileExistsAction(), ...(fileExistsApplyAll() && { applytoall: true }) })
-                        : answerDialog('OK')}
+                    onClick={() => {
+                      if (isExtractPassword()) {
+                        answerDialog('OK', { text: archivePassword() });
+                        return;
+                      }
+                      if (isFileExists()) {
+                        const packageid = p().packageid as string | undefined;
+                        if (fileExistsApplyAll() && packageid) {
+                          suppressPackageDialogToasts(packageid);
+                        }
+                        answerDialog('OK', {
+                          action: fileExistsAction(),
+                          ...(fileExistsApplyAll() && packageid ? { packageid } : {}),
+                        });
+                        return;
+                      }
+                      answerDialog('OK');
+                    }}
                     disabled={isExtractPassword() && archivePassword().trim() === ''}
                   >
                     {okText()}
