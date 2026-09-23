@@ -7,8 +7,8 @@ import UnoCSS from '@unocss/vite';
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import pkg from './package.json' with { type: 'json' };
-import { presetAnimate } from './presets/animate';
-import { presetShadcn } from './presets/shadcn';
+import { presetAnimate } from './presets/animate/index.ts';
+import { presetShadcn } from './presets/shadcn/index.ts';
 
 export default defineConfig({
   plugins: [
@@ -27,7 +27,7 @@ export default defineConfig({
           scale: 1.2,
           warn: true,
           collections: {
-            tabler: () => import('@iconify-json/tabler/icons.json').then(i => i.default),
+            tabler: () => import('@iconify-json/tabler/icons.json', { with: { type: 'json' } }).then(i => i.default),
           },
         }),
       ],
