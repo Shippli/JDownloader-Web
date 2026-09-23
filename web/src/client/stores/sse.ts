@@ -90,7 +90,7 @@ function dispatch(msg: SseServerMessage) {
             for (const pkg of msg.packages) {
               const i = idx.get(pkg.uuid);
               if (i !== undefined) {
-                s.packages[i] = pkg;
+                Object.assign(s.packages[i], pkg);
               } else {
                 s.packages.push(pkg);
               }
@@ -101,7 +101,7 @@ function dispatch(msg: SseServerMessage) {
             for (const lnk of msg.links) {
               const i = idx.get(lnk.uuid);
               if (i !== undefined) {
-                s.links[i] = lnk;
+                Object.assign(s.links[i], lnk);
               } else {
                 s.links.push(lnk);
               }
@@ -150,7 +150,7 @@ function dispatch(msg: SseServerMessage) {
             for (const pkg of msg.packages) {
               const i = idx.get(pkg.uuid);
               if (i !== undefined) {
-                s.packages[i] = pkg;
+                Object.assign(s.packages[i], pkg);
               } else {
                 s.packages.push(pkg);
               }
@@ -161,7 +161,7 @@ function dispatch(msg: SseServerMessage) {
             for (const lnk of msg.links) {
               const i = idx.get(lnk.uuid);
               if (i !== undefined) {
-                s.links[i] = lnk;
+                Object.assign(s.links[i], lnk);
               } else {
                 s.links.push(lnk);
               }
