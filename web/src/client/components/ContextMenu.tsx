@@ -104,21 +104,21 @@ const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; o
   const btnClass = (item: ContextMenuItem) =>
     `w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors ${
       item.danger
-        ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+        ? 'text-destructive hover:bg-destructive/10'
         : 'text-foreground hover:bg-accent'
     }`;
 
   return (
     <div
       ref={ref}
-      class="fixed bg-card border rounded-xl shadow-xl py-1.5 min-w-[210px] z-[70]"
-      style={{ left: `${pos().x}px`, top: `${pos().y}px` }}
+      class="fixed bg-popover text-popover-foreground border rounded-xl shadow-xl py-1.5 min-w-52.5 z-70 left-(--menu-x) top-(--menu-y)"
+      style={{ '--menu-x': `${pos().x}px`, '--menu-y': `${pos().y}px` }}
     >
       <For each={props.items}>
         {(item, i) => (
           <>
             <Show when={item.separator && i() > 0}>
-              <div style={{ height: '1px', background: 'hsl(var(--muted-foreground) / 0.2)', margin: '4px 8px' }} />
+              <div class="h-px mx-2 my-1 bg-muted-foreground/20" />
             </Show>
             <Show
               when={item.submenu?.length}
@@ -157,7 +157,7 @@ const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; o
                     onMouseEnter={() => openSub(i())}
                   />
                   <div
-                    class={`absolute top-1/2 -translate-y-1/2 bg-card border rounded-xl shadow-xl py-1.5 min-w-[160px] z-10 ${subOpenLeft() ? 'right-full mr-2' : 'left-full ml-2'}`}
+                    class={`absolute top-1/2 -translate-y-1/2 bg-popover text-popover-foreground border rounded-xl shadow-xl py-1.5 min-w-40 z-10 ${subOpenLeft() ? 'right-full mr-2' : 'left-full ml-2'}`}
                     onMouseEnter={() => openSub(i())}
                     onMouseLeave={closeSub}
                   >
@@ -214,9 +214,9 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
   });
 
   return (
-    <div class="fixed bottom-[61px] left-0 right-0 z-[61] md:bottom-0 md:left-[var(--sidebar-w)]">
+    <div class="fixed bottom-15.25 left-0 right-0 z-61 md:bottom-0 md:left-(--sidebar-w)">
       <div class="md:max-w-5xl md:mx-auto md:px-8">
-        <div ref={ref} class="bg-card border border-b-0 overflow-hidden rounded-t-xl w-full shadow-[0_-8px_24px_rgba(0,0,0,0.1)]">
+        <div ref={ref} class="bg-card border border-b-0 overflow-hidden rounded-t-xl w-full shadow-sheet">
           <div class="px-4 py-3 border-b text-center">
             <span class="text-sm font-semibold text-foreground break-all">{props.title}</span>
           </div>
@@ -233,7 +233,7 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
                       <button
                         class={`flex items-center gap-3 justify-center w-full px-4 py-3 text-sm transition-colors ${
                           item.danger
-                            ? 'text-red-500 hover:bg-accent'
+                            ? 'text-destructive hover:bg-accent'
                             : 'text-foreground hover:bg-accent'
                         }`}
                         onClick={() => {
@@ -242,7 +242,7 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
                         }}
                       >
                         <Show when={item.icon}>
-                          <span class={`${item.icon} w-4 h-4 flex-shrink-0 ${item.danger ? 'text-red-500' : 'text-muted-foreground'}`} />
+                          <span class={`${item.icon} w-4 h-4 flex-shrink-0 ${item.danger ? 'text-destructive' : 'text-muted-foreground'}`} />
                         </Show>
                         <span>{item.label}</span>
                       </button>

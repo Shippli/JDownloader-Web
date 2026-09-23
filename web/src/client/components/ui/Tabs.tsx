@@ -1,6 +1,6 @@
 import type { Component, JSX } from 'solid-js';
-import { Tabs as KobalteTabs } from '@kobalte/core';
-import { cn } from '../../lib/cn';
+import * as KobalteTabs from '@kobalte/core/tabs';
+import { cx } from '../../lib/cva';
 
 // Re-export root and content directly
 export const TabsRoot = KobalteTabs.Root;
@@ -23,7 +23,7 @@ export const TabsList: Component<ListProps> = (props) => {
     <div
       ref={ref}
       onWheel={onWheel}
-      class={cn('overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', props.class)}
+      class={cx('overflow-x-auto overflow-y-hidden scrollbar-none [&::-webkit-scrollbar]:hidden', props.class)}
     >
       <KobalteTabs.List class="flex gap-1">
         {props.children}
@@ -44,7 +44,7 @@ export const TabsTrigger: Component<TriggerProps> = (props) => {
     <KobalteTabs.Trigger
       value={props.value}
       disabled={props.disabled}
-      class={cn(
+      class={cx(
         'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap cursor-pointer',
         'border-transparent text-muted-foreground hover:text-foreground',
         'data-[selected]:border-primary data-[selected]:text-foreground',

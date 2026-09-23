@@ -100,7 +100,7 @@ const AddLinksDialog: Component<Props> = (props) => {
           <TabsContent value="links">
             <div class="flex flex-col gap-3">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label class="block text-sm font-medium text-foreground mb-1">
                   {t('addLinks.linksLabel')}
                 </label>
                 <Textarea
@@ -130,7 +130,7 @@ const AddLinksDialog: Component<Props> = (props) => {
           <TabsContent value="dlc">
             <div class="flex flex-col gap-3">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label class="block text-sm font-medium text-foreground mb-1">
                   {t('addLinks.dlcUpload')}
                 </label>
                 <Input
@@ -141,7 +141,7 @@ const AddLinksDialog: Component<Props> = (props) => {
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label class="block text-sm font-medium text-foreground mb-1">
                   {t('addLinks.dlcContent')}
                 </label>
                 <Textarea
@@ -158,7 +158,7 @@ const AddLinksDialog: Component<Props> = (props) => {
           <Switch checked={autostart()} onChange={setAutostart} label={t('addLinks.autostart')} />
 
           <Show when={error()}>
-            <div class="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+            <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
               <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
               {error()}
             </div>

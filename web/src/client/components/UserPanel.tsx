@@ -81,7 +81,7 @@ export const UserPanel: Component<Props> = (props) => {
   };
 
   const Popup = () => (
-    <div class={`bg-card border overflow-hidden ${props.mobile ? 'rounded-t-xl border-b-0 w-full shadow-[0_-8px_24px_rgba(0,0,0,0.1)]' : 'rounded-xl shadow-xl'}`}>
+    <div class={`bg-card border overflow-hidden ${props.mobile ? 'rounded-t-xl border-b-0 w-full shadow-sheet' : 'rounded-xl shadow-xl'}`}>
       <div class={`px-4 py-3 border-b ${props.mobile ? 'text-center' : ''}`}>
         <p class="text-sm font-semibold text-foreground truncate">
           {authStore.user()?.name || authStore.user()?.email}
@@ -116,7 +116,7 @@ export const UserPanel: Component<Props> = (props) => {
         <div class="my-1 border-t" />
         <button
           onClick={handleSignOut}
-          class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-red-500 hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
+          class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-destructive hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
         >
           <span class="i-tabler-logout w-4 h-4" />
           {t('nav.logout')}
@@ -147,8 +147,8 @@ export const UserPanel: Component<Props> = (props) => {
             <Portal>
               <div
                 ref={popupRef}
-                class="fixed z-[210]"
-                style={{ bottom: `${popupPos().bottom}px`, left: `${popupPos().left}px`, width: `${popupPos().width}px` }}
+                class="fixed z-210 bottom-(--popup-bottom) left-(--popup-left) w-(--popup-width)"
+                style={{ '--popup-bottom': `${popupPos().bottom}px`, '--popup-left': `${popupPos().left}px`, '--popup-width': `${popupPos().width}px` }}
               >
                 <Popup />
               </div>
@@ -170,7 +170,7 @@ export const UserPanel: Component<Props> = (props) => {
           <Avatar name={avatarName()} size="xs" />
         </button>
         <Show when={isOpen()}>
-          <div ref={popupRef} class="fixed bottom-[61px] left-0 right-0 z-[210]">
+          <div ref={popupRef} class="fixed bottom-15.25 left-0 right-0 z-210">
             <Popup />
           </div>
         </Show>

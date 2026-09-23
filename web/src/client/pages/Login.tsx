@@ -40,7 +40,7 @@ const Login: Component = () => {
         </div>
 
         {/* Form */}
-        <div class="rounded-xl border bg-card p-6 shadow-sm">
+        <div class="rounded-xl border bg-card p-6 shadow-xs">
           <form onSubmit={handleSubmit} class="flex flex-col gap-4">
             <TextField
               label={t('login.email')}

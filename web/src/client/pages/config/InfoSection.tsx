@@ -9,6 +9,7 @@ import {
   Show,
 } from 'solid-js';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { NumberField } from '../../components/ui/NumberField';
 import { ProgressBar } from '../../components/ui/ProgressBar';
@@ -167,7 +168,7 @@ const InfoSection: Component = () => {
         <form onSubmit={e => props.onSave ? props.onSave(e) : saveRow(e, props.rowKey, true)} class="space-y-2">
           {props.editContent()}
           <Show when={rowError()}>
-            <p class="text-xs text-red-500">{rowError()}</p>
+            <p class="text-xs text-destructive">{rowError()}</p>
           </Show>
           <div class="flex gap-2 justify-end">
             <Button type="submit" variant="default" disabled={dlSaving()}>
@@ -234,13 +235,13 @@ const InfoSection: Component = () => {
       {/* Connection Settings */}
       <div>
         <h3 class="text-sm font-semibold text-foreground mb-3">{t('config.info.connection')}</h3>
-        <div class="card overflow-hidden">
+        <Card class="overflow-hidden">
           <Show
             when={!editingConn()}
             fallback={(
               <form onSubmit={saveConn} class="px-4 py-3 space-y-3">
                 <Show when={connError()}>
-                  <div class="flex items-center gap-2 p-2 rounded bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs">
+                  <div class="flex items-center gap-2 p-2 rounded bg-destructive/10 text-destructive text-xs">
                     <span class="i-tabler-alert-circle w-3.5 h-3.5" />
                     {connError()}
                   </div>
@@ -282,7 +283,7 @@ const InfoSection: Component = () => {
               </Button>
             </div>
           </Show>
-        </div>
+        </Card>
       </div>
 
       {/* JD Info */}
@@ -301,7 +302,7 @@ const InfoSection: Component = () => {
               </div>
             )}
           >
-            <div class="card overflow-hidden">
+            <Card class="overflow-hidden">
               <For each={jdRows()}>
                 {row => (
                   <div class="flex items-center justify-between px-4 py-3 border-b last:border-0">
@@ -310,7 +311,7 @@ const InfoSection: Component = () => {
                       when={row.ok !== undefined}
                       fallback={<span class="text-sm font-mono text-foreground">{row.value}</span>}
                     >
-                      <span class={`flex items-center gap-1.5 text-sm font-medium ${row.ok ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                      <span class={`flex items-center gap-1.5 text-sm font-medium ${row.ok ? 'text-success' : 'text-destructive'}`}>
                         <span class={`${row.ok ? 'i-tabler-circle-check' : 'i-tabler-circle-x'} w-4 h-4`} />
                         {row.value}
                       </span>
@@ -318,7 +319,7 @@ const InfoSection: Component = () => {
                   </div>
                 )}
               </For>
-            </div>
+            </Card>
           </Show>
         </Show>
       </div>
@@ -327,7 +328,7 @@ const InfoSection: Component = () => {
       <Show when={storage().length > 0}>
         <div>
           <h3 class="text-sm font-semibold text-foreground mb-3">{t('config.storage.title')}</h3>
-          <div class="card overflow-hidden">
+          <Card class="overflow-hidden">
             <For each={storage()}>
               {(s) => {
                 const used = s.size - s.free;
@@ -339,7 +340,7 @@ const InfoSection: Component = () => {
                       <span class="text-sm font-mono text-foreground truncate mr-4">{s.path}</span>
                       <div class="flex items-center gap-2 shrink-0">
                         <Show when={s.error}>
-                          <span class="text-xs text-red-500">{s.error}</span>
+                          <span class="text-xs text-destructive">{s.error}</span>
                         </Show>
                         <span class="text-xs text-muted-foreground">
                           {formatBytes(s.free)}
@@ -357,7 +358,7 @@ const InfoSection: Component = () => {
                 );
               }}
             </For>
-          </div>
+          </Card>
         </div>
       </Show>
 
@@ -365,7 +366,7 @@ const InfoSection: Component = () => {
       <div>
         <h3 class="text-sm font-semibold text-foreground mb-3">{t('config.dlconfig.title')}</h3>
         <Show when={dlConfig()} fallback={<SkeletonTable rows={4} />}>
-          <div class="card overflow-hidden">
+          <Card class="overflow-hidden">
             <Row
               rowKey="MaxChunksPerFile"
               label={t('config.dlconfig.maxChunks')}
@@ -432,14 +433,14 @@ const InfoSection: Component = () => {
                 </div>
               )}
             />
-          </div>
+          </Card>
         </Show>
       </div>
 
       {/* System */}
       <div>
         <h3 class="text-sm font-semibold text-foreground mb-3">{t('config.system.title')}</h3>
-        <div class="card overflow-hidden">
+        <Card class="overflow-hidden">
           <For each={sysActions()}>
             {action => (
               <div class="flex items-center justify-between px-4 py-3 border-b last:border-0">
@@ -461,12 +462,12 @@ const InfoSection: Component = () => {
             )}
           </For>
           <Show when={systemError()}>
-            <div class="px-4 py-2 text-xs text-red-500">{systemError()}</div>
+            <div class="px-4 py-2 text-xs text-destructive">{systemError()}</div>
           </Show>
           <Show when={updateCheckDone()}>
-            <div class="px-4 py-2 text-xs text-green-600 dark:text-green-400">{t('config.system.updateCheckDone')}</div>
+            <div class="px-4 py-2 text-xs text-success">{t('config.system.updateCheckDone')}</div>
           </Show>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -1,17 +1,28 @@
 import process from 'node:process';
 import { presetIcons } from '@unocss/preset-icons';
-import { presetUno } from '@unocss/preset-uno';
+import { presetWind4 } from '@unocss/preset-wind4';
+import transformerDirectives from '@unocss/transformer-directives';
+import transformerVariantGroup from '@unocss/transformer-variant-group';
 import UnoCSS from '@unocss/vite';
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import pkg from './package.json' with { type: 'json' };
+import { presetAnimate } from './presets/animate';
+import { presetShadcn } from './presets/shadcn';
 
 export default defineConfig({
   plugins: [
     UnoCSS({
       // Inline config to avoid jiti/unconfig stack overflow issue with Bun
       presets: [
-        presetUno({ dark: 'class' }),
+        presetWind4({
+          dark: {
+            dark: '[data-kb-theme="dark"]',
+            light: '[data-kb-theme="light"]',
+          },
+        }),
+        presetAnimate(),
+        presetShadcn(),
         presetIcons({
           scale: 1.2,
           warn: true,
@@ -20,29 +31,7 @@ export default defineConfig({
           },
         }),
       ],
-      shortcuts: {
-        // Background
-        'bg-accent': 'bg-[hsl(var(--accent))]',
-        'bg-background': 'bg-[hsl(var(--background))]',
-        'bg-card': 'bg-[hsl(var(--card))]',
-        'bg-destructive': 'bg-[hsl(var(--destructive))]',
-        'bg-muted': 'bg-[hsl(var(--muted))]',
-        'bg-primary': 'bg-[hsl(var(--primary))]',
-        'bg-secondary': 'bg-[hsl(var(--secondary))]',
-        // Text
-        'text-accent-foreground': 'text-[hsl(var(--accent-foreground))]',
-        'text-destructive-foreground': 'text-[hsl(var(--destructive-foreground))]',
-        'text-foreground': 'text-[hsl(var(--foreground))]',
-        'text-muted-foreground': 'text-[hsl(var(--muted-foreground))]',
-        'text-primary-foreground': 'text-[hsl(var(--primary-foreground))]',
-        'text-secondary-foreground': 'text-[hsl(var(--secondary-foreground))]',
-        // Border & ring
-        'border-input': 'border-[hsl(var(--input))]',
-        'border-primary': 'border-[hsl(var(--primary))]',
-        'ring-primary': 'ring-[hsl(var(--primary))]',
-        // Components
-        'card': 'bg-card rounded-xl border shadow-sm',
-      },
+      transformers: [transformerVariantGroup(), transformerDirectives()],
     }),
     solid(),
   ],

@@ -13,6 +13,7 @@ import {
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { Switch } from '../../components/ui/Switch';
@@ -202,7 +203,7 @@ const AccountsSection: Component = () => {
   return (
     <div class="space-y-4">
       <Show when={error()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
           {error()}
         </div>
@@ -234,7 +235,7 @@ const AccountsSection: Component = () => {
       </Show>
 
       <Show when={!accounts.loading && accs().length > 0}>
-        <div class="card overflow-hidden">
+        <Card class="overflow-hidden">
           <For each={accs()}>
             {acc => (
               <div class="flex items-center gap-3 px-4 py-3 border-b last:border-0">
@@ -299,7 +300,7 @@ const AccountsSection: Component = () => {
                     variant="ghost"
                     size="icon"
                     onClick={() => setConfirmDeleteAcc(acc)}
-                    class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    class="text-destructive hover:bg-destructive/10"
                     title={t('config.accounts.btnDelete')}
                   >
                     <span class="i-tabler-trash w-4 h-4" />
@@ -308,7 +309,7 @@ const AccountsSection: Component = () => {
               </div>
             )}
           </For>
-        </div>
+        </Card>
       </Show>
 
       <Dialog
@@ -343,7 +344,7 @@ const AccountsSection: Component = () => {
               <p class="text-xs text-muted-foreground mt-1">{t('config.accounts.addModal.hosterLoading')}</p>
             </Show>
             <Show when={hosterOpen() && filteredHosters().length > 0}>
-              <div class="mt-1 border rounded-lg bg-card max-h-48 overflow-y-auto shadow-sm">
+              <div class="mt-1 border rounded-lg bg-card max-h-48 overflow-y-auto shadow-xs">
                 <For each={filteredHosters()}>
                   {h => (
                     <button

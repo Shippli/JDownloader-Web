@@ -11,17 +11,17 @@ type StatusBadgeProps = {
 type StatusStyle = { icon: string; color: string; bg: string };
 
 const STATUS_RULES: Array<{ test: (s: string, finished?: boolean) => boolean; style: StatusStyle }> = [
-  { test: s => s.includes('extracting'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' } },
-  { test: s => s.includes('ok') || s.includes('finished') || s.includes('complete'), style: { icon: 'i-tabler-check', color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' } },
-  { test: s => s.includes('download') || s.includes('loading') || s.includes('running'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-gray-700 dark:text-gray-300', bg: 'bg-gray-100 dark:bg-gray-800' } },
-  { test: s => s.includes('error') || s.includes('failed'), style: { icon: 'i-tabler-alert-circle', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' } },
-  { test: s => s.startsWith('file already exists'), style: { icon: 'i-tabler-file-alert', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' } },
-  { test: s => s.startsWith('try restarting'), style: { icon: 'i-tabler-refresh-alert', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' } },
-  { test: s => s.includes('wait') || s.includes('queue'), style: { icon: 'i-tabler-clock', color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' } },
-  { test: s => s.includes('paused'), style: { icon: 'i-tabler-player-pause', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' } },
+  { test: s => s.includes('extracting'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-warning', bg: 'bg-warning/10' } },
+  { test: s => s.includes('ok') || s.includes('finished') || s.includes('complete'), style: { icon: 'i-tabler-check', color: 'text-success', bg: 'bg-success/10' } },
+  { test: s => s.includes('download') || s.includes('loading') || s.includes('running'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-foreground', bg: 'bg-muted' } },
+  { test: s => s.includes('error') || s.includes('failed'), style: { icon: 'i-tabler-alert-circle', color: 'text-destructive', bg: 'bg-destructive/10' } },
+  { test: s => s.startsWith('file already exists'), style: { icon: 'i-tabler-file-alert', color: 'text-warning', bg: 'bg-warning/10' } },
+  { test: s => s.startsWith('try restarting'), style: { icon: 'i-tabler-refresh-alert', color: 'text-warning', bg: 'bg-warning/10' } },
+  { test: s => s.includes('wait') || s.includes('queue'), style: { icon: 'i-tabler-clock', color: 'text-warning', bg: 'bg-warning/10' } },
+  { test: s => s.includes('paused'), style: { icon: 'i-tabler-player-pause', color: 'text-warning', bg: 'bg-warning/10' } },
 ];
 
-const DEFAULT_STYLE: StatusStyle = { icon: 'i-tabler-minus', color: 'text-gray-500 dark:text-gray-400', bg: 'bg-gray-50 dark:bg-gray-800' };
+const DEFAULT_STYLE: StatusStyle = { icon: 'i-tabler-minus', color: 'text-muted-foreground', bg: 'bg-muted' };
 
 function getStatusStyle(status: string, finished?: boolean): StatusStyle {
   const s = status?.toLowerCase() ?? '';

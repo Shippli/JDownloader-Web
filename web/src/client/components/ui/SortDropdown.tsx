@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js';
-import { DropdownMenu } from '@kobalte/core';
+import * as DropdownMenu from '@kobalte/core/dropdown-menu';
 import { For, Show } from 'solid-js';
-import { cn } from '../../lib/cn';
+import { cx } from '../../lib/cva';
 
 export type SortField = 'date' | 'name' | 'status';
 export type SortDir = 'asc' | 'desc';
@@ -47,7 +47,7 @@ export const SortDropdown: Component<Props> = (props) => {
               return (
                 <DropdownMenu.Item
                   onSelect={() => handleSelect(field)}
-                  class={cn(
+                  class={cx(
                     'flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded-md outline-none select-none',
                     'hover:bg-accent hover:text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
                     isActive() && 'text-primary font-medium',

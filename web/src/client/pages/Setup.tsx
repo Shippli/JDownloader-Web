@@ -207,7 +207,7 @@ const StepConnection: Component<{
       </Button>
 
       <Show when={tested()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400 text-sm">
+        <div class="flex items-center gap-2 p-3 rounded-lg bg-success/10 text-success text-sm">
           <span class="i-tabler-circle-check w-4 h-4 flex-shrink-0" />
           {t('setup.testSuccess')}
         </div>
@@ -335,7 +335,7 @@ const Setup: Component = () => {
           <h1 class="text-2xl font-bold text-foreground">JDownloader</h1>
         </div>
 
-        <div class="rounded-xl border bg-card p-8 shadow-sm">
+        <div class="rounded-xl border bg-card p-8 shadow-xs">
           <Stepper current={step()} />
 
           <div class="mb-6">

@@ -1,16 +1,16 @@
-import type { VariantProps } from 'class-variance-authority';
+import type { VariantProps } from 'cva';
 import type { Component } from 'solid-js';
-import { Progress as KobalteProgress } from '@kobalte/core';
-import { cva } from 'class-variance-authority';
-import { cn } from '../../lib/cn';
+import * as KobalteProgress from '@kobalte/core/progress';
+import { cva, cx } from '../../lib/cva';
 
-const fillVariants = cva('h-full rounded-full transition-all duration-300', {
+const fillVariants = cva({
+  base: 'h-full w-full rounded-full transition-transform duration-300 origin-left scale-x-(--progress)',
   variants: {
     color: {
       blue: 'bg-primary',
-      green: 'bg-green-500',
-      yellow: 'bg-yellow-500',
-      red: 'bg-red-500',
+      green: 'bg-success',
+      yellow: 'bg-warning',
+      red: 'bg-destructive',
     },
   },
   defaultVariants: { color: 'blue' },
@@ -29,12 +29,12 @@ export const ProgressBar: Component<ProgressBarProps> = (props) => {
       value={pct()}
       minValue={0}
       maxValue={100}
-      class={cn('h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden', props.class)}
+      class={cx('h-1.5 w-full bg-muted rounded-full overflow-hidden', props.class)}
     >
       <KobalteProgress.Track class="h-full w-full">
         <KobalteProgress.Fill
           class={fillVariants({ color: props.color })}
-          style={{ width: `var(--kb-progress-fill-width)` }}
+          style={{ '--progress': pct() / 100 }}
         />
       </KobalteProgress.Track>
     </KobalteProgress.Root>

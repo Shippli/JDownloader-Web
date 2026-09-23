@@ -8,6 +8,7 @@ import {
   Show,
 } from 'solid-js';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -179,7 +180,7 @@ const ExtensionsSection: Component = () => {
   return (
     <div class="space-y-4">
       <Show when={error()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
           {error()}
         </div>
@@ -197,7 +198,7 @@ const ExtensionsSection: Component = () => {
       </Show>
 
       <Show when={!loading() && extensions().length > 0}>
-        <div class="card overflow-hidden">
+        <Card class="overflow-hidden">
           <For each={extensions()}>
             {(ext) => {
               const isExpanded = () => expandedExt() === ext.name;
@@ -211,7 +212,7 @@ const ExtensionsSection: Component = () => {
                       <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm font-medium text-foreground">{ext.name}</span>
                         <Show when={!ext.installed}>
-                          <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
+                          <span class="text-xs px-1.5 py-0.5 rounded bg-warning/15 text-warning">
                             {t('config.extensions.notInstalled')}
                           </span>
                         </Show>
@@ -263,15 +264,15 @@ const ExtensionsSection: Component = () => {
                                         <Show when={entry.displayName && entry.displayName !== entry.key}>
                                           <span class="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{entry.key}</span>
                                         </Show>
-                                        <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">{aType}</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{aType}</span>
                                       </div>
                                       <Show when={entry.docs}>
                                         <p class="text-xs text-muted-foreground mt-0.5">{entry.docs}</p>
                                       </Show>
-                                      <p class={`text-sm mt-1 font-mono ${isModified(entry) ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-foreground'}`}>
+                                      <p class={`text-sm mt-1 font-mono ${isModified(entry) ? 'text-warning font-semibold' : 'text-foreground'}`}>
                                         {String(entry.value ?? entry.defaultValue ?? '–')}
                                         <Show when={isModified(entry)}>
-                                          <span class="ml-2 text-xs font-sans font-normal text-amber-500 opacity-70">
+                                          <span class="ml-2 text-xs font-sans font-normal text-warning opacity-70">
                                             (
                                             {tf('config.settings.defaultLabel', String(entry.defaultValue))}
                                             )
@@ -288,7 +289,7 @@ const ExtensionsSection: Component = () => {
                                 <div class="space-y-2">
                                   <div class="flex items-center gap-2 flex-wrap">
                                     <span class="text-sm font-medium text-foreground">{label}</span>
-                                    <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">{aType}</span>
+                                    <span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{aType}</span>
                                   </div>
                                   <Show when={entry.docs}>
                                     <p class="text-xs text-muted-foreground">{entry.docs}</p>
@@ -347,7 +348,7 @@ const ExtensionsSection: Component = () => {
               );
             }}
           </For>
-        </div>
+        </Card>
       </Show>
     </div>
   );

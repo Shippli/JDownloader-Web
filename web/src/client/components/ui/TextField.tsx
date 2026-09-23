@@ -1,7 +1,7 @@
 import type { Component, JSX } from 'solid-js';
 import * as KobalteTextField from '@kobalte/core/text-field';
 import { splitProps } from 'solid-js';
-import { cn } from '../../lib/cn';
+import { cx } from '../../lib/cva';
 
 type TextFieldProps = Omit<KobalteTextField.TextFieldRootProps, 'class'> & {
   label?: string;
@@ -26,7 +26,7 @@ export const TextField: Component<TextFieldProps> = (props) => {
     'inputProps',
   ]);
   return (
-    <div class={cn('flex flex-col gap-1', local.class)}>
+    <div class={cx('flex flex-col gap-1', local.class)}>
       <KobalteTextField.Root
         validationState={local.error ? 'invalid' : 'valid'}
         {...rest}
@@ -39,8 +39,8 @@ export const TextField: Component<TextFieldProps> = (props) => {
         <KobalteTextField.Input
           type={local.type}
           placeholder={local.placeholder}
-          class={cn(
-            'w-full px-3 py-2 rounded-lg border bg-[hsl(var(--input))] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed',
+          class={cx(
+            'w-full px-3 py-2 rounded-lg border border-input bg-transparent dark:bg-input/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 text-sm disabled:opacity-50 disabled:cursor-not-allowed',
             local.error && 'border-destructive focus:ring-destructive',
             local.inputClass,
           )}
@@ -52,7 +52,7 @@ export const TextField: Component<TextFieldProps> = (props) => {
           </KobalteTextField.Description>
         )}
         {local.error && (
-          <KobalteTextField.ErrorMessage class="text-xs text-red-600 dark:text-red-400">
+          <KobalteTextField.ErrorMessage class="text-xs text-destructive">
             {local.error}
           </KobalteTextField.ErrorMessage>
         )}

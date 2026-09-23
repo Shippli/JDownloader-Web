@@ -278,6 +278,69 @@ const Downloads: Component = () => {
     return sseDownloads()?.exProgress[link.uuid] ?? 0;
   };
 
+  // ── Package extraction progress ─────────────────────────────────────────────
+  // Shows the *currently* extracting archive's own progress (0→100), resetting
+  // per file. When one file finishes and the next hasn't started yet, JD reports
+  // no "extracting" link for a moment — hold the last value (yellow ~100%) for a
+  // short grace period so the bar doesn't flicker back to the green download bar
+  // between files.
+  const EXTRACT_GRACE_MS = 3000;
+  // pkgUUID → { pct: last seen %, lastSeenMs }. Plain map (non-reactive); the
+  // holdTick signal drives re-evaluation for the grace-expiry flip to green.
+  const extractHold = new Map<number, { pct: number; lastSeenMs: number }>();
+  const [holdTick, setHoldTick] = createSignal(0);
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
+  const armHoldTimer = () => {
+    if (holdTimer !== null || extractHold.size === 0) {
+      return;
+    }
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      const now = Date.now();
+      for (const [uuid, h] of extractHold) {
+        if (now - h.lastSeenMs >= EXTRACT_GRACE_MS) {
+          extractHold.delete(uuid);
+        }
+      }
+      setHoldTick(t => t + 1);
+      armHoldTimer(); // re-arm while any hold is still live
+    }, EXTRACT_GRACE_MS + 250);
+  };
+  // Record every actively-extracting link on each store update. The exProgress
+  // ticker stops once no link extracts, so the grace flip relies on armHoldTimer.
+  createEffect(() => {
+    const d = sseDownloads();
+    if (d === null) {
+      return;
+    }
+    const ex = d.exProgress;
+    const now = Date.now();
+    for (const l of d.links) {
+      if (isExtracting(l.status ?? '')) {
+        extractHold.set(l.packageUUID, { pct: ex[l.uuid] ?? 0, lastSeenMs: now });
+      }
+    }
+    armHoldTimer();
+  });
+  onCleanup(() => {
+    if (holdTimer !== null) {
+      clearTimeout(holdTimer);
+    }
+  });
+  const pkgExtractValue = (pkgUUID: number, pkgLinks: DownloadLink[]): number | null => {
+    holdTick(); // reactive dep so the grace-expiry flip re-runs
+    const ex = sseDownloads()?.exProgress ?? {};
+    const extractingLink = pkgLinks.find(l => isExtracting(l.status ?? ''));
+    if (extractingLink) {
+      return ex[extractingLink.uuid] ?? extractHold.get(pkgUUID)?.pct ?? 0;
+    }
+    const held = extractHold.get(pkgUUID);
+    if (held && Date.now() - held.lastSeenMs < EXTRACT_GRACE_MS) {
+      return held.pct;
+    }
+    return null;
+  };
+
   const toggleExpand = (uuid: number) => {
     setExpandedPkgs((prev) => {
       const next = new Set(prev);
@@ -549,15 +612,15 @@ const Downloads: Component = () => {
   const stateIconClass = () => {
     const s = state();
     if (s === 'RUNNING') {
-      return 'i-tabler-player-play-filled text-green-500';
+      return 'i-tabler-player-play-filled text-success';
     }
     if (s === 'PAUSE') {
-      return 'i-tabler-player-pause-filled text-yellow-500';
+      return 'i-tabler-player-pause-filled text-warning';
     }
     if (s === 'STOPPED' || s === 'STOPPED_STATE') {
-      return 'i-tabler-player-stop-filled text-gray-400';
+      return 'i-tabler-player-stop-filled text-muted-foreground';
     }
-    return 'i-tabler-circle-dot text-gray-400';
+    return 'i-tabler-circle-dot text-muted-foreground';
   };
 
   onMount(() => {
@@ -608,7 +671,7 @@ const Downloads: Component = () => {
           </Show>
 
           <Show when={hasSelection()}>
-            <div class="w-px h-6 bg-gray-300 dark:bg-gray-600" />
+            <div class="w-px h-6 bg-border" />
             <Button variant="secondary" onClick={handleForce}>
               <span class="i-tabler-bolt w-4 h-4" />
               <span class="hidden sm:inline">{t('downloads.toolbar.force')}</span>
@@ -636,13 +699,13 @@ const Downloads: Component = () => {
       </div>
 
       <Show when={jdStore.connected() === false}>
-        <div class="flex items-center gap-2 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 mb-4">
+        <div class="flex items-center gap-2 p-4 rounded-xl bg-destructive/10 text-destructive mb-4">
           <span class="i-tabler-plug-off w-5 h-5 flex-shrink-0" />
           <span class="text-sm">{t('downloads.jdUnavailable')}</span>
         </div>
       </Show>
       <Show when={error() && jdStore.connected() !== false}>
-        <div class="flex items-center gap-2 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 mb-4">
+        <div class="flex items-center gap-2 p-4 rounded-xl bg-destructive/10 text-destructive mb-4">
           <span class="i-tabler-alert-circle w-5 h-5 flex-shrink-0" />
           <span class="text-sm">{error()}</span>
         </div>
@@ -668,16 +731,7 @@ const Downloads: Component = () => {
               {(pkg) => {
                 const pkgLinks = () => getPackageLinks(pkg.uuid);
                 const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
-                const pkgExProgress = () => {
-                  const links = pkgLinks();
-                  const extractingLink = links.find(l => isExtracting(l.status ?? ''));
-                  if (!extractingLink) {
-                    return null;
-                  }
-                  const doneCount = links.filter(l => (l.status ?? '').toLowerCase().includes('extraction ok')).length;
-                  const currentFraction = (sseDownloads()?.exProgress[extractingLink.uuid] ?? 0) / 100;
-                  return Math.round((doneCount + currentFraction) / (doneCount + 1) * 100);
-                };
+                const pkgExProgress = () => pkgExtractValue(pkg.uuid, pkgLinks());
                 const isExpanded = () => expandedPkgs().has(pkg.uuid);
                 const isSelected = () => selectedPkgs().has(pkg.uuid);
 
@@ -707,7 +761,7 @@ const Downloads: Component = () => {
                         <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
 
                         {/* Info */}
-                        <div class="flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>
+                        <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>
                           <div class="flex items-start justify-between gap-2 flex-wrap">
                             <div class="flex-1 min-w-0">
                               <Show
@@ -796,12 +850,13 @@ const Downloads: Component = () => {
                         <For each={pkgLinks()}>
                           {(link) => {
                             const linkProgress = () => getProgress(link.bytesLoaded, link.bytesTotal);
+                            const exProg = () => getExtractionProgress(link);
                             const isLinkSelected = () => selectedLinks().has(link.uuid);
 
                             return (
                               <div
                                 class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
-                                  isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-muted/50'
+                                  isLinkSelected() ? 'bg-info/5' : 'hover:bg-muted/50'
                                 }`}
                                 onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
                                 onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
@@ -820,7 +875,7 @@ const Downloads: Component = () => {
                                   {/* Link checkbox */}
                                   <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
 
-                                  <div class="flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>
+                                  <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>
                                     <div class="flex items-start justify-between gap-2 flex-wrap">
                                       <p class="text-sm text-foreground truncate" title={link.name}>{link.name}</p>
                                       <div class="flex items-center gap-2 flex-shrink-0">
@@ -839,32 +894,22 @@ const Downloads: Component = () => {
                                       <Show when={link.speed > 0}>
                                         <span class="text-xs text-muted-foreground font-medium">{formatSpeed(link.speed)}</span>
                                       </Show>
-                                      {(() => {
-                                        const exProg = getExtractionProgress(link);
-                                        return (
-                                          <Show when={exProg !== null}>
-                                            <span class="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
-                                              <Show when={(link.eta ?? 0) > 0}>
-                                                {formatEta(Math.round(link.eta / 1000))}
-                                                {' · '}
-                                              </Show>
-                                              {exProg}
-                                              %
-                                            </span>
+                                      <Show when={exProg() !== null}>
+                                        <span class="text-xs text-warning font-medium">
+                                          <Show when={(link.eta ?? 0) > 0}>
+                                            {formatEta(Math.round(link.eta / 1000))}
+                                            {' · '}
                                           </Show>
-                                        );
-                                      })()}
+                                          {exProg()}
+                                          %
+                                        </span>
+                                      </Show>
                                     </div>
-                                    {(() => {
-                                      const exProg = getExtractionProgress(link);
-                                      return (
-                                        <>
-                                          {exProg !== null
-                                            ? <ProgressBar value={exProg} color="yellow" class="mt-1.5" />
-                                            : <ProgressBar value={linkProgress()} color={link.finished ? 'green' : 'blue'} class="mt-1.5" />}
-                                        </>
-                                      );
-                                    })()}
+                                    <ProgressBar
+                                      value={exProg() ?? linkProgress()}
+                                      color={exProg() !== null ? 'yellow' : link.finished ? 'green' : 'blue'}
+                                      class="mt-1.5"
+                                    />
                                   </div>
                                 </div>
                               </div>
@@ -881,32 +926,23 @@ const Downloads: Component = () => {
         )}
       >
         {/* Compact list */}
-        <div class="card overflow-hidden">
+        <Card class="overflow-hidden">
           <For each={sortedPackages()}>
             {(pkg, index) => {
               const pkgLinks = () => getPackageLinks(pkg.uuid);
               const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
-              const pkgExProgress = () => {
-                const links = pkgLinks();
-                const extractingLink = links.find(l => isExtracting(l.status ?? ''));
-                if (!extractingLink) {
-                  return null;
-                }
-                const doneCount = links.filter(l => (l.status ?? '').toLowerCase().includes('extraction ok')).length;
-                const currentFraction = (sseDownloads()?.exProgress[extractingLink.uuid] ?? 0) / 100;
-                return Math.round((doneCount + currentFraction) / (doneCount + 1) * 100);
-              };
+              const pkgExProgress = () => pkgExtractValue(pkg.uuid, pkgLinks());
               const isSelected = () => selectedPkgs().has(pkg.uuid);
               const isExpanded = () => expandedPkgs().has(pkg.uuid);
               const expandBg = () => index() % 2 === 0
-                ? 'bg-blue-50/50 dark:bg-blue-950/20'
+                ? 'bg-info/5'
                 : 'bg-background';
 
               return (
                 <>
                   {/* Package row */}
                   <div
-                    class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : isExpanded() ? expandBg() : 'bg-muted/40 hover:bg-muted/70'}`}
+                    class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-info/5' : isExpanded() ? expandBg() : 'bg-muted/40 hover:bg-muted/70'}`}
                     data-list-card
                     onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
                     onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
@@ -923,7 +959,7 @@ const Downloads: Component = () => {
                     <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
                     <Show
                       when={editingPkgId() === pkg.uuid}
-                      fallback={<span class="text-xs font-semibold text-foreground truncate flex-1 min-w-0" style={{ opacity: getEnabled(pkg.enabled) ? 1 : 0.4 }}>{pkg.name}</span>}
+                      fallback={<span class="text-xs font-semibold text-foreground truncate flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>{pkg.name}</span>}
                     >
                       <InlineInput
                         value={editingName()}
@@ -967,12 +1003,12 @@ const Downloads: Component = () => {
                     <div class={`flex border-b text-xs divide-x divide-border ${expandBg()}`}>
                       <Show when={pkg.status}>
                         <div class="flex flex-1 flex-col items-center justify-center gap-0.5 px-3 py-2 text-center min-w-0 overflow-hidden">
-                          <span class="text-muted-foreground uppercase tracking-wide" style={{ 'font-size': '10px' }}>{t('downloads.summaryStatus')}</span>
+                          <span class="text-muted-foreground uppercase tracking-wide text-2xs">{t('downloads.summaryStatus')}</span>
                           <span class="text-foreground font-medium truncate max-w-full" title={pkg.status}>{pkg.status}</span>
                         </div>
                       </Show>
                       <div class="flex flex-col items-center justify-center gap-0.5 px-3 py-2 text-center">
-                        <span class="text-muted-foreground uppercase tracking-wide" style={{ 'font-size': '10px' }}>{t('downloads.summarySize')}</span>
+                        <span class="text-muted-foreground uppercase tracking-wide text-2xs">{t('downloads.summarySize')}</span>
                         <span class="text-foreground font-medium">
                           {formatBytes(pkg.bytesLoaded)}
                           {' / '}
@@ -980,7 +1016,7 @@ const Downloads: Component = () => {
                         </span>
                       </div>
                       <div class="flex flex-col items-center justify-center gap-0.5 px-3 py-2 text-center">
-                        <span class="text-muted-foreground uppercase tracking-wide" style={{ 'font-size': '10px' }}>{t('downloads.summaryFiles')}</span>
+                        <span class="text-muted-foreground uppercase tracking-wide text-2xs">{t('downloads.summaryFiles')}</span>
                         <span class="text-foreground font-medium">
                           {pkgLinks().filter(l => l.finished).length}
                           {' / '}
@@ -996,7 +1032,7 @@ const Downloads: Component = () => {
 
                         return (
                           <div
-                            class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-blue-50/50 dark:bg-blue-900/10' : expandBg()}`}
+                            class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-info/5' : expandBg()}`}
                             data-list-card
                             onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
                             onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
@@ -1012,7 +1048,7 @@ const Downloads: Component = () => {
                             }}
                           >
                             <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-                            <span class="text-xs text-foreground truncate flex-1 min-w-0" style={{ opacity: getEnabled(link.enabled) ? 1 : 0.4 }}>{link.name}</span>
+                            <span class="text-xs text-foreground truncate flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>{link.name}</span>
                             <PriorityBadge priority={link.priority} iconOnly />
                             <StatusBadge status={link.status ?? ''} finished={link.finished} iconOnly />
                             <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
@@ -1030,7 +1066,7 @@ const Downloads: Component = () => {
               );
             }}
           </For>
-        </div>
+        </Card>
       </Show>
       {/* Context menu — desktop: positioned menu, touch: bottom sheet */}
       <Show when={ctxMenu()} keyed>

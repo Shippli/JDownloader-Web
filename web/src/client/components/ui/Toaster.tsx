@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js';
 import { createSignal, For } from 'solid-js';
 import { Portal } from 'solid-js/web';
-import { cn } from '../../lib/cn';
+import { cx } from '../../lib/cva';
 import { buttonVariants } from './Button';
 
 export type ToastType = 'default' | 'info' | 'success' | 'warning' | 'error';
@@ -50,16 +50,16 @@ export const toast = Object.assign(
 const iconClass: Record<ToastType, string> = {
   default: 'i-tabler-bell-filled w-5 h-5',
   info: 'i-tabler-info-circle-filled w-5 h-5 text-foreground',
-  success: 'i-tabler-circle-check-filled w-5 h-5 text-green-500',
-  warning: 'i-tabler-alert-triangle-filled w-5 h-5 text-yellow-500',
-  error: 'i-tabler-circle-x-filled w-5 h-5 text-red-500',
+  success: 'i-tabler-circle-check-filled w-5 h-5 text-success',
+  warning: 'i-tabler-alert-triangle-filled w-5 h-5 text-warning',
+  error: 'i-tabler-circle-x-filled w-5 h-5 text-destructive',
 };
 
 const ToastItemView: Component<{ toast: ToastItem }> = (props) => {
   const hasClick = () => !!props.toast.onClick;
   return (
     <div
-      class={cn(
+      class={cx(
         'flex items-center gap-3 w-full px-4 py-3.5 rounded-xl border border-border bg-card text-foreground shadow-xl text-base transition-all duration-300',
         props.toast.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none',
       )}
@@ -72,18 +72,18 @@ const ToastItemView: Component<{ toast: ToastItem }> = (props) => {
           }
         }}
         disabled={!hasClick()}
-        class={cn(
+        class={cx(
           'flex items-center gap-3 flex-1 min-w-0 text-left',
           hasClick() ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default',
         )}
         aria-label={hasClick() ? props.toast.message : undefined}
       >
-        <span class={cn(iconClass[props.toast.type], 'shrink-0')} />
+        <span class={cx(iconClass[props.toast.type], 'shrink-0')} />
         <span class="flex-1 min-w-0 font-medium truncate">{props.toast.message}</span>
       </button>
       <button
         onClick={() => dismiss(props.toast.id)}
-        class={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'shrink-0')}
+        class={cx(buttonVariants({ variant: 'ghost', size: 'icon' }), 'shrink-0')}
         aria-label="Dismiss"
       >
         <span class="i-tabler-x w-5 h-5" />
@@ -95,7 +95,7 @@ const ToastItemView: Component<{ toast: ToastItem }> = (props) => {
 export const Toaster: Component = () => {
   return (
     <Portal>
-      <div class="fixed top-4 left-0 right-0 px-4 z-[300] flex flex-col items-center gap-2 pointer-events-none md:top-auto md:bottom-4 md:left-auto md:right-4 md:px-0 md:w-96 md:items-stretch">
+      <div class="fixed top-4 left-0 right-0 px-4 z-300 flex flex-col items-center gap-2 pointer-events-none md:top-auto md:bottom-4 md:left-auto md:right-4 md:px-0 md:w-96 md:items-stretch">
         <For each={toasts()}>
           {t => (
             <div class="pointer-events-auto w-full">

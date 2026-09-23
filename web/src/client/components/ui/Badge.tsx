@@ -1,30 +1,27 @@
-import type { VariantProps } from 'class-variance-authority';
+import type { VariantProps } from 'cva';
 import type { Component, JSX } from 'solid-js';
-import { cva } from 'class-variance-authority';
 import { splitProps } from 'solid-js';
-import { cn } from '../../lib/cn';
+import { cva, cx } from '../../lib/cva';
 
-export const badgeVariants = cva(
-  'inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium',
-  {
-    variants: {
-      variant: {
-        default: 'bg-gray-100 dark:bg-gray-800 text-muted-foreground',
-        success: 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400',
-        warning: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400',
-        danger: 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400',
-        info: 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-      },
+export const badgeVariants = cva({
+  base: 'inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium',
+  variants: {
+    variant: {
+      default: 'bg-muted text-muted-foreground',
+      success: 'bg-success/15 text-success',
+      warning: 'bg-warning/15 text-warning',
+      danger: 'bg-destructive/15 text-destructive',
+      info: 'bg-info/15 text-info',
     },
-    defaultVariants: { variant: 'default' },
   },
-);
+  defaultVariants: { variant: 'default' },
+});
 
 type BadgeProps = JSX.HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badgeVariants>;
 
 export const Badge: Component<BadgeProps> = (props) => {
   const [local, rest] = splitProps(props, ['variant', 'class']);
   return (
-    <span class={cn(badgeVariants({ variant: local.variant }), local.class)} {...rest} />
+    <span class={cx(badgeVariants({ variant: local.variant }), local.class)} {...rest} />
   );
 };

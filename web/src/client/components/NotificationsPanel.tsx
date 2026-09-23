@@ -279,8 +279,7 @@ export const NotificationModals: Component = () => {
                       <img
                         src={src()}
                         alt="captcha"
-                        class="max-w-full rounded border mx-auto block"
-                        style={{ 'image-rendering': 'pixelated' }}
+                        class="max-w-full rounded border mx-auto block pixelated"
                       />
                     )}
                   </Show>
@@ -417,7 +416,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
     <span class="relative flex items-center justify-center w-5 h-5 shrink-0">
       <span class="i-tabler-bell w-5 h-5" />
       <Show when={count() > 0}>
-        <span class="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+        <span class="absolute -top-1.5 -right-1.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-destructive text-white text-2xs font-bold flex items-center justify-center leading-none">
           {count() > 9 ? '9+' : count()}
         </span>
       </Show>
@@ -427,7 +426,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const isMobile = () => props.mobile;
 
   const PopupList = () => (
-    <div class={`bg-card border overflow-hidden ${isMobile() ? 'rounded-t-xl border-b-0 shadow-[0_-8px_24px_rgba(0,0,0,0.1)]' : 'rounded-xl shadow-xl'}`}>
+    <div class={`bg-card border overflow-hidden ${isMobile() ? 'rounded-t-xl border-b-0 shadow-sheet' : 'rounded-xl shadow-xl'}`}>
       <div class={`px-4 py-3 border-b ${isMobile() ? 'text-center' : ''}`}>
         <span class="font-semibold text-sm text-foreground">{t('dialogs.title')}</span>
       </div>
@@ -455,7 +454,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
                 onClick={() => openItem({ kind: 'captcha', entry })}
                 class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
               >
-                <span class="i-tabler-shield-lock w-4 h-4 shrink-0 text-orange-500" />
+                <span class="i-tabler-shield-lock w-4 h-4 shrink-0 text-warning" />
                 <p class="text-sm font-medium text-foreground truncate">
                   {t('captcha.label')}
                   {entry.hoster ? ` — ${entry.hoster}` : ''}
@@ -469,7 +468,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
                 onClick={() => openItem({ kind: 'dialog', dialog })}
                 class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
               >
-                <span class="i-tabler-info-circle w-4 h-4 shrink-0 text-blue-500" />
+                <span class="i-tabler-info-circle w-4 h-4 shrink-0 text-info" />
                 <p class="text-sm font-medium text-foreground truncate">{dialogTitle(dialog)}</p>
               </button>
             )}
@@ -501,11 +500,11 @@ export const NotificationsPanel: Component<Props> = (props) => {
               <Portal>
                 <div
                   ref={popupRef}
-                  class="fixed z-[210]"
+                  class="fixed z-210 bottom-(--popup-bottom) left-(--popup-left) w-(--popup-width)"
                   style={{
-                    bottom: `${popupPos().bottom}px`,
-                    left: `${popupPos().left}px`,
-                    width: `${popupPos().width}px`,
+                    '--popup-bottom': `${popupPos().bottom}px`,
+                    '--popup-left': `${popupPos().left}px`,
+                    '--popup-width': `${popupPos().width}px`,
                   }}
                 >
                   <PopupList />
@@ -528,7 +527,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
             <BellIcon />
           </button>
           <Show when={isOpen()}>
-            <div ref={popupRef} class="fixed bottom-[61px] left-0 right-0 z-[210]">
+            <div ref={popupRef} class="fixed bottom-15.25 left-0 right-0 z-210">
               <PopupList />
             </div>
           </Show>

@@ -10,6 +10,7 @@ import {
   Show,
 } from 'solid-js';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { Select } from '../../components/ui/Select';
 import { SkeletonTable } from '../../components/ui/Skeleton';
@@ -145,7 +146,7 @@ const SettingsSection: Component = () => {
       </div>
 
       <Show when={error()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
           {error()}
         </div>
@@ -171,7 +172,7 @@ const SettingsSection: Component = () => {
           {filteredEntries().length}
           {t('config.settings.entries')}
         </p>
-        <div class="card overflow-hidden">
+        <Card class="overflow-hidden">
           <For each={entries()}>
             {(entry) => {
               const key = () => entryKey(entry);
@@ -190,17 +191,17 @@ const SettingsSection: Component = () => {
                               {shortInterface(entry.interfaceName)}
                             </span>
                             <span class="text-sm font-medium text-foreground">{entry.key}</span>
-                            <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                               {getTypeLabel(aType)}
                             </span>
                           </div>
                           <Show when={entry.docs}>
                             <p class="text-xs text-muted-foreground mt-0.5">{entry.docs}</p>
                           </Show>
-                          <p class={`text-sm mt-1 font-mono ${isModified(entry) ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-foreground'}`}>
+                          <p class={`text-sm mt-1 font-mono ${isModified(entry) ? 'text-warning font-semibold' : 'text-foreground'}`}>
                             {String(entry.value ?? entry.defaultValue ?? '–')}
                             <Show when={isModified(entry)}>
-                              <span class="ml-2 text-xs font-sans font-normal text-amber-500 dark:text-amber-400 opacity-70">
+                              <span class="ml-2 text-xs font-sans font-normal text-warning opacity-70">
                                 (
                                 {tf('config.settings.defaultLabel', String(entry.defaultValue))}
                                 )
@@ -220,7 +221,7 @@ const SettingsSection: Component = () => {
                           {shortInterface(entry.interfaceName)}
                         </span>
                         <span class="text-sm font-medium text-foreground">{entry.key}</span>
-                        <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                           {getTypeLabel(aType)}
                         </span>
                       </div>
@@ -294,7 +295,7 @@ const SettingsSection: Component = () => {
               <span class="i-tabler-loader-2 animate-spin w-5 h-5 text-muted-foreground" />
             </div>
           </Show>
-        </div>
+        </Card>
       </Show>
     </div>
   );

@@ -9,6 +9,7 @@ import {
 } from 'solid-js';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { TextField } from '../../components/ui/TextField';
@@ -185,7 +186,7 @@ const UsersSection: Component = () => {
       </Dialog>
 
       <Show when={!users.loading}>
-        <div class="card overflow-hidden">
+        <Card class="overflow-hidden">
           <For each={users()}>
             {(u) => {
               const isEditing = () => editingId() === u.id;
@@ -219,7 +220,7 @@ const UsersSection: Component = () => {
                             size="icon"
                             onClick={() => setConfirmDeleteUser(u)}
                             disabled={isSelf()}
-                            class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                            class="text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed"
                             title={isSelf() ? t('config.users.btnCannotDelete') : t('config.users.btnDelete')}
                           >
                             <span class="i-tabler-trash w-4 h-4" />
@@ -267,7 +268,7 @@ const UsersSection: Component = () => {
               );
             }}
           </For>
-        </div>
+        </Card>
       </Show>
     </div>
   );

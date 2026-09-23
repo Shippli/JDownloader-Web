@@ -20,6 +20,10 @@ function getEffectiveTheme(): 'light' | 'dark' {
   return t;
 }
 
+function applyTheme(effective: 'light' | 'dark') {
+  document.documentElement.dataset.kbTheme = effective;
+}
+
 const [effectiveTheme, setEffectiveTheme] = createSignal<'light' | 'dark'>(getEffectiveTheme());
 
 createEffect(() => {
@@ -27,11 +31,7 @@ createEffect(() => {
   localStorage.setItem('theme', t);
   const effective = t === 'system' ? getSystemTheme() : t;
   setEffectiveTheme(effective);
-  if (effective === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
+  applyTheme(effective);
 });
 
 // Listen for system theme changes
@@ -40,11 +40,7 @@ if (typeof window !== 'undefined') {
     if (theme() === 'system') {
       const effective = getSystemTheme();
       setEffectiveTheme(effective);
-      if (effective === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      applyTheme(effective);
     }
   });
 }
