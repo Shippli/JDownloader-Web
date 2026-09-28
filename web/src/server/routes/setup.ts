@@ -1,23 +1,18 @@
 import { Hono } from 'hono';
-import { sqlite } from '../db/index';
+import { getAppSetting, setAppSetting } from '../db/appSettings';
 
 const setupRouter = new Hono();
 
 setupRouter.get('/status', (c) => {
   try {
-    const row = sqlite
-      .query('SELECT value FROM app_settings WHERE key = \'setup_complete\'')
-      .get() as { value: string } | null;
-    return c.json({ setupComplete: row?.value === 'true' });
+    return c.json({ setupComplete: getAppSetting('setup_complete') === 'true' });
   } catch {
     return c.json({ setupComplete: false });
   }
 });
 
 setupRouter.post('/complete', (c) => {
-  sqlite
-    .query('INSERT OR REPLACE INTO app_settings (key, value) VALUES (\'setup_complete\', \'true\')')
-    .run();
+  setAppSetting('setup_complete', 'true');
   return c.json({ ok: true });
 });
 
