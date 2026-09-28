@@ -193,6 +193,8 @@ export const configApi = {
   runUpdateCheck: () => post('/jd/system/run-update-check'),
   restartJD: () => post('/jd/system/restart'),
   restartAndUpdate: () => post('/jd/system/restart-and-update'),
+  getAutoUpdate: () => get<{ enabled: boolean }>('/jd/system/auto-update'),
+  setAutoUpdate: (enabled: boolean) => post('/jd/system/auto-update', { enabled }),
 };
 
 // ─── Setup API ────────────────────────────────────────────────────────────

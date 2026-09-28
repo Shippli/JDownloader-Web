@@ -14,6 +14,7 @@ import { Checkbox } from '../../components/ui/Checkbox';
 import { NumberField } from '../../components/ui/NumberField';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { SkeletonTable } from '../../components/ui/Skeleton';
+import { Switch } from '../../components/ui/Switch';
 import { TextField } from '../../components/ui/TextField';
 import { t } from '../../i18n';
 import { configApi, formatBytes } from '../../lib/api';
@@ -188,6 +189,29 @@ const InfoSection: Component = () => {
   const [sysBusy, setSysBusy] = createSignal<string | null>(null);
   const [systemError, setSystemError] = createSignal('');
   const [updateCheckDone, setUpdateCheckDone] = createSignal(false);
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = createSignal(false);
+  const [autoUpdateSaving, setAutoUpdateSaving] = createSignal(false);
+
+  onMount(async () => {
+    try {
+      setAutoUpdateEnabled((await configApi.getAutoUpdate()).enabled);
+    } catch { /* jd unavailable */ }
+  });
+
+  const toggleAutoUpdate = async (v: boolean) => {
+    const prev = autoUpdateEnabled();
+    setAutoUpdateEnabled(v);
+    setAutoUpdateSaving(true);
+    setSystemError('');
+    try {
+      await configApi.setAutoUpdate(v);
+    } catch (err) {
+      setAutoUpdateEnabled(prev);
+      setSystemError((err as Error).message);
+    } finally {
+      setAutoUpdateSaving(false);
+    }
+  };
 
   const runAction = async (key: string, fn: () => Promise<unknown>) => {
     setSysBusy(key);
@@ -441,6 +465,16 @@ const InfoSection: Component = () => {
       <div>
         <h3 class="text-sm font-semibold text-foreground mb-3">{t('config.system.title')}</h3>
         <Card class="overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b last:border-0">
+            <div class="flex items-center gap-2">
+              <span class="i-tabler-cloud-download w-4 h-4 text-muted-foreground" />
+              <div>
+                <p class="text-sm text-foreground">{t('config.system.autoUpdate')}</p>
+                <p class="text-xs text-muted-foreground">{t('config.system.autoUpdateHint')}</p>
+              </div>
+            </div>
+            <Switch checked={autoUpdateEnabled()} onChange={toggleAutoUpdate} disabled={autoUpdateSaving()} />
+          </div>
           <For each={sysActions()}>
             {action => (
               <div class="flex items-center justify-between px-4 py-3 border-b last:border-0">

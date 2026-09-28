@@ -299,6 +299,14 @@ jd.post('/system/run-update-check', async (c) => {
   return c.json({ ok: true, data });
 });
 
+jd.get('/system/auto-update', c => c.json({ enabled: jdClient.isAutoUpdateEnabled() }));
+
+jd.post('/system/auto-update', async (c) => {
+  const { enabled } = await c.req.json();
+  jdClient.setAutoUpdateEnabled(Boolean(enabled));
+  return c.json({ ok: true });
+});
+
 // ─── Extensions ───────────────────────────────────────────────────────────────
 
 jd.get('/extensions/list', async (c) => {

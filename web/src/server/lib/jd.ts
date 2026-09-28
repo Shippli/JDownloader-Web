@@ -1,5 +1,5 @@
 import process from 'node:process';
-import { sqlite } from '../db/index';
+import { getAppSetting, setAppSetting } from '../db/appSettings';
 
 const NULL_STRING_RE = /"null"/g;
 
@@ -11,6 +11,8 @@ export class JDownloaderClient {
   private available = true;
   private unavailableSince: number | null = null;
   private requestId = Date.now();
+  private autoUpdateEnabled = false;
+  private autoUpdateTriggered = false;
 
   constructor(host: string, port: string) {
     this.host = host;
@@ -20,14 +22,15 @@ export class JDownloaderClient {
 
   private loadFromDb() {
     try {
-      const h = (sqlite.query('SELECT value FROM app_settings WHERE key = \'jd_host\'').get() as { value: string } | null)?.value;
-      const p = (sqlite.query('SELECT value FROM app_settings WHERE key = \'jd_port\'').get() as { value: string } | null)?.value;
+      const h = getAppSetting('jd_host');
+      const p = getAppSetting('jd_port');
       if (h) {
         this.host = h;
       }
       if (p) {
         this.port = p;
       }
+      this.autoUpdateEnabled = getAppSetting('auto_update_enabled') === 'true';
     } catch { /* table may not exist yet on very first run */ }
   }
 
@@ -176,8 +179,37 @@ export class JDownloaderClient {
   setConnection(host: string, port: string) {
     this.host = host;
     this.port = port;
-    sqlite.run('INSERT OR REPLACE INTO app_settings (key, value) VALUES (\'jd_host\', ?)', [host]);
-    sqlite.run('INSERT OR REPLACE INTO app_settings (key, value) VALUES (\'jd_port\', ?)', [port]);
+    setAppSetting('jd_host', host);
+    setAppSetting('jd_port', port);
+  }
+
+  isAutoUpdateEnabled(): boolean {
+    return this.autoUpdateEnabled;
+  }
+
+  setAutoUpdateEnabled(v: boolean) {
+    this.autoUpdateEnabled = v;
+    setAppSetting('auto_update_enabled', String(v));
+  }
+
+  // Called on every notifications poll (see broadcaster.ts) with the current
+  // update-availability and idle state.
+  // Fires the actual update+restart at most once per update becoming available,
+  // and re-arms once it's gone.
+  async checkAutoUpdate(idle: boolean, updateAvailable: boolean): Promise<void> {
+    if (!updateAvailable) {
+      this.autoUpdateTriggered = false;
+      return;
+    }
+    if (!this.autoUpdateEnabled || this.autoUpdateTriggered || !idle) {
+      return;
+    }
+    this.autoUpdateTriggered = true;
+    try {
+      await this.call('/update/restartAndUpdate');
+    } catch {
+      this.autoUpdateTriggered = false;
+    }
   }
 
   setAvailable(v: boolean) {

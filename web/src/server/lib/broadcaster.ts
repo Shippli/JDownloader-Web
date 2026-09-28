@@ -650,12 +650,13 @@ async function syncNotifications() {
     }
 
     const str = JSON.stringify({ dialogs, captchas, updateAvailable });
-    if (str === lastNotificationsStr) {
-      return;
+    if (str !== lastNotificationsStr) {
+      lastNotificationsStr = str;
+      broadcast({ type: 'notifications', dialogs, captchas, updateAvailable });
     }
-    lastNotificationsStr = str;
 
-    broadcast({ type: 'notifications', dialogs, captchas, updateAvailable });
+    const idle = cachedDownloads?.state === 'IDLE' && extractStartMap.size === 0;
+    void jdClient.checkAutoUpdate(idle, updateAvailable);
   } catch (e) {
     if (isJdConnErr(e)) {
       reportJdDown();

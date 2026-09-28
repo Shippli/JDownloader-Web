@@ -316,6 +316,8 @@ const en = {
       restartAndUpdate: 'Restart and install update',
       run: 'Execute',
       updateCheckDone: 'Update check completed.',
+      autoUpdate: 'Auto update',
+      autoUpdateHint: 'Automatically install JDownloader updates once JDownloader is idle.',
     },
     dlconfig: {
       title: 'Download Settings',
