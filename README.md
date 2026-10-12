@@ -27,7 +27,7 @@
 
 ```
 .
-├── web/              # The web interface (server + client) - see web/
+├── web/              # The web interface (server + client)
 └── addons/
     └── firefox/      # Click'N'Load browser extension
 ```
@@ -62,7 +62,7 @@ This project would not have been possible without the following open-source proj
 
 - **Frontend** 
   - **[SolidJS](https://www.solidjs.com)**: A declarative JavaScript library for building user interfaces.
-  - **[Shadcn Solid](https://shadcn-solid.com/)**: UI components library for SolidJS based on Shadcn designs.
+  - **[Shadcn Solid](https://shadcn-solid.netlify.app)**: UI components library for SolidJS based on Shadcn designs.
   - **[UnoCSS](https://unocss.dev/)**: An instant on-demand atomic CSS engine.
   - **[Tabler Icons](https://tablericons.com/)**: A set of open-source icons.
 - **Backend**
