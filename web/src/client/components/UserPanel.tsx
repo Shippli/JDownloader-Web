@@ -1,12 +1,13 @@
 import type { Component } from 'solid-js';
-import { A, useNavigate } from '@solidjs/router';
-import { createEffect, createSignal, onCleanup, onMount, Show, untrack } from 'solid-js';
+import { A, useLocation, useNavigate } from '@solidjs/router';
+import { createEffect, createSignal, on, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { t } from '../i18n';
 import { activePopupStore } from '../stores/activePopup';
 import { authStore } from '../stores/auth';
 import { themeStore } from '../stores/theme';
 import { Avatar } from './ui/Avatar';
+import { Drawer, DrawerContent, DrawerLabel } from './ui/Drawer';
 
 type Props = {
   collapsed?: boolean;
@@ -33,9 +34,12 @@ export const UserPanel: Component<Props> = (props) => {
   onMount(() => document.addEventListener('keydown', onKeyDown));
   onCleanup(() => document.removeEventListener('keydown', onKeyDown));
 
+  const location = useLocation();
+  createEffect(on(() => location.pathname, () => activePopupStore.close(PANEL_ID), { defer: true }));
+
   // Close on any click outside the popup
   createEffect(() => {
-    if (!isOpen()) {
+    if (!isOpen() || props.mobile) {
       return;
     }
     let enabled = false;
@@ -81,11 +85,18 @@ export const UserPanel: Component<Props> = (props) => {
   };
 
   const Popup = () => (
-    <div class={`bg-card border overflow-hidden ${props.mobile ? 'rounded-t-xl border-b-0 w-full shadow-sheet' : 'rounded-xl shadow-xl'}`}>
+    <div class={props.mobile ? 'flex flex-col min-h-0' : 'bg-card border overflow-hidden rounded-xl shadow-xl'}>
       <div class={`px-4 py-3 border-b ${props.mobile ? 'text-center' : ''}`}>
-        <p class="text-sm font-semibold text-foreground truncate">
-          {authStore.user()?.name || authStore.user()?.email}
-        </p>
+        <Show
+          when={props.mobile}
+          fallback={(
+            <p class="text-sm font-semibold text-foreground truncate">
+              {authStore.user()?.name || authStore.user()?.email}
+            </p>
+          )}
+        >
+          <DrawerLabel class="block truncate">{authStore.user()?.name || authStore.user()?.email}</DrawerLabel>
+        </Show>
         <Show when={authStore.user()?.name}>
           <p class="text-xs text-muted-foreground truncate mt-0.5">{authStore.user()?.email}</p>
         </Show>
@@ -169,11 +180,26 @@ export const UserPanel: Component<Props> = (props) => {
         >
           <Avatar name={avatarName()} size="xs" />
         </button>
-        <Show when={isOpen()}>
-          <div ref={popupRef} class="fixed bottom-15.25 left-0 right-0 z-210">
+        <Drawer
+          open={isOpen()}
+          closeOnOutsidePointerStrategy="pointerdown"
+          noOutsidePointerEvents={false}
+          trapFocus={false}
+          onOutsidePointer={(e) => {
+            if (buttonRef?.contains(e.target as Node)) {
+              e.preventDefault();
+            }
+          }}
+          onOpenChange={(open) => {
+            if (!open) {
+              activePopupStore.close(PANEL_ID);
+            }
+          }}
+        >
+          <DrawerContent>
             <Popup />
-          </div>
-        </Show>
+          </DrawerContent>
+        </Drawer>
       </div>
     </Show>
   );

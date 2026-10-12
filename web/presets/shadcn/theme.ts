@@ -13,9 +13,6 @@ export const theme: Theme = {
       lineHeight: '0.875rem',
     },
   },
-  shadow: {
-    sheet: '0 -8px 24px rgb(0 0 0 / 0.1)',
-  },
   colors: {
     background: 'var(--background)',
     foreground: 'var(--foreground)',

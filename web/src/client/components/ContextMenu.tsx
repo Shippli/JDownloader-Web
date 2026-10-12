@@ -1,6 +1,8 @@
 import type { Component } from 'solid-js';
-import { createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js';
+import { useLocation } from '@solidjs/router';
+import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { activePopupStore } from '../stores/activePopup';
+import { Drawer, DrawerContent, DrawerLabel } from './ui/Drawer';
 
 export type ContextMenuItem = {
   label: string;
@@ -189,90 +191,87 @@ const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; o
 // ─── Touch bottom sheet ───────────────────────────────────────────────────────
 
 const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: () => void }> = (props) => {
-  let ref: HTMLDivElement | undefined;
+  const location = useLocation();
+  const [open, setOpen] = createSignal(true);
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  const close = () => {
+    if (!open()) {
+      return;
+    }
+    setOpen(false);
+    closeTimer = setTimeout(props.onClose, 350);
+  };
+  onMount(() => activePopupStore.closeAll());
+  onCleanup(() => clearTimeout(closeTimer));
+  createEffect(on(() => location.pathname, close, { defer: true }));
 
-  onMount(() => {
-    activePopupStore.closeAll();
-    let enabled = false;
-    const timer = setTimeout(() => {
-      enabled = true;
-    }, 0);
-    const onOutsideClick = (e: MouseEvent) => {
-      if (!enabled) {
-        return;
-      }
-      if (ref?.contains(e.target as Node)) {
-        return;
-      }
-      props.onClose();
-    };
-    document.addEventListener('click', onOutsideClick);
-    onCleanup(() => {
-      clearTimeout(timer);
-      document.removeEventListener('click', onOutsideClick);
-    });
-  });
+  const itemClass = (danger?: boolean) =>
+    `flex items-center gap-3 justify-center w-full px-4 py-3 text-sm transition-colors hover:bg-accent ${danger ? 'text-destructive' : 'text-foreground'}`;
 
   return (
-    <div class="fixed bottom-15.25 left-0 right-0 z-61 md:bottom-0 md:left-(--sidebar-w)">
-      <div class="md:max-w-5xl md:mx-auto md:px-8">
-        <div ref={ref} class="bg-card border border-b-0 overflow-hidden rounded-t-xl w-full shadow-sheet">
-          <div class="px-4 py-3 border-b text-center">
-            <span class="text-sm font-semibold text-foreground break-all">{props.title}</span>
-          </div>
-          <div class="py-1 overflow-y-auto max-h-[60vh]">
-            <For each={props.items}>
-              {item => (
-                <>
-                  <Show when={item.separator}>
-                    <div class="my-1 border-t" />
-                  </Show>
-                  <Show
-                    when={item.submenu?.length}
-                    fallback={(
+    <Drawer
+      open={open()}
+      closeOnOutsidePointerStrategy="pointerdown"
+      noOutsidePointerEvents={false}
+      trapFocus={false}
+      onOpenChange={(open) => {
+        if (!open) {
+          close();
+        }
+      }}
+    >
+      <DrawerContent>
+        <div class="px-4 py-3 border-b text-center">
+          <DrawerLabel class="break-all">{props.title}</DrawerLabel>
+        </div>
+        <div class="py-1 overflow-y-auto">
+          <For each={props.items}>
+            {item => (
+              <>
+                <Show when={item.separator}>
+                  <div class="my-1 border-t" />
+                </Show>
+                <Show
+                  when={item.submenu?.length}
+                  fallback={(
+                    <button
+                      class={itemClass(item.danger)}
+                      onClick={() => {
+                        item.onClick?.();
+                        close();
+                      }}
+                    >
+                      <Show when={item.icon}>
+                        <span class={`${item.icon} w-4 h-4 flex-shrink-0 ${item.danger ? 'text-destructive' : 'text-muted-foreground'}`} />
+                      </Show>
+                      <span>{item.label}</span>
+                    </button>
+                  )}
+                >
+                  <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-4 pt-3 pb-1 text-center">{item.label}</p>
+                  <For each={item.submenu}>
+                    {sub => (
                       <button
-                        class={`flex items-center gap-3 justify-center w-full px-4 py-3 text-sm transition-colors ${
-                          item.danger
-                            ? 'text-destructive hover:bg-accent'
-                            : 'text-foreground hover:bg-accent'
-                        }`}
+                        class={itemClass()}
                         onClick={() => {
-                          item.onClick?.();
-                          props.onClose();
+                          sub.onClick?.();
+                          close();
                         }}
                       >
-                        <Show when={item.icon}>
-                          <span class={`${item.icon} w-4 h-4 flex-shrink-0 ${item.danger ? 'text-destructive' : 'text-muted-foreground'}`} />
+                        <Show when={sub.icon}>
+                          <span class={`${sub.icon} w-4 h-4 flex-shrink-0 text-muted-foreground`} />
                         </Show>
-                        <span>{item.label}</span>
+                        <span>{sub.label}</span>
                       </button>
                     )}
-                  >
-                    <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-4 pt-3 pb-1 text-center">{item.label}</p>
-                    <For each={item.submenu}>
-                      {sub => (
-                        <button
-                          class="flex items-center gap-3 justify-center w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors"
-                          onClick={() => {
-                            sub.onClick?.();
-                            props.onClose();
-                          }}
-                        >
-                          <Show when={sub.icon}>
-                            <span class={`${sub.icon} w-4 h-4 flex-shrink-0 text-muted-foreground`} />
-                          </Show>
-                          <span>{sub.label}</span>
-                        </button>
-                      )}
-                    </For>
-                  </Show>
-                </>
-              )}
-            </For>
-          </div>
+                  </For>
+                </Show>
+              </>
+            )}
+          </For>
         </div>
-      </div>
-    </div>
+      </DrawerContent>
+    </Drawer>
   );
 };
 

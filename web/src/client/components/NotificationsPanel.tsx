@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import type { JdCaptchaDetail, JdDialog, JdDialogDetail } from '../lib/api';
-import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js';
+import { useLocation } from '@solidjs/router';
+import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { t } from '../i18n';
 import { captchaApi, configApi, dialogsApi } from '../lib/api';
@@ -9,6 +10,7 @@ import { notificationsStore, suppressPackageDialogToasts } from '../stores/notif
 import { Button } from './ui/Button';
 import { Checkbox } from './ui/Checkbox';
 import { Dialog } from './ui/Dialog';
+import { Drawer, DrawerContent, DrawerLabel } from './ui/Drawer';
 import { RadioGroup } from './ui/RadioGroup';
 import { TextField } from './ui/TextField';
 
@@ -367,8 +369,11 @@ export const NotificationsPanel: Component<Props> = (props) => {
     onCleanup(() => document.removeEventListener('keydown', onKeyDown));
   });
 
+  const location = useLocation();
+  createEffect(on(() => location.pathname, () => activePopupStore.close(PANEL_ID), { defer: true }));
+
   createEffect(() => {
-    if (!isOpen()) {
+    if (!isOpen() || props.mobile) {
       return;
     }
     let enabled = false;
@@ -426,9 +431,11 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const isMobile = () => props.mobile;
 
   const PopupList = () => (
-    <div class={`bg-card border overflow-hidden ${isMobile() ? 'rounded-t-xl border-b-0 shadow-sheet' : 'rounded-xl shadow-xl'}`}>
+    <div class={isMobile() ? 'flex flex-col min-h-0' : 'bg-card border overflow-hidden rounded-xl shadow-xl'}>
       <div class={`px-4 py-3 border-b ${isMobile() ? 'text-center' : ''}`}>
-        <span class="font-semibold text-sm text-foreground">{t('dialogs.title')}</span>
+        <Show when={isMobile()} fallback={<span class="font-semibold text-sm text-foreground">{t('dialogs.title')}</span>}>
+          <DrawerLabel>{t('dialogs.title')}</DrawerLabel>
+        </Show>
       </div>
       <div class="max-h-72 overflow-y-auto">
         <Show
@@ -526,11 +533,26 @@ export const NotificationsPanel: Component<Props> = (props) => {
           >
             <BellIcon />
           </button>
-          <Show when={isOpen()}>
-            <div ref={popupRef} class="fixed bottom-15.25 left-0 right-0 z-210">
+          <Drawer
+            open={isOpen()}
+            closeOnOutsidePointerStrategy="pointerdown"
+            noOutsidePointerEvents={false}
+            trapFocus={false}
+            onOutsidePointer={(e) => {
+              if (buttonRef?.contains(e.target as Node)) {
+                e.preventDefault();
+              }
+            }}
+            onOpenChange={(open) => {
+              if (!open) {
+                activePopupStore.close(PANEL_ID);
+              }
+            }}
+          >
+            <DrawerContent>
               <PopupList />
-            </div>
-          </Show>
+            </DrawerContent>
+          </Drawer>
         </div>
       </Show>
     </>
