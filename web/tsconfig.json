@@ -9,10 +9,10 @@
       "@/*": ["./src/*"]
     },
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
     "types": ["bun-types", "vite/client"],
+    "allowImportingTsExtensions": true,
     "strict": true,
+    "noEmit": true,
     "skipLibCheck": true
   },
   "include": ["src", "presets"],
