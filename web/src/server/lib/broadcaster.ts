@@ -98,6 +98,7 @@ let cachedDownloads: DownloadsCache | null = null;
 let cachedGrabber: GrabberCache | null = null;
 let lastHealthJd: boolean | null = null;
 let lastNotificationsStr: string | null = null;
+let lastNotificationsMsg: SseServerMessage | null = null;
 
 // One global monotonic sequence number across downloads + grabber. Every such
 // message (full or delta) and every heartbeat carries it, so clients detect a
@@ -373,6 +374,9 @@ export function addSseClient(writer: SseWriter) {
   }
   if (cachedGrabber) {
     writer('grabber', JSON.stringify({ type: 'grabber', full: true, seq, packages: cachedGrabber.packages, links: cachedGrabber.links }));
+  }
+  if (lastNotificationsMsg) {
+    writer('notifications', JSON.stringify(lastNotificationsMsg));
   }
   if (lastHealthJd !== null) {
     writer('health', JSON.stringify({ type: 'health', jd: lastHealthJd }));
@@ -652,7 +656,8 @@ async function syncNotifications() {
     const str = JSON.stringify({ dialogs, captchas, updateAvailable });
     if (str !== lastNotificationsStr) {
       lastNotificationsStr = str;
-      broadcast({ type: 'notifications', dialogs, captchas, updateAvailable });
+      lastNotificationsMsg = { type: 'notifications', dialogs, captchas, updateAvailable };
+      broadcast(lastNotificationsMsg);
     }
 
     const idle = cachedDownloads?.state === 'IDLE' && extractStartMap.size === 0;
