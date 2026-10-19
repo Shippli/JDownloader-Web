@@ -1,4 +1,5 @@
 import type { Component } from 'solid-js';
+import { ScrollText } from '../components/ScrollText';
 import type { ContextMenuItem } from '../components/ContextMenu';
 import type { SortState } from '../components/ui/SortDropdown';
 import type { DownloadLink, DownloadPackage } from '../lib/api';
@@ -767,7 +768,7 @@ const Downloads: Component = () => {
                               <Show
                                 when={editingPkgId() === pkg.uuid}
                                 fallback={
-                                  <p class="font-semibold text-foreground text-sm truncate" title={pkg.name}>{pkg.name}</p>
+                                  <ScrollText class="font-semibold text-foreground text-sm" title={pkg.name}>{pkg.name}</ScrollText>
                                 }
                               >
                                 <InlineInput
@@ -877,7 +878,7 @@ const Downloads: Component = () => {
 
                                   <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>
                                     <div class="flex items-start justify-between gap-2 flex-wrap">
-                                      <p class="text-sm text-foreground truncate" title={link.name}>{link.name}</p>
+                                      <ScrollText class="text-sm text-foreground" title={link.name}>{link.name}</ScrollText>
                                       <div class="flex items-center gap-2 flex-shrink-0">
                                         <StatusBadge status={link.status ?? ''} finished={link.finished} />
                                       </div>
@@ -959,7 +960,7 @@ const Downloads: Component = () => {
                     <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
                     <Show
                       when={editingPkgId() === pkg.uuid}
-                      fallback={<span class="text-xs font-semibold text-foreground truncate flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>{pkg.name}</span>}
+                      fallback={<ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>{pkg.name}</ScrollText>}
                     >
                       <InlineInput
                         value={editingName()}
@@ -1048,7 +1049,7 @@ const Downloads: Component = () => {
                             }}
                           >
                             <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-                            <span class="text-xs text-foreground truncate flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>{link.name}</span>
+                            <ScrollText class="text-xs text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>{link.name}</ScrollText>
                             <PriorityBadge priority={link.priority} iconOnly />
                             <StatusBadge status={link.status ?? ''} finished={link.finished} iconOnly />
                             <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
