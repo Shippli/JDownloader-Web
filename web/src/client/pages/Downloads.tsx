@@ -1,17 +1,16 @@
 import type { Component } from 'solid-js';
-import { ScrollText } from '../components/ScrollText';
 import type { ContextMenuItem } from '../components/ContextMenu';
 import type { SortState } from '../components/ui/SortDropdown';
 import type { DownloadLink, DownloadPackage } from '../lib/api';
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import ContextMenu from '../components/ContextMenu';
 import PriorityBadge from '../components/PriorityBadge';
+import { ScrollText } from '../components/ScrollText';
 import StatusBadge from '../components/StatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Checkbox } from '../components/ui/Checkbox';
 import { Dialog } from '../components/ui/Dialog';
-import { InlineInput } from '../components/ui/Input';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { SkeletonList } from '../components/ui/Skeleton';
 import { SortDropdown } from '../components/ui/SortDropdown';
@@ -61,8 +60,6 @@ const Downloads: Component = () => {
   const [error, setError] = createSignal('');
   const [lastPkgClicked, setLastPkgClicked] = createSignal<number | null>(null);
   const [lastLinkClicked, setLastLinkClicked] = createSignal<number | null>(null);
-  const [editingPkgId, setEditingPkgId] = createSignal<number | null>(null);
-  const [editingName, setEditingName] = createSignal('');
   const [renameModal, setRenameModal] = createSignal<{ uuid: number; name: string } | null>(null);
   const [renameValue, setRenameValue] = createSignal('');
   const [priorityModal, setPriorityModal] = createSignal<{ linkIds: number[]; pkgIds: number[] } | null>(null);
@@ -107,15 +104,11 @@ const Downloads: Component = () => {
     }
   };
 
-  const cancelEdit = () => {
-    setEditingPkgId(null);
-    setEditingName('');
-  };
   const closeRenameModal = () => {
     setRenameModal(null);
     setRenameValue('');
   };
-  const commitTouchRename = async () => {
+  const commitRename = async () => {
     const rm = renameModal();
     const name = renameValue().trim();
     closeRenameModal();
@@ -124,24 +117,6 @@ const Downloads: Component = () => {
     }
     try {
       await jdApi.renameDownloadPackage(rm.uuid, name);
-      fetchData();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const commitDownloadRename = async () => {
-    const id = editingPkgId();
-    const name = editingName().trim();
-    if (!id) {
-      return;
-    }
-    cancelEdit();
-    if (!name) {
-      return;
-    }
-    try {
-      await jdApi.renameDownloadPackage(id, name);
       fetchData();
     } catch (e) {
       setError((e as Error).message);
@@ -198,29 +173,27 @@ const Downloads: Component = () => {
     if (e.key === 'Escape') {
       if (ctxMenu()) {
         setCtxMenu(null);
-      } else if (editingPkgId() !== null) {
-        cancelEdit();
       } else {
         clearSelection();
       }
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       selectAll();
-    } else if (e.key === 'ArrowRight' && selectedPkgs().size > 0 && editingPkgId() === null) {
+    } else if (e.key === 'ArrowRight' && selectedPkgs().size > 0) {
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') {
         return;
       }
       e.preventDefault();
       setExpandedPkgs(prev => new Set([...prev, ...selectedPkgs()]));
-    } else if (e.key === 'ArrowLeft' && selectedPkgs().size > 0 && editingPkgId() === null) {
+    } else if (e.key === 'ArrowLeft' && selectedPkgs().size > 0) {
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') {
         return;
       }
       e.preventDefault();
       setExpandedPkgs(prev => new Set([...prev].filter(id => !selectedPkgs().has(id))));
-    } else if ((e.key === 'Backspace' || e.key === 'Delete') && hasSelection() && editingPkgId() === null) {
+    } else if ((e.key === 'Backspace' || e.key === 'Delete') && hasSelection()) {
       const tag = (e.target as HTMLElement).tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') {
         return;
@@ -480,13 +453,8 @@ const Downloads: Component = () => {
         label: t('downloads.ctx.rename'),
         icon: 'i-tabler-pencil',
         onClick: () => {
-          if (cm.touch) {
-            setRenameModal({ uuid, name: cm.name });
-            setRenameValue(cm.name);
-          } else {
-            setEditingPkgId(uuid);
-            setEditingName(cm.name);
-          }
+          setRenameModal({ uuid, name: cm.name });
+          setRenameValue(cm.name);
         },
       });
     }
@@ -765,27 +733,7 @@ const Downloads: Component = () => {
                         <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>
                           <div class="flex items-start justify-between gap-2 flex-wrap">
                             <div class="flex-1 min-w-0">
-                              <Show
-                                when={editingPkgId() === pkg.uuid}
-                                fallback={
-                                  <ScrollText class="font-semibold text-foreground text-sm" title={pkg.name}>{pkg.name}</ScrollText>
-                                }
-                              >
-                                <InlineInput
-                                  value={editingName()}
-                                  onInput={e => setEditingName(e.currentTarget.value)}
-                                  onKeyDown={(e) => {
-                                    e.stopPropagation();
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      commitDownloadRename();
-                                    }
-                                  }}
-                                  onClick={e => e.stopPropagation()}
-                                  onBlur={commitDownloadRename}
-                                  ref={el => setTimeout(() => el?.focus(), 0)}
-                                />
-                              </Show>
+                              <ScrollText class="font-semibold text-foreground text-sm" title={pkg.name}>{pkg.name}</ScrollText>
                               <div class="flex items-center gap-3 mt-1 flex-wrap">
                                 <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} />
                                 <PriorityBadge priority={pkg.priority} />
@@ -958,26 +906,7 @@ const Downloads: Component = () => {
                     }}
                   >
                     <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-                    <Show
-                      when={editingPkgId() === pkg.uuid}
-                      fallback={<ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>{pkg.name}</ScrollText>}
-                    >
-                      <InlineInput
-                        value={editingName()}
-                        onInput={e => setEditingName(e.currentTarget.value)}
-                        onKeyDown={(e) => {
-                          e.stopPropagation();
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            commitDownloadRename();
-                          }
-                        }}
-                        onClick={e => e.stopPropagation()}
-                        onBlur={commitDownloadRename}
-                        ref={el => setTimeout(() => el?.focus(), 0)}
-                        class="flex-1 min-w-0 text-xs"
-                      />
-                    </Show>
+                    <ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>{pkg.name}</ScrollText>
                     <PriorityBadge priority={pkg.priority} iconOnly />
                     <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} iconOnly />
                     <Show when={pkg.speed > 0}>
@@ -1123,7 +1052,7 @@ const Downloads: Component = () => {
           }}
         </Show>
       </Dialog>
-      {/* Touch rename modal */}
+      {/* Rename modal */}
       <Dialog open={!!renameModal()} onClose={closeRenameModal} title={t('downloads.renameModal.title')}>
         <div class="px-6 py-4 space-y-4">
           <TextField
@@ -1131,18 +1060,18 @@ const Downloads: Component = () => {
             value={renameValue()}
             onChange={setRenameValue}
             inputProps={{
-              onKeyDown: (e) => {
+              'onKeyDown': (e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  commitTouchRename();
+                  commitRename();
                 }
               },
-              ref: el => setTimeout(() => el?.focus(), 0),
+              'data-autofocus': '',
             }}
           />
           <div class="flex gap-2 justify-end">
             <Button variant="secondary" onClick={closeRenameModal}>{t('common.cancel')}</Button>
-            <Button variant="default" onClick={commitTouchRename}>{t('common.save')}</Button>
+            <Button variant="default" onClick={commitRename}>{t('common.save')}</Button>
           </div>
         </div>
       </Dialog>

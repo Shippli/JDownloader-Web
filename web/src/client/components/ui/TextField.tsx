@@ -11,7 +11,7 @@ type TextFieldProps = Omit<KobalteTextField.TextFieldRootProps, 'class'> & {
   inputClass?: string;
   placeholder?: string;
   type?: string;
-  inputProps?: JSX.InputHTMLAttributes<HTMLInputElement>;
+  inputProps?: JSX.InputHTMLAttributes<HTMLInputElement> & { 'data-autofocus'?: string };
 };
 
 export const TextField: Component<TextFieldProps> = (props) => {
