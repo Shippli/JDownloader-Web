@@ -18,6 +18,7 @@ import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
 import { formatBytes, formatEta, formatSpeed, jdApi } from '../lib/api';
 import { getCached, setCached } from '../lib/pageCache';
+import { createPersistedSignal } from '../lib/persisted';
 import { compactViewStore } from '../stores/compactView';
 import { jdStore } from '../stores/jd';
 import { sseDownloads } from '../stores/sse';
@@ -27,18 +28,7 @@ const Downloads: Component = () => {
   const links = () => sseDownloads()?.links ?? ((getCached('dl.links') as DownloadLink[] | undefined) ?? []);
   const STATUS_RANK: Record<string, number> = { RUNNING: 0, WAITING: 1, QUEUED: 2, STOPPED: 3, FINISHED: 4 };
   const STATUS_RANK_MAX = 5;
-  const savedSort = (): SortState => {
-    try {
-      return JSON.parse(localStorage.getItem('dl.sort') ?? '') as SortState;
-    } catch {
-      return { field: 'date', dir: 'desc' };
-    }
-  };
-  const [sortState, setSortState] = createSignal<SortState>(savedSort());
-  const onSortChange = (next: SortState) => {
-    setSortState(next);
-    localStorage.setItem('dl.sort', JSON.stringify(next));
-  };
+  const [sortState, onSortChange] = createPersistedSignal<SortState>('dl.sort', { field: 'date', dir: 'desc' });
   // Memoized: sorting runs once per data/sort change instead of once per consumer
   // (desktop + compact list both read this on every SSE delta).
   const sortedPackages = createMemo(() => {
@@ -64,7 +54,6 @@ const Downloads: Component = () => {
   const [renameValue, setRenameValue] = createSignal('');
   const [priorityModal, setPriorityModal] = createSignal<{ linkIds: number[]; pkgIds: number[] } | null>(null);
   const [ctxMenu, setCtxMenu] = createSignal<{ x: number; y: number; type: 'pkg' | 'link'; uuid: number; name: string; enabled: boolean; priority?: string; touch?: boolean } | null>(null);
-  const getEnabled = (apiEnabled?: boolean) => apiEnabled ?? false;
 
   const isExtracting = (status: string) => status.toLowerCase().includes('extracting');
 
@@ -81,8 +70,6 @@ const Downloads: Component = () => {
 
   const hasSelection = () => selectedPkgs().size > 0 || selectedLinks().size > 0;
 
-  const fetchData = () => {};
-
   const [deleteModal, setDeleteModal] = createSignal<{ linkIds: number[]; pkgIds: number[]; message: string } | null>(null);
   const [deleteWithFiles, setDeleteWithFiles] = createSignal(false);
   const openDeleteModal = (linkIds: number[], pkgIds: number[], message: string) => {
@@ -98,7 +85,6 @@ const Downloads: Component = () => {
     try {
       await jdApi.cleanupDownloads(dm.linkIds, dm.pkgIds, deleteWithFiles());
       clearSelection();
-      fetchData();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -117,7 +103,6 @@ const Downloads: Component = () => {
     }
     try {
       await jdApi.renameDownloadPackage(rm.uuid, name);
-      fetchData();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -471,7 +456,6 @@ const Downloads: Component = () => {
       onClick: async () => {
         const newEnabled = !enabled;
         await jdApi.enableDownloads(newEnabled, linkIds, pkgIds).catch(e => setError((e as Error).message));
-        fetchData();
       },
     });
     items.push({
@@ -482,23 +466,18 @@ const Downloads: Component = () => {
         : { submenu: [
             { label: t('common.priority.highest'), icon: 'i-tabler-arrow-bar-up', onClick: async () => {
               await jdApi.setDownloadPriority('HIGHEST', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.higher'), icon: 'i-tabler-arrows-up', onClick: async () => {
               await jdApi.setDownloadPriority('HIGHER', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.high'), icon: 'i-tabler-arrow-up', onClick: async () => {
               await jdApi.setDownloadPriority('HIGH', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.default'), icon: 'i-tabler-minus', onClick: async () => {
               await jdApi.setDownloadPriority('DEFAULT', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.low'), icon: 'i-tabler-arrow-down', onClick: async () => {
               await jdApi.setDownloadPriority('LOW', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
           ] }
       ),
@@ -508,7 +487,6 @@ const Downloads: Component = () => {
       icon: 'i-tabler-refresh',
       onClick: async () => {
         await jdApi.checkDownloadLinks(linkIds, pkgIds).catch(e => setError((e as Error).message));
-        fetchData();
       },
     });
 
@@ -519,7 +497,6 @@ const Downloads: Component = () => {
       separator: true,
       onClick: async () => {
         await jdApi.resetDownloads(linkIds, pkgIds).catch(e => setError((e as Error).message));
-        fetchData();
       },
     });
     items.push({
@@ -527,7 +504,6 @@ const Downloads: Component = () => {
       icon: 'i-tabler-bolt',
       onClick: async () => {
         await jdApi.forceDownload(linkIds, pkgIds).catch(e => setError((e as Error).message));
-        fetchData();
       },
     });
     const allFinished
@@ -555,13 +531,10 @@ const Downloads: Component = () => {
       } else {
         await jdApi.start();
       }
-      fetchData();
     } catch (e) {
       setError((e as Error).message);
     }
   };
-
-  const shouldShowStop = () => isRunning();
 
   const stateLabel = () => {
     const s = state();
@@ -623,17 +596,17 @@ const Downloads: Component = () => {
         <div class="flex items-center gap-2 flex-shrink-0">
           <Button variant="default" onClick={handleTogglePlay}>
             <Show
-              when={shouldShowStop()}
+              when={isRunning()}
               fallback={<span class="i-tabler-player-play w-4 h-4" />}
             >
               <span class="i-tabler-player-stop w-4 h-4" />
             </Show>
             <span class="hidden sm:inline">
-              {shouldShowStop() ? t('downloads.toolbar.stop') : t('downloads.toolbar.start')}
+              {isRunning() ? t('downloads.toolbar.stop') : t('downloads.toolbar.start')}
             </span>
           </Button>
           <Show when={!hasSelection()}>
-            <Button variant="secondary" onClick={() => jdApi.pause(state() !== 'PAUSE').then(fetchData)} title={t('downloads.toolbar.pause')}>
+            <Button variant="secondary" onClick={() => jdApi.pause(state() !== 'PAUSE')} title={t('downloads.toolbar.pause')}>
               <span class="i-tabler-player-pause w-4 h-4" />
               <span class="hidden sm:inline">{t('downloads.toolbar.pause')}</span>
             </Button>
@@ -709,7 +682,7 @@ const Downloads: Component = () => {
                     class="overflow-hidden transition-all"
                     selected={isSelected()}
                     data-list-card
-                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, (pkg.enabled ?? false), pkg.priority)}
                     onTouchEnd={endLongPress}
                     onTouchMove={moveLongPress}
                     onContextMenu={(e) => {
@@ -717,7 +690,7 @@ const Downloads: Component = () => {
                       if (navigator.maxTouchPoints > 0) {
                         return;
                       }
-                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: (pkg.enabled ?? false), priority: pkg.priority });
                     }}
                   >
                     {/* Package header */}
@@ -730,12 +703,12 @@ const Downloads: Component = () => {
                         <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
 
                         {/* Info */}
-                        <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>
+                        <div class="flex-1 min-w-0" classList={{ 'opacity-40': !pkg.enabled }}>
                           <div class="flex items-start justify-between gap-2 flex-wrap">
                             <div class="flex-1 min-w-0">
                               <ScrollText class="font-semibold text-foreground text-sm" title={pkg.name}>{pkg.name}</ScrollText>
                               <div class="flex items-center gap-3 mt-1 flex-wrap">
-                                <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} />
+                                <StatusBadge status={pkg.status ?? ''} />
                                 <PriorityBadge priority={pkg.priority} />
                                 <span class="text-xs text-muted-foreground">
                                   {formatBytes(pkg.bytesLoaded)}
@@ -808,7 +781,7 @@ const Downloads: Component = () => {
                                   isLinkSelected() ? 'bg-info/5' : 'hover:bg-muted/50'
                                 }`}
                                 onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
-                                onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
+                                onTouchStart={startLongPress('link', link.uuid, link.name, (link.enabled ?? false), link.priority)}
                                 onTouchEnd={endLongPress}
                                 onTouchMove={moveLongPress}
                                 onContextMenu={(e) => {
@@ -817,18 +790,18 @@ const Downloads: Component = () => {
                                   if (navigator.maxTouchPoints > 0) {
                                     return;
                                   }
-                                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
+                                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: (link.enabled ?? false), priority: link.priority });
                                 }}
                               >
                                 <div class="flex items-center gap-3 pl-8">
                                   {/* Link checkbox */}
                                   <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
 
-                                  <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>
+                                  <div class="flex-1 min-w-0" classList={{ 'opacity-40': !link.enabled }}>
                                     <div class="flex items-start justify-between gap-2 flex-wrap">
                                       <ScrollText class="text-sm text-foreground" title={link.name}>{link.name}</ScrollText>
                                       <div class="flex items-center gap-2 flex-shrink-0">
-                                        <StatusBadge status={link.status ?? ''} finished={link.finished} />
+                                        <StatusBadge status={link.status ?? ''} />
                                       </div>
                                     </div>
                                     <div class="flex items-center gap-3 mt-0.5 flex-wrap">
@@ -894,7 +867,7 @@ const Downloads: Component = () => {
                     class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-info/5' : isExpanded() ? expandBg() : 'bg-muted/40 hover:bg-muted/70'}`}
                     data-list-card
                     onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
-                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, (pkg.enabled ?? false), pkg.priority)}
                     onTouchEnd={endLongPress}
                     onTouchMove={moveLongPress}
                     onContextMenu={(e) => {
@@ -902,13 +875,13 @@ const Downloads: Component = () => {
                       if (navigator.maxTouchPoints > 0) {
                         return;
                       }
-                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: (pkg.enabled ?? false), priority: pkg.priority });
                     }}
                   >
                     <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-                    <ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>{pkg.name}</ScrollText>
+                    <ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !pkg.enabled }}>{pkg.name}</ScrollText>
                     <PriorityBadge priority={pkg.priority} iconOnly />
-                    <StatusBadge status={pkg.status ?? ''} finished={pkg.finished} iconOnly />
+                    <StatusBadge status={pkg.status ?? ''} iconOnly />
                     <Show when={pkg.speed > 0}>
                       <span class="text-xs text-muted-foreground font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
                     </Show>
@@ -965,7 +938,7 @@ const Downloads: Component = () => {
                             class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-info/5' : expandBg()}`}
                             data-list-card
                             onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
-                            onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
+                            onTouchStart={startLongPress('link', link.uuid, link.name, (link.enabled ?? false), link.priority)}
                             onTouchEnd={endLongPress}
                             onTouchMove={moveLongPress}
                             onContextMenu={(e) => {
@@ -974,13 +947,13 @@ const Downloads: Component = () => {
                               if (navigator.maxTouchPoints > 0) {
                                 return;
                               }
-                              setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
+                              setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: (link.enabled ?? false), priority: link.priority });
                             }}
                           >
                             <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-                            <ScrollText class="text-xs text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>{link.name}</ScrollText>
+                            <ScrollText class="text-xs text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !link.enabled }}>{link.name}</ScrollText>
                             <PriorityBadge priority={link.priority} iconOnly />
-                            <StatusBadge status={link.status ?? ''} finished={link.finished} iconOnly />
+                            <StatusBadge status={link.status ?? ''} iconOnly />
                             <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
                             <ProgressBar
                               value={exProg() !== null ? exProg()! : linkProgress()}
@@ -1025,7 +998,6 @@ const Downloads: Component = () => {
               const { linkIds, pkgIds } = pm;
               setPriorityModal(null);
               await jdApi.setDownloadPriority(p, linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             };
             const priorities = [
               { key: 'HIGHEST', label: t('common.priority.highest'), icon: 'i-tabler-arrow-bar-up' },

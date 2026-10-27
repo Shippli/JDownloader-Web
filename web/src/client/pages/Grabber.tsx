@@ -19,6 +19,7 @@ import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
 import { formatBytes, jdApi } from '../lib/api';
 import { getCached, setCached } from '../lib/pageCache';
+import { createPersistedSignal } from '../lib/persisted';
 import { autoNavigateStore } from '../stores/autoNavigate';
 import { compactViewStore } from '../stores/compactView';
 import { jdStore } from '../stores/jd';
@@ -30,18 +31,7 @@ const Grabber: Component = () => {
   const links = () => sseGrabber()?.links ?? ((getCached('grabber.links') as GrabberLink[] | undefined) ?? []);
   const STATUS_RANK: Record<string, number> = { RUNNING: 0, WAITING: 1, QUEUED: 2, STOPPED: 3, FINISHED: 4 };
   const STATUS_RANK_MAX = 5;
-  const savedSort = (): SortState => {
-    try {
-      return JSON.parse(localStorage.getItem('grabber.sort') ?? '') as SortState;
-    } catch {
-      return { field: 'date', dir: 'desc' };
-    }
-  };
-  const [sortState, setSortState] = createSignal<SortState>(savedSort());
-  const onSortChange = (next: SortState) => {
-    setSortState(next);
-    localStorage.setItem('grabber.sort', JSON.stringify(next));
-  };
+  const [sortState, onSortChange] = createPersistedSignal<SortState>('grabber.sort', { field: 'date', dir: 'desc' });
   // Memoized: sorting runs once per data/sort change instead of once per consumer.
   const sortedPackages = createMemo(() => {
     const pkgs = [...packages()];
@@ -67,7 +57,6 @@ const Grabber: Component = () => {
   const [newPackageName, setNewPackageName] = createSignal('');
   const [priorityModal, setPriorityModal] = createSignal<{ linkIds: number[]; pkgIds: number[] } | null>(null);
   const [ctxMenu, setCtxMenu] = createSignal<{ x: number; y: number; type: 'pkg' | 'link'; uuid: number; name: string; enabled: boolean; priority?: string; touch?: boolean } | null>(null);
-  const getEnabled = (apiEnabled?: boolean) => apiEnabled ?? false;
 
   const selectAll = () => {
     setSelectedPkgs(new Set(packages().map(p => p.uuid)));
@@ -82,7 +71,6 @@ const Grabber: Component = () => {
 
   const hasSelection = () => selectedPkgs().size > 0 || selectedLinks().size > 0;
 
-  const fetchData = () => {};
   createEffect(() => {
     const d = sseGrabber();
     if (d === null) {
@@ -103,7 +91,6 @@ const Grabber: Component = () => {
     try {
       await jdApi.removeGrabber(dm.linkIds, dm.pkgIds);
       clearSelection();
-      fetchData();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -127,7 +114,6 @@ const Grabber: Component = () => {
     try {
       await jdApi.moveToNewPackage(npm.linkIds, npm.pkgIds, name);
       clearSelection();
-      fetchData();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -141,7 +127,6 @@ const Grabber: Component = () => {
     }
     try {
       await jdApi.renameGrabberPackage(rm.uuid, name);
-      fetchData();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -225,7 +210,6 @@ const Grabber: Component = () => {
       onClick: async () => {
         const newEnabled = !enabled;
         await jdApi.enableGrabber(newEnabled, linkIds, pkgIds).catch(e => setError((e as Error).message));
-        fetchData();
       },
     });
     items.push({
@@ -236,23 +220,18 @@ const Grabber: Component = () => {
         : { submenu: [
             { label: t('common.priority.highest'), icon: 'i-tabler-arrow-bar-up', onClick: async () => {
               await jdApi.setGrabberPriority('HIGHEST', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.higher'), icon: 'i-tabler-arrows-up', onClick: async () => {
               await jdApi.setGrabberPriority('HIGHER', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.high'), icon: 'i-tabler-arrow-up', onClick: async () => {
               await jdApi.setGrabberPriority('HIGH', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.default'), icon: 'i-tabler-minus', onClick: async () => {
               await jdApi.setGrabberPriority('DEFAULT', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
             { label: t('common.priority.low'), icon: 'i-tabler-arrow-down', onClick: async () => {
               await jdApi.setGrabberPriority('LOW', linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             } },
           ] }
       ),
@@ -262,7 +241,6 @@ const Grabber: Component = () => {
       icon: 'i-tabler-refresh',
       onClick: async () => {
         await jdApi.checkGrabberLinks(linkIds, pkgIds).catch(e => setError((e as Error).message));
-        fetchData();
       },
     });
 
@@ -283,7 +261,6 @@ const Grabber: Component = () => {
         await jdApi.moveToDownloads(linkIds, pkgIds).catch(e => setError((e as Error).message));
         await jdApi.start().catch(() => {});
         clearSelection();
-        fetchData();
         if (autoNavigateStore.enabled()) {
           navigate('/downloads');
         }
@@ -448,7 +425,6 @@ const Grabber: Component = () => {
     try {
       await jdApi.moveToDownloads([...selectedLinks()], [...selectedPkgs()]);
       clearSelection();
-      fetchData();
       if (autoNavigateStore.enabled()) {
         navigate('/downloads');
       }
@@ -468,15 +444,15 @@ const Grabber: Component = () => {
     openDeleteModal([linkId], [], t('grabber.confirm.delete'));
   };
 
-  const getAvailabilityColor = (avail?: string): 'green' | 'red' | 'yellow' | 'blue' => {
+  const availabilityClass = (avail?: string) => {
     const a = (avail ?? '').toLowerCase();
     if (a === 'online') {
-      return 'green';
+      return 'text-success';
     }
     if (a === 'offline' || a === 'temp_unknown') {
-      return 'red';
+      return 'text-destructive';
     }
-    return 'yellow';
+    return 'text-warning';
   };
 
   onMount(() => {
@@ -577,7 +553,7 @@ const Grabber: Component = () => {
                     class="overflow-hidden transition-all"
                     selected={isSelected()}
                     data-list-card
-                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, (pkg.enabled ?? false), pkg.priority)}
                     onTouchEnd={endLongPress}
                     onTouchMove={moveLongPress}
                     onContextMenu={(e) => {
@@ -585,7 +561,7 @@ const Grabber: Component = () => {
                       if (navigator.maxTouchPoints > 0) {
                         return;
                       }
-                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: (pkg.enabled ?? false), priority: pkg.priority });
                     }}
                   >
                     <div
@@ -597,7 +573,7 @@ const Grabber: Component = () => {
                         <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
 
                         {/* Info */}
-                        <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>
+                        <div class="flex-1 min-w-0" classList={{ 'opacity-40': !pkg.enabled }}>
                           <div class="flex items-start justify-between gap-2">
                             <div class="flex-1 min-w-0">
                               <ScrollText class="font-semibold text-foreground text-sm" title={pkg.name}>{pkg.name}</ScrollText>
@@ -613,8 +589,7 @@ const Grabber: Component = () => {
                                 <span class="text-xs text-muted-foreground">
                                   {pkg.childCount}
                                   {' '}
-                                  Link
-                                  {pkg.childCount !== 1 ? 's' : ''}
+                                  {t(pkg.childCount !== 1 ? 'grabber.links' : 'grabber.link')}
                                 </span>
                               </div>
                             </div>
@@ -642,7 +617,6 @@ const Grabber: Component = () => {
                         <For each={pkgLinks()}>
                           {(link) => {
                             const isLinkSelected = () => selectedLinks().has(link.uuid);
-                            const availColor = () => getAvailabilityColor(link.availability);
 
                             return (
                               <div
@@ -650,7 +624,7 @@ const Grabber: Component = () => {
                                   isLinkSelected() ? 'bg-info/5' : 'hover:bg-muted/50'
                                 }`}
                                 onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
-                                onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
+                                onTouchStart={startLongPress('link', link.uuid, link.name, (link.enabled ?? false), link.priority)}
                                 onTouchEnd={endLongPress}
                                 onTouchMove={moveLongPress}
                                 onContextMenu={(e) => {
@@ -659,14 +633,14 @@ const Grabber: Component = () => {
                                   if (navigator.maxTouchPoints > 0) {
                                     return;
                                   }
-                                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
+                                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: (link.enabled ?? false), priority: link.priority });
                                 }}
                               >
                                 <div class="flex items-center gap-3 pl-8">
                                   {/* Link checkbox */}
                                   <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
 
-                                  <div class="flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>
+                                  <div class="flex-1 min-w-0" classList={{ 'opacity-40': !link.enabled }}>
                                     <div class="flex items-center justify-between gap-2">
                                       <ScrollText class="text-sm text-foreground" title={link.name}>{link.name}</ScrollText>
                                       <div class="flex items-center gap-1 flex-shrink-0">
@@ -687,14 +661,7 @@ const Grabber: Component = () => {
                                     <div class="flex items-center gap-3 mt-0.5 flex-wrap">
                                       <PriorityBadge priority={link.priority} />
                                       <Show when={link.availability}>
-                                        <span class={`text-xs font-medium ${
-                                          availColor() === 'green'
-                                            ? 'text-success'
-                                            : availColor() === 'red'
-                                              ? 'text-destructive'
-                                              : 'text-warning'
-                                        }`}
-                                        >
+                                        <span class={`text-xs font-medium ${availabilityClass(link.availability)}`}>
                                           {link.availability}
                                         </span>
                                       </Show>
@@ -733,7 +700,7 @@ const Grabber: Component = () => {
                     class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-info/5' : 'bg-muted/40 hover:bg-muted/70'}`}
                     data-list-card
                     onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
-                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, getEnabled(pkg.enabled), pkg.priority)}
+                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, (pkg.enabled ?? false), pkg.priority)}
                     onTouchEnd={endLongPress}
                     onTouchMove={moveLongPress}
                     onContextMenu={(e) => {
@@ -741,18 +708,17 @@ const Grabber: Component = () => {
                       if (navigator.maxTouchPoints > 0) {
                         return;
                       }
-                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: getEnabled(pkg.enabled), priority: pkg.priority });
+                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: (pkg.enabled ?? false), priority: pkg.priority });
                     }}
                   >
                     <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-                    <ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(pkg.enabled) }}>{pkg.name}</ScrollText>
+                    <ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !pkg.enabled }}>{pkg.name}</ScrollText>
                     <Show when={pkg.status}><StatusBadge status={pkg.status!} /></Show>
                     <span class="text-xs text-muted-foreground flex-shrink-0">{formatBytes(pkg.bytesTotal)}</span>
                     <span class="text-xs text-muted-foreground flex-shrink-0">
                       {pkg.childCount}
                       {' '}
-                      Link
-                      {pkg.childCount !== 1 ? 's' : ''}
+                      {t(pkg.childCount !== 1 ? 'grabber.links' : 'grabber.link')}
                     </span>
                     <Button
                       variant="ghost"
@@ -771,14 +737,13 @@ const Grabber: Component = () => {
                     <For each={pkgLinks()}>
                       {(link) => {
                         const isLinkSelected = () => selectedLinks().has(link.uuid);
-                        const availColor = () => getAvailabilityColor(link.availability);
 
                         return (
                           <div
                             class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-info/5' : 'hover:bg-muted/50'}`}
                             data-list-card
                             onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
-                            onTouchStart={startLongPress('link', link.uuid, link.name, getEnabled(link.enabled), link.priority)}
+                            onTouchStart={startLongPress('link', link.uuid, link.name, (link.enabled ?? false), link.priority)}
                             onTouchEnd={endLongPress}
                             onTouchMove={moveLongPress}
                             onContextMenu={(e) => {
@@ -787,12 +752,12 @@ const Grabber: Component = () => {
                               if (navigator.maxTouchPoints > 0) {
                                 return;
                               }
-                              setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: getEnabled(link.enabled), priority: link.priority });
+                              setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: (link.enabled ?? false), priority: link.priority });
                             }}
                           >
                             <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
-                            <ScrollText class="text-xs text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !getEnabled(link.enabled) }}>{link.name}</ScrollText>
-                            <span class={`i-tabler-circle-filled w-2 h-2 flex-shrink-0 text-${availColor()}-500`} />
+                            <ScrollText class="text-xs text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !link.enabled }}>{link.name}</ScrollText>
+                            <span class={`i-tabler-circle-filled w-2 h-2 flex-shrink-0 ${availabilityClass(link.availability)}`} />
                             <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
                             <span class="text-xs text-muted-foreground flex-shrink-0">{formatBytes(link.bytesTotal)}</span>
                           </div>
@@ -812,7 +777,6 @@ const Grabber: Component = () => {
         <AddLinksDialog
           onClose={() => setShowAddDialog(false)}
           onAdded={(autostarted) => {
-            fetchData();
             if (autoNavigateStore.enabled()) {
               navigate(autostarted ? '/downloads' : '/grabber');
             }
@@ -842,7 +806,6 @@ const Grabber: Component = () => {
               const { linkIds, pkgIds } = pm;
               setPriorityModal(null);
               await jdApi.setGrabberPriority(p, linkIds, pkgIds).catch(e => setError((e as Error).message));
-              fetchData();
             };
             const priorities = [
               { key: 'HIGHEST', label: t('common.priority.highest'), icon: 'i-tabler-arrow-bar-up' },
