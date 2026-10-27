@@ -81,7 +81,6 @@ function del<T>(path: string) {
 // ─── Auth ──────────────────────────────────────────────────────────────────
 
 export const authApi = {
-  checkUsers: () => get<{ hasUsers: boolean }>('/auth/check-users'),
   signIn: (email: string, password: string) =>
     post<{ user: User; session: { token: string } }>('/auth/sign-in/email', { email, password }),
   signUp: (email: string, password: string, name: string) =>
@@ -214,20 +213,9 @@ export const extensionsApi = {
     post('/jd/extensions/toggle', { id, enabled }),
 };
 
-// ─── Plugins API ──────────────────────────────────────────────────────────
-
-export const pluginsApi = {
-  listPlugins: () => get<PluginEntry[]>('/jd/plugins/list'),
-  setPlugin: (entry: { interfaceName: string; storage?: string; key: string; value: unknown }) =>
-    post('/jd/plugins/set', entry),
-  resetPlugin: (entry: { interfaceName: string; storage?: string; key: string }) =>
-    post('/jd/plugins/reset', entry),
-};
-
 // ─── Dialogs API ──────────────────────────────────────────────────────────
 
 export const dialogsApi = {
-  list: () => get<JdDialog[]>('/jd/dialogs'),
   get: (id: number) => get<JdDialogDetail>(`/jd/dialogs/${id}`),
   answer: (id: number, data: unknown) => post(`/jd/dialogs/${id}/answer`, data),
 };
@@ -235,7 +223,6 @@ export const dialogsApi = {
 // ─── Captcha API ──────────────────────────────────────────────────────────
 
 export const captchaApi = {
-  list: () => get<JdCaptcha[]>('/jd/captcha'),
   get: (id: number) => get<JdCaptchaDetail>(`/jd/captcha/${id}`),
   solve: (id: number, solution: string) => post(`/jd/captcha/${id}/solve`, { solution }),
 };
@@ -348,23 +335,6 @@ export type ConfigEntry = {
   docs?: string;
   displayName?: string;
   enumOptions?: string[][];
-};
-
-export type PluginEntry = {
-  interfaceName: string;
-  storage?: string;
-  key: string;
-  abstractType: string;
-  type: string;
-  value: unknown;
-  defaultValue: unknown;
-  docs?: string;
-  className?: string;
-  displayName?: string;
-  enumLabel?: string;
-  enumOptions?: string[][];
-  pattern?: string;
-  version?: string;
 };
 
 export type ExtensionEntry = {

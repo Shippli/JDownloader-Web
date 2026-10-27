@@ -1,17 +1,9 @@
 import { Hono } from 'hono';
-import { db } from '../db';
-import { user } from '../db/schema';
 import { auth } from '../lib/auth';
 
 const TRAILING_SLASH_RE = /\/$/;
 
 const authRouter = new Hono();
-
-// Check if any users exist (for first-run registration)
-authRouter.get('/check-users', async (c) => {
-  const users = await db.select({ id: user.id }).from(user).limit(1);
-  return c.json({ hasUsers: users.length > 0 });
-});
 
 // Extension sign-in: rewrite origin so Better Auth accepts the request.
 // Browser extension popups send Origin: moz-extension://... which is not trusted.

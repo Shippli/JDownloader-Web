@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import {
   DEFAULT_ACCOUNTS_QUERY,
   DEFAULT_EXTENSIONS_QUERY,
-  DEFAULT_PLUGINS_QUERY,
   jd as jdClient,
 } from '../lib/jd';
 
@@ -266,23 +265,7 @@ jd.post('/connection', async (c) => {
   return c.json({ ok: true });
 });
 
-jd.post('/connection/test', async (c) => {
-  jdClient.setAvailable(true);
-  try {
-    await jdClient.call('/jd/version');
-    return c.json({ ok: true });
-  } catch (e) {
-    jdClient.setAvailable(false);
-    return c.json({ ok: false, error: (e as Error).message });
-  }
-});
-
 // ─── Update Check ─────────────────────────────────────────────────────────────
-
-jd.get('/update-available', async (c) => {
-  const data = await jdClient.call('/update/isUpdateAvailable');
-  return c.json({ available: data === true });
-});
 
 jd.post('/system/restart', async (c) => {
   const data = await jdClient.call('/system/restartJD');
@@ -320,25 +303,6 @@ jd.post('/extensions/toggle', async (c) => {
   return c.json(data);
 });
 
-// ─── Plugins ──────────────────────────────────────────────────────────────────
-
-jd.get('/plugins/list', async (c) => {
-  const data = await jdClient.call(`/plugins/list?query=${encodeURIComponent(JSON.stringify(DEFAULT_PLUGINS_QUERY))}`);
-  return c.json(Array.isArray(data) ? data : []);
-});
-
-jd.post('/plugins/set', async (c) => {
-  const body = await c.req.json();
-  const data = await jdClient.call('/plugins/set', [body.interfaceName, body.storage ?? null, body.key, body.value]);
-  return c.json(data);
-});
-
-jd.post('/plugins/reset', async (c) => {
-  const body = await c.req.json();
-  const data = await jdClient.call('/plugins/reset', [body.interfaceName, body.storage ?? null, body.key]);
-  return c.json(data);
-});
-
 // ─── JD Info ──────────────────────────────────────────────────────────────────
 
 jd.get('/info', async (c) => {
@@ -358,11 +322,6 @@ jd.get('/info', async (c) => {
 });
 
 // ─── Captcha ──────────────────────────────────────────────────────────────────
-
-jd.get('/captcha', async (c) => {
-  const data = await jdClient.call('/captcha/list', []);
-  return c.json(Array.isArray(data) ? data : []);
-});
 
 jd.get('/captcha/:id', async (c) => {
   const id = Number.parseInt(c.req.param('id'));
@@ -387,24 +346,6 @@ jd.post('/captcha/:id/solve', async (c) => {
 });
 
 // ─── Dialogs ─────────────────────────────────────────────────────────────────
-
-jd.get('/dialogs', async (c) => {
-  const ids = await jdClient.call('/dialogs/list');
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return c.json([]);
-  }
-  const results = await Promise.allSettled(
-    ids.map((id: unknown) =>
-      jdClient.call('/dialogs/get', [id, false, true])
-        .then(data => ({ ...(data as Record<string, unknown>), id })),
-    ),
-  );
-  return c.json(
-    results
-      .filter(r => r.status === 'fulfilled')
-      .map(r => (r as PromiseFulfilledResult<unknown>).value),
-  );
-});
 
 jd.get('/dialogs/:id', async (c) => {
   const id = Number.parseInt(c.req.param('id'));
