@@ -1,4 +1,7 @@
+import type { Context } from 'hono';
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { applyAnswerToPackage } from '../lib/dialogs';
 import {
   DEFAULT_ACCOUNTS_QUERY,
   DEFAULT_EXTENSIONS_QUERY,
@@ -7,210 +10,105 @@ import {
 
 const jd = new Hono();
 
+type Body = Record<string, any>;
+
+// Registers a POST route that forwards to a JD call; toParams maps the request body to JD params.
+function proxyPost(path: string, jdPath: string, toParams: (body: Body) => unknown[] = () => []) {
+  jd.post(path, async (c) => {
+    const body = await c.req.json<Body>().catch(() => ({}));
+    return c.json(await jdClient.call(jdPath, toParams(body)));
+  });
+}
+
+function idParam(c: Context): number {
+  const id = Number.parseInt(c.req.param('id') ?? '');
+  if (Number.isNaN(id)) {
+    throw new HTTPException(400, { message: 'invalid id' });
+  }
+  return id;
+}
+
+const selection = (b: Body) => [b.linkIds ?? [], b.packageIds ?? []];
+const configEntry = (b: Body) => [b.interfaceName, b.storage ?? null, b.key];
+
 // ─── Download Controller ─────────────────────────────────────────────────────
 
-jd.post('/controller/start', async (c) => {
-  const data = await jdClient.call('/downloadcontroller/start');
-  return c.json(data);
-});
-
-jd.post('/controller/stop', async (c) => {
-  const data = await jdClient.call('/downloadcontroller/stop');
-  return c.json(data);
-});
-
-jd.post('/controller/pause', async (c) => {
-  const body = await c.req.json().catch(() => ({ value: true }));
-  const data = await jdClient.call('/downloadcontroller/pause', [body.value ?? true]);
-  return c.json(data);
-});
+proxyPost('/controller/start', '/downloadcontroller/start');
+proxyPost('/controller/stop', '/downloadcontroller/stop');
+proxyPost('/controller/pause', '/downloadcontroller/pause', b => [b.value ?? true]);
 
 // ─── Downloads ────────────────────────────────────────────────────────────────
 
-jd.post('/downloads/force', async (c) => {
-  const { linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/downloadsV2/forceDownload', [linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
-
-jd.post('/downloads/reset', async (c) => {
-  const { linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/downloadsV2/resetLinks', [linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
-
-jd.post('/downloads/cleanup', async (c) => {
-  const { linkIds, packageIds, deleteFiles } = await c.req.json();
-  const mode = deleteFiles ? 'REMOVE_LINKS_AND_DELETE_FILES' : 'REMOVE_LINKS_ONLY';
-  const data = await jdClient.call('/downloadsV2/cleanup', [linkIds ?? [], packageIds ?? [], 'DELETE_ALL', mode, 'SELECTED']);
-  return c.json(data);
-});
-
-jd.post('/downloads/enable', async (c) => {
-  const { enabled, linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/downloadsV2/setEnabled', [enabled ?? true, linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
-
-jd.post('/downloads/priority', async (c) => {
-  const { priority, linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/downloadsV2/setPriority', [priority, linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
-
-jd.post('/downloads/check', async (c) => {
-  const { linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/downloadsV2/startOnlineStatusCheck', [linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
+proxyPost('/downloads/force', '/downloadsV2/forceDownload', selection);
+proxyPost('/downloads/reset', '/downloadsV2/resetLinks', selection);
+proxyPost('/downloads/cleanup', '/downloadsV2/cleanup', b => [
+  ...selection(b),
+  'DELETE_ALL',
+  b.deleteFiles ? 'REMOVE_LINKS_AND_DELETE_FILES' : 'REMOVE_LINKS_ONLY',
+  'SELECTED',
+]);
+proxyPost('/downloads/enable', '/downloadsV2/setEnabled', b => [b.enabled ?? true, ...selection(b)]);
+proxyPost('/downloads/priority', '/downloadsV2/setPriority', b => [b.priority, ...selection(b)]);
+proxyPost('/downloads/check', '/downloadsV2/startOnlineStatusCheck', selection);
+proxyPost('/downloads/extract', '/extraction/startExtractionNow', selection);
 
 jd.patch('/downloads/packages/:id/name', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
   const { name } = await c.req.json();
-  const data = await jdClient.call('/downloadsV2/renamePackage', [id, name]);
-  return c.json(data);
-});
-
-jd.post('/downloads/extract', async (c) => {
-  const { linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/extraction/startExtractionNow', [linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
+  return c.json(await jdClient.call('/downloadsV2/renamePackage', [idParam(c), name]));
 });
 
 // ─── Link Grabber ──────────────────────────────────────────────────────────
 
-jd.post('/grabber/add', async (c) => {
-  const body = await c.req.json();
-  const query = {
-    links: body.links,
-    packageName: body.packageName,
-    extractPassword: body.extractPassword,
-    downloadPassword: body.downloadPassword,
-    destinationFolder: body.destinationFolder,
-    autostart: body.autostart ?? false,
-    assignJobID: true,
-  };
-  const data = await jdClient.call('/linkgrabberv2/addLinks', [query]);
-  return c.json(data);
-});
-
-jd.post('/grabber/addContainer', async (c) => {
-  const { type, content } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/addContainer', [type, content]);
-  return c.json(data);
-});
-
-jd.post('/grabber/move', async (c) => {
-  const { linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/moveToDownloadlist', [linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
-
-jd.post('/grabber/remove', async (c) => {
-  const { linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/removeLinks', [linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
+proxyPost('/grabber/add', '/linkgrabberv2/addLinks', b => [{
+  links: b.links,
+  packageName: b.packageName,
+  extractPassword: b.extractPassword,
+  downloadPassword: b.downloadPassword,
+  destinationFolder: b.destinationFolder,
+  autostart: b.autostart ?? false,
+  assignJobID: true,
+}]);
+proxyPost('/grabber/addContainer', '/linkgrabberv2/addContainer', b => [b.type, b.content]);
+proxyPost('/grabber/move', '/linkgrabberv2/moveToDownloadlist', selection);
+proxyPost('/grabber/remove', '/linkgrabberv2/removeLinks', selection);
+proxyPost('/grabber/enable', '/linkgrabberv2/setEnabled', b => [b.enabled ?? true, ...selection(b)]);
+proxyPost('/grabber/priority', '/linkgrabberv2/setPriority', b => [b.priority, ...selection(b)]);
+proxyPost('/grabber/new-package', '/linkgrabberv2/movetoNewPackage', b => [...selection(b), b.name ?? '', b.downloadPath ?? '']);
+proxyPost('/grabber/check', '/linkgrabberv2/startOnlineStatusCheck', selection);
 
 jd.patch('/grabber/packages/:id/name', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
   const { name } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/renamePackage', [id, name]);
-  return c.json(data);
-});
-
-jd.post('/grabber/enable', async (c) => {
-  const { enabled, linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/setEnabled', [enabled ?? true, linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
-
-jd.post('/grabber/priority', async (c) => {
-  const { priority, linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/setPriority', [priority, linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
-});
-
-jd.post('/grabber/new-package', async (c) => {
-  const { linkIds, packageIds, name, downloadPath } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/movetoNewPackage', [linkIds ?? [], packageIds ?? [], name ?? '', downloadPath ?? '']);
-  return c.json(data);
-});
-
-jd.post('/grabber/check', async (c) => {
-  const { linkIds, packageIds } = await c.req.json();
-  const data = await jdClient.call('/linkgrabberv2/startOnlineStatusCheck', [linkIds ?? [], packageIds ?? []]);
-  return c.json(data);
+  return c.json(await jdClient.call('/linkgrabberv2/renamePackage', [idParam(c), name]));
 });
 
 // ─── Accounts ─────────────────────────────────────────────────────────────────
 
-jd.get('/accounts/hosters', async (c) => {
-  const data = await jdClient.call('/accountsV2/listPremiumHoster');
-  return c.json(data);
-});
+jd.get('/accounts/hosters', async c => c.json(await jdClient.call('/accountsV2/listPremiumHoster')));
+jd.get('/accounts', async c => c.json(await jdClient.call('/accountsV2/listAccounts', [DEFAULT_ACCOUNTS_QUERY])));
 
-jd.get('/accounts', async (c) => {
-  const data = await jdClient.call('/accountsV2/listAccounts', [DEFAULT_ACCOUNTS_QUERY]);
-  return c.json(data);
-});
+proxyPost('/accounts/enable', '/accountsV2/enableAccounts', b => [b.ids ?? []]);
+proxyPost('/accounts/disable', '/accountsV2/disableAccounts', b => [b.ids ?? []]);
+proxyPost('/accounts/refresh', '/accountsV2/refreshAccounts', b => [b.ids ?? []]);
+proxyPost('/accounts/add', '/accountsV2/addAccount', b => [b.hoster, b.username, b.password]);
 
-jd.post('/accounts/enable', async (c) => {
-  const { ids } = await c.req.json();
-  const data = await jdClient.call('/accountsV2/enableAccounts', [ids ?? []]);
-  return c.json(data);
-});
-
-jd.post('/accounts/disable', async (c) => {
-  const { ids } = await c.req.json();
-  const data = await jdClient.call('/accountsV2/disableAccounts', [ids ?? []]);
-  return c.json(data);
-});
-
-jd.post('/accounts/refresh', async (c) => {
-  const { ids } = await c.req.json();
-  const data = await jdClient.call('/accountsV2/refreshAccounts', [ids ?? []]);
-  return c.json(data);
-});
-
-jd.post('/accounts/add', async (c) => {
-  const { hoster, username, password } = await c.req.json();
-  const data = await jdClient.call('/accountsV2/addAccount', [hoster, username, password]);
-  return c.json(data);
-});
-
-jd.delete('/accounts/:id', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
-  const data = await jdClient.call('/accountsV2/removeAccounts', [[id]]);
-  return c.json(data);
-});
+jd.delete('/accounts/:id', async c => c.json(await jdClient.call('/accountsV2/removeAccounts', [[idParam(c)]])));
 
 jd.patch('/accounts/:id/credentials', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
   const { username, password } = await c.req.json();
-  const data = await jdClient.call('/accountsV2/setUserNameAndPassword', [id, username, password]);
-  return c.json(data);
+  return c.json(await jdClient.call('/accountsV2/setUserNameAndPassword', [idParam(c), username, password]));
 });
 
 // ─── Config / Settings ────────────────────────────────────────────────────────
 
+const asArray = (x: unknown): unknown[] => Array.isArray(x) ? x : [];
+
 jd.get('/settings/list', async (c) => {
   const pattern = c.req.query('pattern') ?? '.*';
-  const data = await jdClient.call('/config/list', [pattern, true, true, true, true]);
-  return c.json(Array.isArray(data) ? data : []);
+  return c.json(asArray(await jdClient.call('/config/list', [pattern, true, true, true, true])));
 });
 
-jd.post('/settings/set', async (c) => {
-  const body = await c.req.json();
-  const data = await jdClient.call('/config/set', [body.interfaceName, body.storage ?? null, body.key, body.value]);
-  return c.json(data);
-});
-
-jd.post('/settings/reset', async (c) => {
-  const body = await c.req.json();
-  const data = await jdClient.call('/config/reset', [body.interfaceName, body.storage ?? null, body.key]);
-  return c.json(data);
-});
+proxyPost('/settings/set', '/config/set', b => [...configEntry(b), b.value]);
+proxyPost('/settings/reset', '/config/reset', configEntry);
 
 // ─── Download Config ──────────────────────────────────────────────────────────
 
@@ -228,18 +126,11 @@ jd.get('/downloads/dlconfig', async (c) => {
   return c.json(out);
 });
 
-jd.post('/downloads/dlconfig', async (c) => {
-  const { key, value } = await c.req.json();
-  const data = await jdClient.call('/config/set', [DL_INTERFACE, null, key, value]);
-  return c.json(data);
-});
+proxyPost('/downloads/dlconfig', '/config/set', b => [DL_INTERFACE, null, b.key, b.value]);
 
 // ─── Storage Info ─────────────────────────────────────────────────────────────
 
-jd.get('/storage', async (c) => {
-  const data = await jdClient.call('/system/getStorageInfos?path=.*');
-  return c.json(data);
-});
+jd.get('/storage', async c => c.json(await jdClient.call('/system/getStorageInfos?path=.*')));
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -293,15 +184,10 @@ jd.post('/system/auto-update', async (c) => {
 // ─── Extensions ───────────────────────────────────────────────────────────────
 
 jd.get('/extensions/list', async (c) => {
-  const data = await jdClient.call('/extensions/list', [DEFAULT_EXTENSIONS_QUERY]);
-  return c.json(Array.isArray(data) ? data : []);
+  return c.json(asArray(await jdClient.call('/extensions/list', [DEFAULT_EXTENSIONS_QUERY])));
 });
 
-jd.post('/extensions/toggle', async (c) => {
-  const { id, enabled } = await c.req.json();
-  const data = await jdClient.call('/extensions/setEnabled', [id, enabled]);
-  return c.json(data);
-});
+proxyPost('/extensions/toggle', '/extensions/setEnabled', b => [b.id, b.enabled]);
 
 // ─── JD Info ──────────────────────────────────────────────────────────────────
 
@@ -313,18 +199,19 @@ jd.get('/info', async (c) => {
     jdClient.call('/jd/getCoreRevision'),
     jdClient.call('/system/getSystemInfos'),
   ]);
+  const valueOrNull = (r: PromiseSettledResult<unknown>) => r.status === 'fulfilled' ? r.value : null;
   return c.json({
-    version: version.status === 'fulfilled' ? version.value : null,
-    uptime: uptime.status === 'fulfilled' ? uptime.value : null,
-    revision: revision.status === 'fulfilled' ? revision.value : null,
-    systemInfos: systemInfos.status === 'fulfilled' ? systemInfos.value : null,
+    version: valueOrNull(version),
+    uptime: valueOrNull(uptime),
+    revision: valueOrNull(revision),
+    systemInfos: valueOrNull(systemInfos),
   });
 });
 
 // ─── Captcha ──────────────────────────────────────────────────────────────────
 
 jd.get('/captcha/:id', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
+  const id = idParam(c);
   const [imageData, list] = await Promise.allSettled([
     jdClient.call('/captcha/get', [id]),
     jdClient.call('/captcha/list', []),
@@ -339,68 +226,21 @@ jd.get('/captcha/:id', async (c) => {
 });
 
 jd.post('/captcha/:id/solve', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
+  const id = idParam(c);
   const { solution } = await c.req.json();
-  const data = await jdClient.call('/captcha/solve', [id, solution ?? '']);
-  return c.json(data);
+  return c.json(await jdClient.call('/captcha/solve', [id, solution ?? '']));
 });
 
 // ─── Dialogs ─────────────────────────────────────────────────────────────────
 
 jd.get('/dialogs/:id', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
+  const id = idParam(c);
   const data = await jdClient.call('/dialogs/get', [id, true, true]);
   return c.json({ ...(data as Record<string, unknown>), id });
 });
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Polls for and auto-answers subsequent IfFileExists dialogs for the same
-// package, in ascending id order (JD requires answering dialogs in order).
-async function applyAnswerToPackage(packageid: string, body: Record<string, unknown>) {
-  const deadline = Date.now() + 5 * 60_000;
-  let idleRounds = 0;
-  let blockedRounds = 0;
-  while (Date.now() < deadline) {
-    const ids = await jdClient.call('/dialogs/list').catch(() => null);
-    if (!Array.isArray(ids) || ids.length === 0) {
-      if (++idleRounds > 20) {
-        return;
-      }
-      await sleep(1500);
-      continue;
-    }
-    const nextId = Math.min(...(ids as number[]));
-    let detail: Record<string, unknown>;
-    try {
-      detail = await jdClient.call('/dialogs/get', [nextId, false, true]) as Record<string, unknown>;
-    } catch {
-      return;
-    }
-    const properties = detail?.properties as Record<string, unknown> | undefined;
-    const isSamePackage = typeof detail?.type === 'string'
-      && detail.type.includes('IfFileExists')
-      && properties?.packageid === packageid;
-    if (!isSamePackage) {
-      if (++blockedRounds > 5) {
-        return;
-      }
-      await sleep(1500);
-      continue;
-    }
-    idleRounds = 0;
-    blockedRounds = 0;
-    try {
-      await jdClient.call('/dialogs/answer', [nextId, body]);
-    } catch {
-      return;
-    }
-    await sleep(300);
-  }
-}
-
 jd.post('/dialogs/:id/answer', async (c) => {
-  const id = Number.parseInt(c.req.param('id'));
+  const id = idParam(c);
   const { packageid, ...body } = await c.req.json();
   const data = await jdClient.call('/dialogs/answer', [id, body]);
 

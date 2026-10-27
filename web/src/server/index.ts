@@ -4,8 +4,9 @@ import { serveStatic } from 'hono/bun';
 import { compress } from 'hono/compress';
 import { cors } from 'hono/cors';
 import { streamSSE } from 'hono/streaming';
-import { auth } from './lib/auth';
-import { addSseClient, removeSseClient, startBroadcaster } from './lib/broadcaster';
+import { addSseClient, removeSseClient, startBroadcaster, stopBroadcaster } from './lib/broadcaster';
+import { isJdConnError } from './lib/jd';
+import { requireAuth } from './lib/requireAuth';
 import authRouter from './routes/auth';
 import jdRouter from './routes/jdownloader';
 import setupRouter from './routes/setup';
@@ -49,37 +50,9 @@ app.get('/api/cnl/jdcheck.js', (c) => {
   });
 });
 
-// Auth middleware for protected routes. Stores the session in context so
-// downstream handlers don't need a second getSession() lookup.
-async function requireAuth(c: any, next: any) {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-  c.set('session', session);
-  return next();
-}
-
 app.use('/api/jd/*', requireAuth);
 app.use('/api/users/*', requireAuth);
 app.use('/api/sse', requireAuth);
-
-function isJdConnErr(code: string | undefined) {
-  return code === 'ConnectionRefused' || code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'JD_UNAVAILABLE';
-}
-
-// JD error handler: catch connection errors silently, return 503 without logging
-app.use('/api/jd/*', async (c, next) => {
-  try {
-    await next();
-  } catch (e) {
-    const err = e as Error & { code?: string; status?: number };
-    if (!isJdConnErr(err.code)) {
-      console.error('[JD Error]', err);
-    }
-    return c.json({ error: isJdConnErr(err.code) ? 'JDownloader unavailable' : err.message, code: err.code }, isJdConnErr(err.code) ? 503 : 500);
-  }
-});
 
 // Routes
 app.route('/api/auth', authRouter);
@@ -143,11 +116,12 @@ if (process.env.NODE_ENV === 'production') {
 // Error handler
 app.onError((err, c) => {
   const code = (err as { code?: string }).code;
-  if (!isJdConnErr(code)) {
-    console.error('[Server Error]', err);
+  if (isJdConnError(err)) {
+    return c.json({ error: 'JDownloader unavailable', code }, 503);
   }
+  console.error('[Server Error]', err);
   const status = (err as { status?: number }).status ?? 500;
-  return c.json({ error: err.message }, status as 500);
+  return c.json({ error: err.message, code }, status as 500);
 });
 
 // Use Bun's native server
@@ -160,3 +134,15 @@ console.warn(`Server running on http://localhost:${server.port}`);
 
 // Start broadcaster — owns server-side JD polling and pushes to SSE clients
 startBroadcaster();
+
+// Registering signal handlers suppresses the default exit, so exit explicitly —
+// with a hard deadline in case JD hangs on unsubscribe.
+function shutdown(code: number) {
+  const deadline = setTimeout(() => process.exit(code), 2_000);
+  void stopBroadcaster().finally(() => {
+    clearTimeout(deadline);
+    process.exit(code);
+  });
+}
+process.once('SIGTERM', () => shutdown(0));
+process.once('SIGINT', () => shutdown(0));

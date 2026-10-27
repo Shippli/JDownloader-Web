@@ -17,7 +17,7 @@ import { isJdConnError } from './jd';
 
 export type EventTopic = 'downloads' | 'grabber' | 'notifications';
 
-export type JdEvent = {
+type JdEvent = {
   publisher: string;
   eventid: string;
   eventdata?: unknown;
@@ -30,14 +30,14 @@ export type EntityPatch = {
   fields: Record<string, unknown>;
 };
 
-export type JdEventsClient = {
+type JdEventsClient = {
   call: (path: string, params?: unknown[]) => Promise<unknown>;
   callLongPoll: (path: string, params?: unknown[], timeoutMs?: number, signal?: AbortSignal) => Promise<unknown>;
 };
 
-export type JdEventListenerHandlers = {
+type JdEventListenerHandlers = {
   // One or more events arrived; topics is the deduplicated set of affected areas.
-  onEvents: (topics: Set<EventTopic>, events: JdEvent[]) => void;
+  onEvents: (topics: Set<EventTopic>) => void;
   // A (re)subscription happened — state may have changed while we were deaf,
   // so the owner must run a full poll of every topic.
   onResync: () => void;
@@ -49,22 +49,25 @@ export type JdEventListenerHandlers = {
   onDiffEvents?: (patches: EntityPatch[]) => void;
 };
 
-export type JdEventListenerOptions = {
-  initialBackoffMs?: number;
-  maxBackoffMs?: number;
-  // Client-side abort for a single listen() call. Must exceed JD's server-side
-  // pollTimeout (25 s) so a normal empty poll never aborts.
-  listenTimeoutMs?: number;
-  // Consecutive listen failures before we throw the subscription away and
-  // resubscribe instead of just retrying listen().
-  maxListenFailures?: number;
-  // JD-side push interval for diff events (setStatusEventInterval).
-  statusEventIntervalMs?: number;
-};
+const INITIAL_BACKOFF_MS = 1_000;
+const MAX_BACKOFF_MS = 30_000;
+// Client-side abort for a single listen() call. Must exceed JD's server-side
+// pollTimeout (25 s) so a normal empty poll never aborts.
+const LISTEN_TIMEOUT_MS = 35_000;
+// Consecutive listen failures before we throw the subscription away and
+// resubscribe instead of just retrying listen().
+const MAX_LISTEN_FAILURES = 3;
+// JD-side push interval for diff events (setStatusEventInterval).
+const STATUS_EVENT_INTERVAL_MS = 2_000;
+
+// Allowlisted payload fields per kind (must be fields our queries return).
+const LINK_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment', 'url']);
+const PACKAGE_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment']);
+const PACKAGE_FIELD_EVENTS = [...PACKAGE_DIFF_FIELDS].filter(f => f !== 'comment');
 
 // Anchored (JD matches with find()). REFRESH_CONTENT is deliberately not
 // subscribed: JD fires it on every link property change.
-export const EVENT_SUBSCRIPTIONS = [
+const SUBSCRIPTIONS = [
   '^downloads\\.(REFRESH_STRUCTURE|ADD_|REMOVE_)',
   // Changes without a usable diff payload → full downloads sync.
   '^downloads\\.LINK_UPDATE\\.(reset|resume|finished|availability)$',
@@ -74,19 +77,13 @@ export const EVENT_SUBSCRIPTIONS = [
   '^linkcollector\\.',
   '^captchas\\.',
   '^dialogs\\.',
-];
-
-// Per-field diff subscription. Package comment is fired as
-// "PACKAGE_UPDATE.COMMENT" but gated on "PACKAGE_UPDATE" — both must match.
-export const DIFF_SUBSCRIPTIONS = [
-  '^downloads\\.(LINK_UPDATE|PACKAGE_UPDATE)\\.(bytesLoaded|bytesTotal|eta|speed|status|statusIconKey|name|enabled|priority)$',
-  '^downloads\\.LINK_UPDATE\\.(comment|url)$',
+  // Per-field diffs. Package comment is fired as "PACKAGE_UPDATE.COMMENT" but
+  // gated on "PACKAGE_UPDATE" — both must match.
+  `^downloads\\.LINK_UPDATE\\.(${[...LINK_DIFF_FIELDS].join('|')})$`,
+  `^downloads\\.PACKAGE_UPDATE\\.(${PACKAGE_FIELD_EVENTS.join('|')})$`,
   '^downloads\\.PACKAGE_UPDATE(\\.COMMENT)?$',
 ];
 
-// Allowlisted payload fields per kind (must be fields our queries return).
-const LINK_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment', 'url']);
-const PACKAGE_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment']);
 const NUMBER_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed']);
 const BOOLEAN_DIFF_FIELDS = new Set(['enabled']);
 const STRING_DIFF_FIELDS = new Set(['name', 'priority']);
@@ -122,12 +119,11 @@ const PUBLISHER_TOPIC: Record<string, EventTopic> = {
 export class JdEventListener {
   private client: JdEventsClient;
   private handlers: JdEventListenerHandlers;
-  private opts: Required<JdEventListenerOptions>;
 
   private running = false;
   private loopPromise: Promise<void> | null = null;
   private subscriptionId: number | null = null;
-  private backoffMs: number;
+  private backoffMs = INITIAL_BACKOFF_MS;
   private listenAbort: AbortController | null = null;
   private wakeSleep: (() => void) | null = null;
   // null = not probed yet, true/false = probe result (cached per process)
@@ -138,21 +134,11 @@ export class JdEventListener {
   private intervalApplied = false;
   private lastListenOkAt = 0;
 
-  constructor(client: JdEventsClient, handlers: JdEventListenerHandlers, opts: JdEventListenerOptions = {}) {
+  private listenFailures = 0;
+
+  constructor(client: JdEventsClient, handlers: JdEventListenerHandlers) {
     this.client = client;
     this.handlers = handlers;
-    this.opts = {
-      initialBackoffMs: opts.initialBackoffMs ?? 1_000,
-      maxBackoffMs: opts.maxBackoffMs ?? 30_000,
-      listenTimeoutMs: opts.listenTimeoutMs ?? 35_000,
-      maxListenFailures: opts.maxListenFailures ?? 3,
-      statusEventIntervalMs: opts.statusEventIntervalMs ?? 2_000,
-    };
-    this.backoffMs = this.opts.initialBackoffMs;
-  }
-
-  isRunning(): boolean {
-    return this.running;
   }
 
   start() {
@@ -160,7 +146,7 @@ export class JdEventListener {
       return;
     }
     this.running = true;
-    this.backoffMs = this.opts.initialBackoffMs;
+    this.backoffMs = INITIAL_BACKOFF_MS;
     this.loopPromise = this.run().catch((e) => {
       console.error('[jd-events] listener loop crashed:', e);
     });
@@ -184,80 +170,84 @@ export class JdEventListener {
   }
 
   private async run(): Promise<void> {
-    let listenFailures = 0;
+    this.listenFailures = 0;
     while (this.running) {
       try {
-        // 1) Capability probe (once per process)
+        // Capability probe (once per process)
         if (this.supported === null) {
-          const supported = await this.probe();
-          this.supported = supported;
-          if (!supported) {
+          this.supported = await this.probe();
+          if (!this.supported) {
             this.running = false;
             this.handlers.onUnsupported();
             return;
           }
         }
-
-        // 2) Subscribe if needed
-        if (this.subscriptionId === null) {
-          const resp = await this.client.call('/events/subscribe', [this.subscriptions(), []]) as
-            { subscriptionid?: number; subscribed?: boolean } | null;
-          if (!resp || typeof resp.subscriptionid !== 'number' || resp.subscribed === false) {
-            throw Object.assign(new Error('subscribe returned no usable subscription'), { code: 'JD_EVENTS_SUBSCRIBE_FAILED' });
-          }
-          this.subscriptionId = resp.subscriptionid;
-          this.backoffMs = this.opts.initialBackoffMs;
-          listenFailures = 0;
-          this.intervalApplied = false;
-          await this.applyStatusEventInterval();
-          // We may have been deaf — owner must re-baseline all topics.
-          this.handlers.onResync();
-        }
-
-        // 3) Long-poll. An empty array is a normal poll timeout.
-        this.listenAbort = new AbortController();
-        let events: unknown;
-        try {
-          events = await this.client.callLongPoll(
-            '/events/listen',
-            [this.subscriptionId],
-            this.opts.listenTimeoutMs,
-            this.listenAbort.signal,
-          );
-        } finally {
-          this.listenAbort = null;
-        }
-        listenFailures = 0;
-        this.backoffMs = this.opts.initialBackoffMs;
-        this.lastListenOkAt = Date.now();
-        if (!this.intervalApplied) {
-          await this.applyStatusEventInterval();
-        }
-        if (Array.isArray(events) && events.length > 0) {
-          this.dispatch(events as JdEvent[]);
-        }
+        await this.ensureSubscribed();
+        await this.listen();
       } catch (e) {
         if (!this.running) {
           return;
         }
-        if (isJdConnError(e)) {
-          // JD gone — drop the subscription (it will expire anyway), tell the
-          // owner, and retry with backoff.
-          this.subscriptionId = null;
-          listenFailures = 0;
-          this.handlers.onConnectionError();
-        } else if (this.subscriptionId !== null) {
-          // HTTP-level error on listen (typically: subscription expired →
-          // APIFileNotFoundException). Retry listen a couple of times for
-          // transient errors, then resubscribe.
-          listenFailures++;
-          if (listenFailures >= this.opts.maxListenFailures) {
-            this.subscriptionId = null;
-            listenFailures = 0;
-          }
-        }
+        this.handleLoopError(e);
         await this.sleep(this.backoffMs);
-        this.backoffMs = Math.min(this.backoffMs * 2, this.opts.maxBackoffMs);
+        this.backoffMs = Math.min(this.backoffMs * 2, MAX_BACKOFF_MS);
+      }
+    }
+  }
+
+  private async ensureSubscribed() {
+    if (this.subscriptionId !== null) {
+      return;
+    }
+    const resp = await this.client.call('/events/subscribe', [SUBSCRIPTIONS, []]) as
+      { subscriptionid?: number; subscribed?: boolean } | null;
+    if (!resp || typeof resp.subscriptionid !== 'number' || resp.subscribed === false) {
+      throw Object.assign(new Error('subscribe returned no usable subscription'), { code: 'JD_EVENTS_SUBSCRIBE_FAILED' });
+    }
+    this.subscriptionId = resp.subscriptionid;
+    this.backoffMs = INITIAL_BACKOFF_MS;
+    this.listenFailures = 0;
+    this.intervalApplied = false;
+    await this.applyStatusEventInterval();
+    // We may have been deaf — owner must re-baseline all topics.
+    this.handlers.onResync();
+  }
+
+  // Long-poll. An empty array is a normal poll timeout.
+  private async listen() {
+    this.listenAbort = new AbortController();
+    let events: unknown;
+    try {
+      events = await this.client.callLongPoll('/events/listen', [this.subscriptionId], LISTEN_TIMEOUT_MS, this.listenAbort.signal);
+    } finally {
+      this.listenAbort = null;
+    }
+    this.listenFailures = 0;
+    this.backoffMs = INITIAL_BACKOFF_MS;
+    this.lastListenOkAt = Date.now();
+    if (!this.intervalApplied) {
+      await this.applyStatusEventInterval();
+    }
+    if (Array.isArray(events) && events.length > 0) {
+      this.dispatch(events as JdEvent[]);
+    }
+  }
+
+  private handleLoopError(e: unknown) {
+    if (isJdConnError(e)) {
+      // JD gone — drop the subscription (it will expire anyway), tell the
+      // owner, and retry with backoff.
+      this.subscriptionId = null;
+      this.listenFailures = 0;
+      this.handlers.onConnectionError();
+    } else if (this.subscriptionId !== null) {
+      // HTTP-level error on listen (typically: subscription expired →
+      // APIFileNotFoundException). Retry listen a couple of times for
+      // transient errors, then resubscribe.
+      this.listenFailures++;
+      if (this.listenFailures >= MAX_LISTEN_FAILURES) {
+        this.subscriptionId = null;
+        this.listenFailures = 0;
       }
     }
   }
@@ -266,7 +256,7 @@ export class JdEventListener {
   // pushes at its 1 s default.
   private async applyStatusEventInterval() {
     const ok = await this.client
-      .call('/downloadevents/setStatusEventInterval', [this.subscriptionId, this.opts.statusEventIntervalMs])
+      .call('/downloadevents/setStatusEventInterval', [this.subscriptionId, STATUS_EVENT_INTERVAL_MS])
       .catch(() => false);
     this.intervalApplied = ok === true;
   }
@@ -274,7 +264,7 @@ export class JdEventListener {
   // True while long-polls keep succeeding (proves JD is reachable).
   isHealthy(): boolean {
     return this.running && this.subscriptionId !== null
-      && Date.now() - this.lastListenOkAt < this.opts.listenTimeoutMs + 5_000;
+      && Date.now() - this.lastListenOkAt < LISTEN_TIMEOUT_MS + 5_000;
   }
 
   private async probe(): Promise<boolean> {
@@ -299,7 +289,6 @@ export class JdEventListener {
 
   private dispatch(events: JdEvent[]) {
     const topics = new Set<EventTopic>();
-    const triggerEvents: JdEvent[] = [];
     const patches: EntityPatch[] = [];
     for (const ev of events) {
       if (IGNORED_EVENTS.has(ev?.eventid ?? '')) {
@@ -318,14 +307,13 @@ export class JdEventListener {
           continue;
         }
       }
-      triggerEvents.push(ev);
       const topic = PUBLISHER_TOPIC[ev?.publisher ?? ''];
       if (topic) {
         topics.add(topic);
       }
     }
     if (topics.size > 0) {
-      this.handlers.onEvents(topics, triggerEvents);
+      this.handlers.onEvents(topics);
     }
     if (patches.length > 0) {
       this.handlers.onDiffEvents?.(patches);
@@ -378,10 +366,6 @@ export class JdEventListener {
     }
     this.loggedDiffDrop = true;
     console.warn(`[jd-events] dropping malformed diff event (logged once): ${reason}`);
-  }
-
-  private subscriptions(): string[] {
-    return [...EVENT_SUBSCRIPTIONS, ...DIFF_SUBSCRIPTIONS];
   }
 
   private sleep(ms: number): Promise<void> {

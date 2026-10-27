@@ -1,3 +1,4 @@
+import type { DownloadsSnapshot, EntityDelta, SseServerMessage as SharedSseServerMessage } from '../../shared/sse';
 import type { DownloadLink, DownloadPackage, GrabberLink, GrabberPackage, JdCaptcha, JdDialog } from '../lib/api';
 import { createSignal } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
@@ -6,15 +7,9 @@ import { applyNotificationsMessage } from './notifications';
 
 // ─── Per-topic signals (fed by SSE pushes) ───────────────────────────────────
 
-export type DownloadsPayload = {
-  packages: DownloadPackage[];
-  links: DownloadLink[];
-  state: string;
-  speed: number;
-  exProgress: Record<number, number>;
-};
+type DownloadsPayload = DownloadsSnapshot<DownloadPackage, DownloadLink>;
 
-export type GrabberPayload = {
+type GrabberPayload = {
   packages: GrabberPackage[];
   links: GrabberLink[];
 };
@@ -37,19 +32,16 @@ const [_grabStore, setGrabStore] = createStore<GrabberPayload>({
 export const sseDownloads = (): DownloadsPayload | null => _dlLoaded() ? _dlStore : null;
 export const sseGrabber = (): GrabberPayload | null => _grabLoaded() ? _grabStore : null;
 
-export const [sseConnected, setSseConnected] = createSignal(false);
-
 // ─── Message types ────────────────────────────────────────────────────────────
 
-type SseServerMessage
-  = | { type: 'health'; jd: boolean }
-    | { type: 'downloads'; full: true; seq: number; packages: DownloadPackage[]; links: DownloadLink[]; state: string; speed: number; exProgress: Record<number, number> }
-    | { type: 'downloads'; full: false; seq: number; packages?: DownloadPackage[]; removedPackages?: number[]; links?: DownloadLink[]; removedLinks?: number[]; state?: string; speed?: number; exProgress?: Record<number, number> }
-    | { type: 'grabber'; full: true; seq: number; packages: GrabberPackage[]; links: GrabberLink[] }
-    | { type: 'grabber'; full: false; seq: number; packages?: GrabberPackage[]; removedPackages?: number[]; links?: GrabberLink[]; removedLinks?: number[] }
-    | { type: 'notifications'; dialogs: JdDialog[]; captchas: JdCaptcha[]; updateAvailable: boolean }
-    | { type: 'hello'; epoch: string; heartbeatMs: number }
-    | { type: 'heartbeat'; epoch: string; seq: number };
+type SseServerMessage = SharedSseServerMessage<{
+  downloadPackage: DownloadPackage;
+  downloadLink: DownloadLink;
+  grabberPackage: GrabberPackage;
+  grabberLink: GrabberLink;
+  dialog: JdDialog;
+  captcha: JdCaptcha;
+}>;
 
 // One global seq across downloads + grabber. A delta whose seq isn't exactly
 // lastSeq+1 (or a heartbeat reporting a higher seq than we've applied) means a
@@ -97,13 +89,6 @@ function upsertEntities<T extends Keyed>(arr: T[], idx: Map<number, number>, ite
   }
 }
 
-type EntityDelta<P extends Keyed, L extends Keyed> = {
-  packages?: P[];
-  removedPackages?: number[];
-  links?: L[];
-  removedLinks?: number[];
-};
-
 function applyEntityDelta<P extends Keyed, L extends Keyed>(
   s: { packages: P[]; links: L[] },
   index: EntityIndex,
@@ -130,6 +115,16 @@ function resetIndex(index: EntityIndex, payload: { packages: Keyed[]; links: Key
 
 // ─── Message dispatch ─────────────────────────────────────────────────────────
 
+// Full snapshots re-baseline; a delta must be exactly lastSeq+1, else resync.
+function acceptSeq(msg: { full: boolean; seq: number }): boolean {
+  if (!msg.full && msg.seq !== lastSeq + 1) {
+    resync();
+    return false;
+  }
+  lastSeq = msg.seq;
+  return true;
+}
+
 function dispatch(msg: SseServerMessage) {
   switch (msg.type) {
     case 'hello':
@@ -146,19 +141,16 @@ function dispatch(msg: SseServerMessage) {
       break;
 
     case 'downloads':
+      if (!acceptSeq(msg)) {
+        return;
+      }
       if (msg.full) {
-        lastSeq = msg.seq;
         setDlStore(reconcile(
           { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed, exProgress: msg.exProgress },
           { key: 'uuid', merge: true },
         ));
         resetIndex(dlIndex, msg);
       } else {
-        if (msg.seq !== lastSeq + 1) {
-          resync();
-          return;
-        }
-        lastSeq = msg.seq;
         setDlStore(produce((s) => {
           applyEntityDelta(s, dlIndex, msg);
           if (msg.state !== undefined) {
@@ -178,19 +170,16 @@ function dispatch(msg: SseServerMessage) {
       break;
 
     case 'grabber':
+      if (!acceptSeq(msg)) {
+        return;
+      }
       if (msg.full) {
-        lastSeq = msg.seq;
         setGrabStore(reconcile(
           { packages: msg.packages, links: msg.links },
           { key: 'uuid', merge: true },
         ));
         resetIndex(grabIndex, msg);
       } else {
-        if (msg.seq !== lastSeq + 1) {
-          resync();
-          return;
-        }
-        lastSeq = msg.seq;
         setGrabStore(produce(s => applyEntityDelta(s, grabIndex, msg)));
       }
       if (!_grabLoaded()) {
@@ -229,24 +218,22 @@ function petWatchdog() {
 // snapshot from the server, re-baselining the sequence numbers and healing any
 // drift — whether from a dropped delta (seq gap) or a dead/half-open connection.
 function resync() {
-  if (es) {
-    es.close();
-    es = null;
-  }
+  closeSource();
   connect();
+}
+
+function closeSource() {
+  es?.close();
+  es = null;
 }
 
 function connect() {
   es = new EventSource('/api/sse', { withCredentials: true });
   petWatchdog();
 
-  es.onopen = () => {
-    setSseConnected(true);
-    petWatchdog();
-  };
+  es.onopen = petWatchdog;
 
   es.onerror = () => {
-    setSseConnected(false);
     setJdConnected(null);
     // EventSource auto-reconnects on clean drops; the watchdog covers half-open ones.
   };
@@ -272,11 +259,7 @@ function disconnect() {
     clearTimeout(watchdog);
     watchdog = null;
   }
-  if (es) {
-    es.close();
-    es = null;
-  }
-  setSseConnected(false);
+  closeSource();
   setJdConnected(null);
 }
 

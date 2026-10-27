@@ -158,13 +158,9 @@ export const configApi = {
   refreshAccounts: (ids: number[]) => post('/jd/accounts/refresh', { ids }),
   addAccount: (hoster: string, username: string, password: string) =>
     post('/jd/accounts/add', { hoster, username, password }),
-  deleteAccount: (id: number) =>
-    request(`/jd/accounts/${id}`, { method: 'DELETE' }),
+  deleteAccount: (id: number) => del(`/jd/accounts/${id}`),
   setCredentials: (id: number, username: string, password: string) =>
-    request(`/jd/accounts/${id}/credentials`, {
-      method: 'PATCH',
-      body: JSON.stringify({ username, password }),
-    }),
+    patch(`/jd/accounts/${id}/credentials`, { username, password }),
 
   // Settings (/config namespace)
   listSettings: (pattern?: string) =>

@@ -3,18 +3,65 @@ import { getAppSetting, setAppSetting } from '../db/appSettings';
 
 const RETRY_AFTER_MS = 30_000;
 
-export function isJdConnError(e: unknown): boolean {
-  const code = (e as { code?: string })?.code ?? '';
-  return (
-    code === 'JD_UNAVAILABLE'
-    || code === 'JD_NOT_CONFIGURED'
-    || code === 'ECONNREFUSED'
-    || code === 'ConnectionRefused'
-    || code === 'ECONNRESET'
-  );
+const CONN_REFUSED_CODES = new Set(['ECONNREFUSED', 'ConnectionRefused', 'ECONNRESET']);
+const JD_CONN_ERROR_CODES = new Set([...CONN_REFUSED_CODES, 'JD_UNAVAILABLE', 'JD_NOT_CONFIGURED']);
+
+const errorCode = (e: unknown) => (e as { code?: string })?.code ?? '';
+
+function isConnRefused(e: unknown): boolean {
+  return CONN_REFUSED_CODES.has(errorCode(e));
 }
 
-export class JDownloaderClient {
+export function isJdConnError(e: unknown): boolean {
+  return JD_CONN_ERROR_CODES.has(errorCode(e));
+}
+
+async function postJd(baseUrl: string, path: string, params: unknown[], rid: number, signal?: AbortSignal): Promise<unknown> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ apiVer: 1, url: path, params: adaptParams(params), rid }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(`JD API error: ${res.status}`), { status: res.status, body: err });
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return null;
+  }
+  const json = JSON.parse(text);
+  if (json && typeof json === 'object' && 'data' in json) {
+    return (json as { data: unknown }).data;
+  }
+  return json;
+}
+
+function adaptParams(params: unknown[]): unknown[] {
+  return params.map((param) => {
+    if (typeof param === 'string') {
+      return param;
+    }
+    if (Array.isArray(param)) {
+      return adaptParams(param);
+    }
+    if (param !== null && typeof param === 'object') {
+      return param;
+    }
+    if (typeof param === 'boolean' || typeof param === 'number') {
+      return JSON.stringify(param);
+    }
+    if (param === null) {
+      return null;
+    }
+    return String(param);
+  });
+}
+
+class JDownloaderClient {
   private host: string;
   private port: string;
   private available = true;
@@ -30,17 +77,15 @@ export class JDownloaderClient {
   }
 
   private loadFromDb() {
-    try {
-      const h = getAppSetting('jd_host');
-      const p = getAppSetting('jd_port');
-      if (h) {
-        this.host = h;
-      }
-      if (p) {
-        this.port = p;
-      }
-      this.autoUpdateEnabled = getAppSetting('auto_update_enabled') === 'true';
-    } catch { /* table may not exist yet on very first run */ }
+    const h = getAppSetting('jd_host');
+    const p = getAppSetting('jd_port');
+    if (h) {
+      this.host = h;
+    }
+    if (p) {
+      this.port = p;
+    }
+    this.autoUpdateEnabled = getAppSetting('auto_update_enabled') === 'true';
   }
 
   isConfigured(): boolean {
@@ -51,70 +96,23 @@ export class JDownloaderClient {
     return `http://${this.host}:${this.port}`;
   }
 
-  private nextRid(): number {
-    return ++this.requestId;
-  }
-
-  private adaptParams(params: unknown[]): unknown[] {
-    return params.map((param) => {
-      if (typeof param === 'string') {
-        return param;
-      }
-      if (Array.isArray(param)) {
-        return this.adaptParams(param);
-      }
-      if (param !== null && typeof param === 'object') {
-        return param;
-      }
-      if (typeof param === 'boolean' || typeof param === 'number') {
-        return JSON.stringify(param);
-      }
-      if (param === null) {
-        return null;
-      }
-      return String(param);
-    });
-  }
-
-  private isConnRefused(e: unknown): boolean {
-    const code = (e as { code?: string })?.code ?? '';
-    return code === 'ConnectionRefused' || code === 'ECONNREFUSED' || code === 'ECONNRESET';
-  }
-
-  private async post(path: string, params: unknown[], signal?: AbortSignal): Promise<unknown> {
-    const rid = this.nextRid();
-    const adapted = this.adaptParams(params);
-    const payload: Record<string, unknown> = { apiVer: 1, url: path, params: adapted, rid };
-    const body = JSON.stringify(payload);
-
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body,
-      signal,
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw Object.assign(new Error(`JD API error: ${res.status}`), { status: res.status, body: err });
-    }
-
-    const text = await res.text();
-    if (!text) {
-      return null;
-    }
-    const json = JSON.parse(text);
-    if (json && typeof json === 'object' && 'data' in json) {
-      return (json as { data: unknown }).data;
-    }
-    return json;
-  }
-
-  async call(path: string, params: unknown[] = []): Promise<unknown> {
+  // Throws if unconfigured; trips the breaker on connection-level errors.
+  private async send(path: string, params: unknown[], signal?: AbortSignal): Promise<unknown> {
     if (!this.isConfigured()) {
       throw Object.assign(new Error('JDownloader not configured'), { code: 'JD_NOT_CONFIGURED', status: 503 });
     }
-    if (!this.available) {
+    try {
+      return await postJd(this.baseUrl, path, params, ++this.requestId, signal);
+    } catch (e) {
+      if (isConnRefused(e)) {
+        this.setAvailable(false);
+      }
+      throw e;
+    }
+  }
+
+  async call(path: string, params: unknown[] = []): Promise<unknown> {
+    if (this.isConfigured() && !this.available) {
       // Auto-retry after RETRY_AFTER_MS to allow recovery without manual intervention
       if (this.unavailableSince !== null && Date.now() - this.unavailableSince > RETRY_AFTER_MS) {
         this.available = true;
@@ -123,15 +121,7 @@ export class JDownloaderClient {
         throw Object.assign(new Error('JDownloader unavailable'), { code: 'JD_UNAVAILABLE', status: 503 });
       }
     }
-    try {
-      return await this.post(path, params);
-    } catch (e) {
-      if (this.isConnRefused(e)) {
-        this.available = false;
-        this.unavailableSince = Date.now();
-      }
-      throw e;
-    }
+    return this.send(path, params);
   }
 
   // Long-poll variant for /events/listen. Bypasses the circuit breaker's
@@ -140,44 +130,21 @@ export class JDownloaderClient {
   // listener loop does its own backoff on failures. Connection-level errors
   // still trip the breaker so regular calls fail fast.
   async callLongPoll(path: string, params: unknown[] = [], timeoutMs = 35_000, signal?: AbortSignal): Promise<unknown> {
-    if (!this.isConfigured()) {
-      throw Object.assign(new Error('JDownloader not configured'), { code: 'JD_NOT_CONFIGURED', status: 503 });
-    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(new DOMException('listen timeout', 'TimeoutError')), timeoutMs);
     const onAbort = () => ctrl.abort(signal?.reason);
     signal?.addEventListener('abort', onAbort, { once: true });
     try {
-      return await this.post(path, params, ctrl.signal);
-    } catch (e) {
-      if (this.isConnRefused(e)) {
-        this.available = false;
-        this.unavailableSince = Date.now();
-      }
-      throw e;
+      return await this.send(path, params, ctrl.signal);
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
     }
   }
 
-  // Probe JD directly, bypassing the circuit breaker — used by the health check.
-  async probe(): Promise<boolean> {
-    if (!this.isConfigured()) {
-      return false;
-    }
-    try {
-      await this.post('/jd/version', []);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
+  // Probes JD directly, bypassing the circuit breaker.
   async healthCheck(): Promise<void> {
-    const ok = await this.probe();
-    this.available = ok;
-    this.unavailableSince = ok ? null : (this.unavailableSince ?? Date.now());
+    this.setAvailable(this.isConfigured() && await probeJd(this.host, this.port));
   }
 
   getConnection() {
@@ -230,6 +197,15 @@ export class JDownloaderClient {
   }
 }
 
+// Probes an arbitrary JD instance; throws on failure.
+export async function probeJdOrThrow(host: string, port: string, timeoutMs?: number): Promise<void> {
+  await postJd(`http://${host}:${port}`, '/jd/version', [], Date.now(), timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined);
+}
+
+async function probeJd(host: string, port: string): Promise<boolean> {
+  return probeJdOrThrow(host, port).then(() => true, () => false);
+}
+
 export const jd = new JDownloaderClient(
   process.env.JDOWNLOADER_HOST ?? '',
   process.env.JDOWNLOADER_PORT ?? '',
@@ -237,69 +213,22 @@ export const jd = new JDownloaderClient(
 
 // ─── Default Query Objects ────────────────────────────────────────────────────
 
-export const DEFAULT_PACKAGE_QUERY = {
-  maxResults: -1,
-  startAt: 0,
-  bytesLoaded: true,
-  bytesTotal: true,
-  speed: true,
-  eta: true,
-  status: true,
-  hosts: true,
-  finished: true,
-  enabled: true,
-  priority: true,
-  childCount: true,
-  comment: true,
-};
+const PAGE_ALL = { maxResults: -1, startAt: 0 };
+const COMMON_FIELDS = { bytesTotal: true, status: true, comment: true, enabled: true, priority: true };
+const DOWNLOAD_FIELDS = { ...COMMON_FIELDS, bytesLoaded: true, speed: true, eta: true, finished: true };
 
-export const DEFAULT_LINK_QUERY = {
-  maxResults: -1,
-  startAt: 0,
-  bytesLoaded: true,
-  bytesTotal: true,
-  speed: true,
-  eta: true,
-  status: true,
-  host: true,
-  finished: true,
-  enabled: true,
-  priority: true,
-  url: true,
-  comment: true,
-};
+export const DEFAULT_PACKAGE_QUERY = { ...PAGE_ALL, ...DOWNLOAD_FIELDS, hosts: true, childCount: true };
 
-export const DEFAULT_GRABBER_PACKAGE_QUERY = {
-  maxResults: -1,
-  startAt: 0,
-  bytesTotal: true,
-  status: true,
-  hosts: true,
-  childCount: true,
-  comment: true,
-  enabled: true,
-  priority: true,
-};
+export const DEFAULT_LINK_QUERY = { ...PAGE_ALL, ...DOWNLOAD_FIELDS, host: true, url: true };
 
-export const DEFAULT_GRABBER_LINK_QUERY = {
-  maxResults: -1,
-  startAt: 0,
-  bytesTotal: true,
-  status: true,
-  host: true,
-  url: true,
-  comment: true,
-  availability: true,
-  name: true,
-  enabled: true,
-  priority: true,
-};
+export const DEFAULT_GRABBER_PACKAGE_QUERY = { ...PAGE_ALL, ...COMMON_FIELDS, hosts: true, childCount: true };
+
+export const DEFAULT_GRABBER_LINK_QUERY = { ...PAGE_ALL, ...COMMON_FIELDS, host: true, url: true, availability: true, name: true };
 
 export const DEFAULT_ACCOUNTS_QUERY = {
+  ...PAGE_ALL,
   enabled: true,
   error: true,
-  maxResults: -1,
-  startAt: 0,
   trafficLeft: true,
   trafficMax: true,
   userName: true,
@@ -315,21 +244,4 @@ export const DEFAULT_EXTENSIONS_QUERY = {
   id: true,
   installed: true,
   name: true,
-};
-
-export const DEFAULT_PLUGINS_QUERY = {
-  abstractType: true,
-  className: true,
-  defaultValue: true,
-  displayName: true,
-  docs: true,
-  enumLabel: true,
-  enumOptions: true,
-  interfaceName: true,
-  key: true,
-  pattern: true,
-  storage: true,
-  type: true,
-  value: true,
-  version: true,
 };

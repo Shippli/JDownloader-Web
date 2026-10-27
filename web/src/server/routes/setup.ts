@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getAppSetting, setAppSetting } from '../db/appSettings';
+import { probeJdOrThrow } from '../lib/jd';
 
 const setupRouter = new Hono();
 
@@ -20,16 +21,7 @@ setupRouter.post('/test-connection', async (c) => {
     return c.json({ ok: false, error: 'host and port required' }, 400);
   }
   try {
-    const rid = Date.now();
-    const res = await fetch(`http://${String(host).trim()}:${String(port).trim()}/jd/version`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ apiVer: 1, url: '/jd/version', params: [], rid }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) {
-      return c.json({ ok: false, error: `HTTP ${res.status}` });
-    }
+    await probeJdOrThrow(String(host).trim(), String(port).trim(), 5000);
     return c.json({ ok: true });
   } catch (e) {
     return c.json({ ok: false, error: (e as Error).message });

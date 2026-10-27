@@ -1,17 +1,16 @@
+import type { AuthEnv } from '../lib/requireAuth';
 import { count, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db';
 import { account, user } from '../db/schema';
 import { auth } from '../lib/auth';
 
-type Env = {
-  Variables: {
-    // Set by the requireAuth middleware in src/server/index.ts
-    session: { user: { id: string } };
-  };
-};
+const usersRouter = new Hono<AuthEnv>();
 
-const usersRouter = new Hono<Env>();
+const MIN_PASSWORD_LENGTH = 8;
+const PASSWORD_TOO_SHORT = 'Passwort muss mindestens 8 Zeichen lang sein';
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 // GET /api/users – list all users
 usersRouter.get('/', async (c) => {
@@ -29,12 +28,12 @@ usersRouter.post('/', async (c) => {
   if (!name?.trim() || !email?.trim() || !password) {
     return c.json({ error: 'Name, E-Mail und Passwort sind erforderlich' }, 400);
   }
-  if (password.length < 8) {
-    return c.json({ error: 'Passwort muss mindestens 8 Zeichen lang sein' }, 400);
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return c.json({ error: PASSWORD_TOO_SHORT }, 400);
   }
 
   const result = await auth.api.signUpEmail({
-    body: { name: name.trim(), email: email.trim().toLowerCase(), password },
+    body: { name: name.trim(), email: normalizeEmail(email), password },
   });
 
   if (!result?.user) {
@@ -55,7 +54,7 @@ usersRouter.patch('/:id', async (c) => {
 
   await db
     .update(user)
-    .set({ name: name.trim(), email: email.trim().toLowerCase(), updatedAt: new Date() })
+    .set({ name: name.trim(), email: normalizeEmail(email), updatedAt: new Date() })
     .where(eq(user.id, id));
 
   return c.json({ ok: true });
@@ -66,8 +65,8 @@ usersRouter.patch('/:id/password', async (c) => {
   const id = c.req.param('id');
   const { password } = await c.req.json<{ password: string }>();
 
-  if (!password || password.length < 8) {
-    return c.json({ error: 'Passwort muss mindestens 8 Zeichen lang sein' }, 400);
+  if (!password || password.length < MIN_PASSWORD_LENGTH) {
+    return c.json({ error: PASSWORD_TOO_SHORT }, 400);
   }
 
   const hash = await Bun.password.hash(password, { algorithm: 'bcrypt', cost: 10 });
