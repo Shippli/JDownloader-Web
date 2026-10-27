@@ -29,7 +29,7 @@ const [effectiveTheme, setEffectiveTheme] = createSignal<'light' | 'dark'>(getEf
 createEffect(() => {
   const t = theme();
   localStorage.setItem('theme', t);
-  const effective = t === 'system' ? getSystemTheme() : t;
+  const effective = getEffectiveTheme();
   setEffectiveTheme(effective);
   applyTheme(effective);
 });
@@ -49,13 +49,7 @@ function toggleTheme() {
   setTheme(effectiveTheme() === 'dark' ? 'light' : 'dark');
 }
 
-function setThemeMode(t: Theme) {
-  setTheme(t);
-}
-
 export const themeStore = {
-  theme,
   effectiveTheme,
   toggleTheme,
-  setTheme: setThemeMode,
 };
