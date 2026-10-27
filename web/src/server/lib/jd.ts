@@ -1,9 +1,18 @@
 import process from 'node:process';
 import { getAppSetting, setAppSetting } from '../db/appSettings';
 
-const NULL_STRING_RE = /"null"/g;
-
 const RETRY_AFTER_MS = 30_000;
+
+export function isJdConnError(e: unknown): boolean {
+  const code = (e as { code?: string })?.code ?? '';
+  return (
+    code === 'JD_UNAVAILABLE'
+    || code === 'JD_NOT_CONFIGURED'
+    || code === 'ECONNREFUSED'
+    || code === 'ConnectionRefused'
+    || code === 'ECONNRESET'
+  );
+}
 
 export class JDownloaderClient {
   private host: string;
@@ -61,7 +70,7 @@ export class JDownloaderClient {
         return JSON.stringify(param);
       }
       if (param === null) {
-        return 'null';
+        return null;
       }
       return String(param);
     });
@@ -76,8 +85,7 @@ export class JDownloaderClient {
     const rid = this.nextRid();
     const adapted = this.adaptParams(params);
     const payload: Record<string, unknown> = { apiVer: 1, url: path, params: adapted, rid };
-    let body = JSON.stringify(payload);
-    body = body.replace(NULL_STRING_RE, 'null');
+    const body = JSON.stringify(payload);
 
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',

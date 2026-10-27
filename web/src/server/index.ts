@@ -87,11 +87,26 @@ app.route('/api/jd', jdRouter);
 app.route('/api/setup', setupRouter);
 app.route('/api/users', usersRouter);
 
+// Unflushed bytes after which a stalled client is dropped (it reconnects and
+// gets a fresh full snapshot).
+const SSE_MAX_PENDING_BYTES = 8 * 1024 * 1024;
+
 // SSE stream — one connection per client, all topics multiplexed
 app.get('/api/sse', (c) => {
+  // Disables response buffering in nginx-style reverse proxies.
+  c.header('X-Accel-Buffering', 'no');
   return streamSSE(c, async (stream) => {
-    const write = (event: string, data: string) => {
-      void stream.writeSSE({ event, data });
+    let pendingBytes = 0;
+    const write = (frame: Uint8Array) => {
+      if (pendingBytes > SSE_MAX_PENDING_BYTES) {
+        removeSseClient(write);
+        stream.abort();
+        return;
+      }
+      pendingBytes += frame.byteLength;
+      void stream.write(frame).finally(() => {
+        pendingBytes -= frame.byteLength;
+      });
     };
     addSseClient(write);
     await new Promise<void>((resolve) => {

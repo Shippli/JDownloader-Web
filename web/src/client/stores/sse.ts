@@ -48,17 +48,99 @@ type SseServerMessage
     | { type: 'grabber'; full: true; seq: number; packages: GrabberPackage[]; links: GrabberLink[] }
     | { type: 'grabber'; full: false; seq: number; packages?: GrabberPackage[]; removedPackages?: number[]; links?: GrabberLink[]; removedLinks?: number[] }
     | { type: 'notifications'; dialogs: JdDialog[]; captchas: JdCaptcha[]; updateAvailable: boolean }
-    | { type: 'heartbeat'; seq: number };
+    | { type: 'hello'; epoch: string; heartbeatMs: number }
+    | { type: 'heartbeat'; epoch: string; seq: number };
 
 // One global seq across downloads + grabber. A delta whose seq isn't exactly
 // lastSeq+1 (or a heartbeat reporting a higher seq than we've applied) means a
 // message was dropped → the local store has drifted → force a full resync.
 let lastSeq = 0;
+// Server process id; seq numbers are only comparable within one epoch.
+let epoch: string | null = null;
+
+// Force a reconnect if no message arrives within this window. Derived from the
+// server's heartbeat interval (hello); silence past it means a dead/half-open
+// connection.
+let watchdogMs = 12_500;
+
+// ─── Delta application ────────────────────────────────────────────────────────
+
+type Keyed = { uuid: number };
+
+// Non-reactive uuid → array index, so deltas don't scan the store proxy.
+type EntityIndex = { packages: Map<number, number>; links: Map<number, number> };
+
+function indexOf(arr: Keyed[]): Map<number, number> {
+  return new Map(arr.map((x, i) => [x.uuid, i]));
+}
+
+const dlIndex: EntityIndex = { packages: new Map(), links: new Map() };
+const grabIndex: EntityIndex = { packages: new Map(), links: new Map() };
+
+function removeEntities<T extends Keyed>(arr: T[], uuids: number[] | undefined): T[] | null {
+  if (!uuids?.length) {
+    return null;
+  }
+  const removed = new Set(uuids);
+  return arr.filter(x => !removed.has(x.uuid));
+}
+
+function upsertEntities<T extends Keyed>(arr: T[], idx: Map<number, number>, items: T[] | undefined) {
+  for (const item of items ?? []) {
+    const i = idx.get(item.uuid);
+    if (i !== undefined) {
+      Object.assign(arr[i], item);
+    } else {
+      idx.set(item.uuid, arr.length);
+      arr.push(item);
+    }
+  }
+}
+
+type EntityDelta<P extends Keyed, L extends Keyed> = {
+  packages?: P[];
+  removedPackages?: number[];
+  links?: L[];
+  removedLinks?: number[];
+};
+
+function applyEntityDelta<P extends Keyed, L extends Keyed>(
+  s: { packages: P[]; links: L[] },
+  index: EntityIndex,
+  msg: EntityDelta<P, L>,
+) {
+  const pkgs = removeEntities(s.packages, msg.removedPackages);
+  if (pkgs) {
+    s.packages = pkgs;
+    index.packages = indexOf(pkgs);
+  }
+  const links = removeEntities(s.links, msg.removedLinks);
+  if (links) {
+    s.links = links;
+    index.links = indexOf(links);
+  }
+  upsertEntities(s.packages, index.packages, msg.packages);
+  upsertEntities(s.links, index.links, msg.links);
+}
+
+function resetIndex(index: EntityIndex, payload: { packages: Keyed[]; links: Keyed[] }) {
+  index.packages = indexOf(payload.packages);
+  index.links = indexOf(payload.links);
+}
 
 // ─── Message dispatch ─────────────────────────────────────────────────────────
 
 function dispatch(msg: SseServerMessage) {
   switch (msg.type) {
+    case 'hello':
+      if (msg.epoch !== epoch) {
+        epoch = msg.epoch;
+        lastSeq = 0;
+      }
+      watchdogMs = Math.round(msg.heartbeatMs * 2.5);
+      petWatchdog();
+      break;
+
     case 'health':
       setJdConnected(msg.jd);
       break;
@@ -70,6 +152,7 @@ function dispatch(msg: SseServerMessage) {
           { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed, exProgress: msg.exProgress },
           { key: 'uuid', merge: true },
         ));
+        resetIndex(dlIndex, msg);
       } else {
         if (msg.seq !== lastSeq + 1) {
           resync();
@@ -77,36 +160,7 @@ function dispatch(msg: SseServerMessage) {
         }
         lastSeq = msg.seq;
         setDlStore(produce((s) => {
-          if (msg.removedPackages?.length) {
-            const removed = new Set(msg.removedPackages);
-            s.packages = s.packages.filter(p => !removed.has(p.uuid));
-          }
-          if (msg.removedLinks?.length) {
-            const removed = new Set(msg.removedLinks);
-            s.links = s.links.filter(l => !removed.has(l.uuid));
-          }
-          if (msg.packages?.length) {
-            const idx = new Map(s.packages.map((p, i) => [p.uuid, i]));
-            for (const pkg of msg.packages) {
-              const i = idx.get(pkg.uuid);
-              if (i !== undefined) {
-                Object.assign(s.packages[i], pkg);
-              } else {
-                s.packages.push(pkg);
-              }
-            }
-          }
-          if (msg.links?.length) {
-            const idx = new Map(s.links.map((l, i) => [l.uuid, i]));
-            for (const lnk of msg.links) {
-              const i = idx.get(lnk.uuid);
-              if (i !== undefined) {
-                Object.assign(s.links[i], lnk);
-              } else {
-                s.links.push(lnk);
-              }
-            }
-          }
+          applyEntityDelta(s, dlIndex, msg);
           if (msg.state !== undefined) {
             s.state = msg.state;
           }
@@ -130,44 +184,14 @@ function dispatch(msg: SseServerMessage) {
           { packages: msg.packages, links: msg.links },
           { key: 'uuid', merge: true },
         ));
+        resetIndex(grabIndex, msg);
       } else {
         if (msg.seq !== lastSeq + 1) {
           resync();
           return;
         }
         lastSeq = msg.seq;
-        setGrabStore(produce((s) => {
-          if (msg.removedPackages?.length) {
-            const removed = new Set(msg.removedPackages);
-            s.packages = s.packages.filter(p => !removed.has(p.uuid));
-          }
-          if (msg.removedLinks?.length) {
-            const removed = new Set(msg.removedLinks);
-            s.links = s.links.filter(l => !removed.has(l.uuid));
-          }
-          if (msg.packages?.length) {
-            const idx = new Map(s.packages.map((p, i) => [p.uuid, i]));
-            for (const pkg of msg.packages) {
-              const i = idx.get(pkg.uuid);
-              if (i !== undefined) {
-                Object.assign(s.packages[i], pkg);
-              } else {
-                s.packages.push(pkg);
-              }
-            }
-          }
-          if (msg.links?.length) {
-            const idx = new Map(s.links.map((l, i) => [l.uuid, i]));
-            for (const lnk of msg.links) {
-              const i = idx.get(lnk.uuid);
-              if (i !== undefined) {
-                Object.assign(s.links[i], lnk);
-              } else {
-                s.links.push(lnk);
-              }
-            }
-          }
-        }));
+        setGrabStore(produce(s => applyEntityDelta(s, grabIndex, msg)));
       }
       if (!_grabLoaded()) {
         setGrabLoaded(true);
@@ -181,7 +205,7 @@ function dispatch(msg: SseServerMessage) {
     case 'heartbeat':
       // Server reports a higher seq than we've applied → we missed a message
       // (e.g. a lost last delta while idle) → resync. Equal means in sync.
-      if (msg.seq > lastSeq) {
+      if (msg.epoch !== epoch || msg.seq > lastSeq) {
         resync();
       }
       break;
@@ -189,10 +213,6 @@ function dispatch(msg: SseServerMessage) {
 }
 
 // ─── Connection management ────────────────────────────────────────────────────
-
-// Force a reconnect if no message arrives within this window. The server sends a
-// heartbeat every 5s, so silence past this means a dead/half-open connection.
-const WATCHDOG_MS = 11_000;
 
 let es: EventSource | null = null;
 let started = false;
@@ -202,7 +222,7 @@ function petWatchdog() {
   if (watchdog) {
     clearTimeout(watchdog);
   }
-  watchdog = setTimeout(resync, WATCHDOG_MS);
+  watchdog = setTimeout(resync, watchdogMs);
 }
 
 // Tear down the current stream and reconnect. The fresh connection receives a full
@@ -231,7 +251,7 @@ function connect() {
     // EventSource auto-reconnects on clean drops; the watchdog covers half-open ones.
   };
 
-  for (const event of ['health', 'downloads', 'grabber', 'notifications', 'heartbeat'] as const) {
+  for (const event of ['hello', 'health', 'downloads', 'grabber', 'notifications', 'heartbeat'] as const) {
     es.addEventListener(event, (e: MessageEvent) => {
       petWatchdog();
       try {
@@ -242,15 +262,12 @@ function connect() {
   }
 }
 
-export function startSse() {
-  if (started) {
-    return;
-  }
-  started = true;
-  connect();
-}
+// Close the stream after the tab has been hidden this long; the server stops its
+// JD event listener once no client is connected.
+const HIDDEN_DISCONNECT_MS = 60_000;
+let hiddenTimer: ReturnType<typeof setTimeout> | null = null;
 
-export function stopSse() {
+function disconnect() {
   if (watchdog) {
     clearTimeout(watchdog);
     watchdog = null;
@@ -259,7 +276,43 @@ export function stopSse() {
     es.close();
     es = null;
   }
-  started = false;
   setSseConnected(false);
   setJdConnected(null);
+}
+
+function onVisibilityChange() {
+  if (document.hidden) {
+    hiddenTimer ??= setTimeout(disconnect, HIDDEN_DISCONNECT_MS);
+    return;
+  }
+  if (hiddenTimer) {
+    clearTimeout(hiddenTimer);
+    hiddenTimer = null;
+  }
+  if (es) {
+    // Timers may fire late after a frozen tab resumes; give buffered events a
+    // fresh window before declaring the connection dead.
+    petWatchdog();
+  } else {
+    connect();
+  }
+}
+
+export function startSse() {
+  if (started) {
+    return;
+  }
+  started = true;
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  connect();
+}
+
+export function stopSse() {
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  if (hiddenTimer) {
+    clearTimeout(hiddenTimer);
+    hiddenTimer = null;
+  }
+  disconnect();
+  started = false;
 }

@@ -1,3 +1,5 @@
+import { isJdConnError } from './jd';
+
 // JDownloader event subscription listener (long-poll based).
 //
 //   /events/subscribe   [subscriptions[], exclusions[]] -> { subscriptionid, ... }
@@ -60,30 +62,48 @@ export type JdEventListenerOptions = {
   statusEventIntervalMs?: number;
 };
 
-// Anchored (JD matches with find()).
+// Anchored (JD matches with find()). REFRESH_CONTENT is deliberately not
+// subscribed: JD fires it on every link property change.
 export const EVENT_SUBSCRIPTIONS = [
-  '^downloads\\.(REFRESH_STRUCTURE|REFRESH_CONTENT|ADD_|REMOVE_)',
+  '^downloads\\.(REFRESH_STRUCTURE|ADD_|REMOVE_)',
+  // Changes without a usable diff payload → full downloads sync.
+  '^downloads\\.LINK_UPDATE\\.(reset|resume|finished|availability)$',
+  // Subscribed only so JD pushes status/statusIconKey via LINK_UPDATE.status.
+  '^downloads\\.LINK_UPDATE\\.(skipped|extractionStatus)$',
   '^downloadwatchdog\\.',
   '^linkcollector\\.',
   '^captchas\\.',
   '^dialogs\\.',
 ];
 
-// Per-field diff subscription (anchored). JD serializes these fields via the
-// same toStorable() path as queryLinks, so values match our cached entities.
-export const DIFF_SUBSCRIPTION
-  = '^downloads\\.(LINK_UPDATE|PACKAGE_UPDATE)\\.(bytesLoaded|bytesTotal|eta|speed|status|statusIconKey)';
+// Per-field diff subscription. Package comment is fired as
+// "PACKAGE_UPDATE.COMMENT" but gated on "PACKAGE_UPDATE" — both must match.
+export const DIFF_SUBSCRIPTIONS = [
+  '^downloads\\.(LINK_UPDATE|PACKAGE_UPDATE)\\.(bytesLoaded|bytesTotal|eta|speed|status|statusIconKey|name|enabled|priority)$',
+  '^downloads\\.LINK_UPDATE\\.(comment|url)$',
+  '^downloads\\.PACKAGE_UPDATE(\\.COMMENT)?$',
+];
 
-// Allowlisted fields we apply directly; any other field is ignored.
-const LINK_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey']);
-const PACKAGE_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey']);
+// Allowlisted payload fields per kind (must be fields our queries return).
+const LINK_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment', 'url']);
+const PACKAGE_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment']);
 const NUMBER_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed']);
+const BOOLEAN_DIFF_FIELDS = new Set(['enabled']);
+const STRING_DIFF_FIELDS = new Set(['name', 'priority']);
+// Events whose payload is redundant (status follows as LINK_UPDATE.status).
+const IGNORED_EVENTS = new Set(['LINK_UPDATE.skipped', 'LINK_UPDATE.extractionStatus']);
 
 function isValidDiffValue(field: string, value: unknown): boolean {
   if (NUMBER_DIFF_FIELDS.has(field)) {
     return typeof value === 'number' && Number.isFinite(value);
   }
-  // status / statusIconKey
+  if (BOOLEAN_DIFF_FIELDS.has(field)) {
+    return typeof value === 'boolean';
+  }
+  if (STRING_DIFF_FIELDS.has(field)) {
+    return typeof value === 'string';
+  }
+  // status / statusIconKey / comment / url
   return value === null || typeof value === 'string';
 }
 
@@ -98,17 +118,6 @@ const PUBLISHER_TOPIC: Record<string, EventTopic> = {
   captchas: 'notifications',
   dialogs: 'notifications',
 };
-
-function isConnError(e: unknown): boolean {
-  const code = (e as { code?: string })?.code ?? '';
-  return (
-    code === 'JD_UNAVAILABLE'
-    || code === 'JD_NOT_CONFIGURED'
-    || code === 'ECONNREFUSED'
-    || code === 'ConnectionRefused'
-    || code === 'ECONNRESET'
-  );
-}
 
 export class JdEventListener {
   private client: JdEventsClient;
@@ -125,6 +134,9 @@ export class JdEventListener {
   private supported: boolean | null = null;
   // One-shot warning for a dropped diff (bad value type / missing uuid).
   private loggedDiffDrop = false;
+  // setStatusEventInterval fails until JD has created the channel collector.
+  private intervalApplied = false;
+  private lastListenOkAt = 0;
 
   constructor(client: JdEventsClient, handlers: JdEventListenerHandlers, opts: JdEventListenerOptions = {}) {
     this.client = client;
@@ -196,11 +208,8 @@ export class JdEventListener {
           this.subscriptionId = resp.subscriptionid;
           this.backoffMs = this.opts.initialBackoffMs;
           listenFailures = 0;
-          // Throttle JD's per-field push cadence. Best-effort: a failure only
-          // means more frequent (1 s default) pushes.
-          await this.client
-            .call('/downloadevents/setStatusEventInterval', [this.subscriptionId, this.opts.statusEventIntervalMs])
-            .catch(() => {});
+          this.intervalApplied = false;
+          await this.applyStatusEventInterval();
           // We may have been deaf — owner must re-baseline all topics.
           this.handlers.onResync();
         }
@@ -220,6 +229,10 @@ export class JdEventListener {
         }
         listenFailures = 0;
         this.backoffMs = this.opts.initialBackoffMs;
+        this.lastListenOkAt = Date.now();
+        if (!this.intervalApplied) {
+          await this.applyStatusEventInterval();
+        }
         if (Array.isArray(events) && events.length > 0) {
           this.dispatch(events as JdEvent[]);
         }
@@ -227,7 +240,7 @@ export class JdEventListener {
         if (!this.running) {
           return;
         }
-        if (isConnError(e)) {
+        if (isJdConnError(e)) {
           // JD gone — drop the subscription (it will expire anyway), tell the
           // owner, and retry with backoff.
           this.subscriptionId = null;
@@ -249,6 +262,21 @@ export class JdEventListener {
     }
   }
 
+  // Throttles JD's per-field push cadence. Best-effort: until it succeeds JD
+  // pushes at its 1 s default.
+  private async applyStatusEventInterval() {
+    const ok = await this.client
+      .call('/downloadevents/setStatusEventInterval', [this.subscriptionId, this.opts.statusEventIntervalMs])
+      .catch(() => false);
+    this.intervalApplied = ok === true;
+  }
+
+  // True while long-polls keep succeeding (proves JD is reachable).
+  isHealthy(): boolean {
+    return this.running && this.subscriptionId !== null
+      && Date.now() - this.lastListenOkAt < this.opts.listenTimeoutMs + 5_000;
+  }
+
   private async probe(): Promise<boolean> {
     // Throws on connection errors (bubbles to the retry path in run()).
     // Returns false only for definitive "this JD has no usable events API".
@@ -262,7 +290,7 @@ export class JdEventListener {
       );
       return REQUIRED_PUBLISHERS.every(p => names.has(p));
     } catch (e) {
-      if (isConnError(e)) {
+      if (isJdConnError(e)) {
         throw e;
       }
       return false;
@@ -274,14 +302,21 @@ export class JdEventListener {
     const triggerEvents: JdEvent[] = [];
     const patches: EntityPatch[] = [];
     for (const ev of events) {
+      if (IGNORED_EVENTS.has(ev?.eventid ?? '')) {
+        continue;
+      }
       // Per-field diff events are applied directly and must NOT also trigger a
       // full downloads poll (that would negate the whole optimization).
       if (this.isDiffEvent(ev)) {
         const patch = this.parseDiffEvent(ev);
         if (patch) {
           patches.push(patch);
+          continue;
         }
-        continue;
+        // Unusable payload (e.g. raw LINKSTATUS value) → fall back to a sync.
+        if (patch === undefined) {
+          continue;
+        }
       }
       triggerEvents.push(ev);
       const topic = PUBLISHER_TOPIC[ev?.publisher ?? ''];
@@ -298,32 +333,43 @@ export class JdEventListener {
   }
 
   private isDiffEvent(ev: JdEvent): boolean {
-    return ev?.publisher === 'downloads'
-      && (typeof ev.eventid === 'string')
-      && (ev.eventid.startsWith('LINK_UPDATE.') || ev.eventid.startsWith('PACKAGE_UPDATE.'));
+    if (ev?.publisher !== 'downloads' || typeof ev.eventid !== 'string') {
+      return false;
+    }
+    const kind = ev.eventid.slice(0, ev.eventid.indexOf('.'));
+    const field = ev.eventid.slice(kind.length + 1);
+    if (kind === 'LINK_UPDATE') {
+      return LINK_DIFF_FIELDS.has(field);
+    }
+    return kind === 'PACKAGE_UPDATE' && PACKAGE_DIFF_FIELDS.has(field === 'COMMENT' ? 'comment' : field);
   }
 
-  // Returns a validated patch, or null when the field is not allowlisted or the
-  // payload fails a type guard (dropped; the 60 s reconciliation heals any drift).
-  private parseDiffEvent(ev: JdEvent): EntityPatch | null {
-    const dot = ev.eventid.indexOf('.');
-    const kind: EntityPatch['kind'] = ev.eventid.slice(0, dot) === 'LINK_UPDATE' ? 'link' : 'package';
-    const field = ev.eventid.slice(dot + 1);
+  // Returns a patch with every allowlisted payload field (JD's status event also
+  // carries statusIconKey). undefined = drop silently, null = payload unusable.
+  private parseDiffEvent(ev: JdEvent): EntityPatch | null | undefined {
+    const kind: EntityPatch['kind'] = ev.eventid.startsWith('LINK_UPDATE.') ? 'link' : 'package';
     const allow = kind === 'link' ? LINK_DIFF_FIELDS : PACKAGE_DIFF_FIELDS;
-    if (!allow.has(field)) {
-      return null;
-    }
     const data = ev.eventdata as Record<string, unknown> | undefined;
     if (!data || typeof data.uuid !== 'number') {
       this.warnDroppedDiff(`diff event ${ev.eventid} missing numeric uuid`);
-      return null;
+      return undefined;
     }
-    const value = data[field];
-    if (!isValidDiffValue(field, value)) {
-      this.warnDroppedDiff(`diff event ${ev.eventid} has invalid value type for field "${field}"`);
-      return null;
+    const fields: Record<string, unknown> = {};
+    let invalid = false;
+    for (const [field, value] of Object.entries(data)) {
+      if (field === 'uuid' || !allow.has(field)) {
+        continue;
+      }
+      if (isValidDiffValue(field, value)) {
+        fields[field] = value;
+      } else {
+        invalid = true;
+      }
     }
-    return { kind, uuid: data.uuid, fields: { [field]: value } };
+    if (Object.keys(fields).length > 0) {
+      return { kind, uuid: data.uuid, fields };
+    }
+    return invalid ? null : undefined;
   }
 
   private warnDroppedDiff(reason: string) {
@@ -335,7 +381,7 @@ export class JdEventListener {
   }
 
   private subscriptions(): string[] {
-    return [...EVENT_SUBSCRIPTIONS, DIFF_SUBSCRIPTION];
+    return [...EVENT_SUBSCRIPTIONS, ...DIFF_SUBSCRIPTIONS];
   }
 
   private sleep(ms: number): Promise<void> {
