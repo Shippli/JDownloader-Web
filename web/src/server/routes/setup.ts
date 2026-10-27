@@ -4,11 +4,7 @@ import { getAppSetting, setAppSetting } from '../db/appSettings';
 const setupRouter = new Hono();
 
 setupRouter.get('/status', (c) => {
-  try {
-    return c.json({ setupComplete: getAppSetting('setup_complete') === 'true' });
-  } catch {
-    return c.json({ setupComplete: false });
-  }
+  return c.json({ setupComplete: getAppSetting('setup_complete') === 'true' });
 });
 
 setupRouter.post('/complete', (c) => {
