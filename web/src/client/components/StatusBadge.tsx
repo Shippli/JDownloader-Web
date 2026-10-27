@@ -4,13 +4,12 @@ import { t } from '../i18n';
 
 type StatusBadgeProps = {
   status: string;
-  finished?: boolean;
   iconOnly?: boolean;
 };
 
 type StatusStyle = { icon: string; color: string; bg: string };
 
-const STATUS_RULES: Array<{ test: (s: string, finished?: boolean) => boolean; style: StatusStyle }> = [
+const STATUS_RULES: Array<{ test: (s: string) => boolean; style: StatusStyle }> = [
   { test: s => s.includes('extracting'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-warning', bg: 'bg-warning/10' } },
   { test: s => s.includes('ok') || s.includes('finished') || s.includes('complete'), style: { icon: 'i-tabler-check', color: 'text-success', bg: 'bg-success/10' } },
   { test: s => s.includes('download') || s.includes('loading') || s.includes('running'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-foreground', bg: 'bg-muted' } },
@@ -23,9 +22,9 @@ const STATUS_RULES: Array<{ test: (s: string, finished?: boolean) => boolean; st
 
 const DEFAULT_STYLE: StatusStyle = { icon: 'i-tabler-minus', color: 'text-muted-foreground', bg: 'bg-muted' };
 
-function getStatusStyle(status: string, finished?: boolean): StatusStyle {
+function getStatusStyle(status: string): StatusStyle {
   const s = status?.toLowerCase() ?? '';
-  return STATUS_RULES.find(r => r.test(s, finished))?.style ?? DEFAULT_STYLE;
+  return STATUS_RULES.find(r => r.test(s))?.style ?? DEFAULT_STYLE;
 }
 
 const LABEL_RULES: Array<{ test: (s: string) => boolean; key: string }> = [
@@ -46,7 +45,7 @@ function normalizeLabel(status: string): string | null {
 }
 
 const StatusBadge: Component<StatusBadgeProps> = (props) => {
-  const style = () => getStatusStyle(props.status ?? '', props.finished);
+  const style = () => getStatusStyle(props.status ?? '');
   const label = () => {
     const normalized = normalizeLabel(props.status ?? '');
     if (normalized !== null) {

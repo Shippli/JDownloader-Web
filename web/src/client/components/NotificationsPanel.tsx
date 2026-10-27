@@ -1,5 +1,6 @@
 import type { Component } from 'solid-js';
 import type { JdCaptchaDetail, JdDialog, JdDialogDetail } from '../lib/api';
+import type { CaptchaEntry, PendingOpen } from '../stores/notifications';
 import { useLocation } from '@solidjs/router';
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { Portal } from 'solid-js/web';
@@ -18,8 +19,6 @@ type Props = {
   collapsed?: boolean;
   mobile?: boolean;
 };
-
-type CaptchaEntry = { kind: 'captcha'; id: number; hoster?: string };
 
 // ─── Modals (rendered once in AppShell) ───────────────────────────────────────
 
@@ -137,127 +136,125 @@ export const NotificationModals: Component = () => {
           const isExtractPassword = () => dialog().type?.includes('ExtractPasswordDialog') ?? false;
 
           return (
-            <Portal>
-              <Dialog open={true} onClose={closeModal} title={dialogTitle(dialog())}>
-                <div class="px-6 py-4 space-y-4 max-h-[55vh] overflow-y-auto">
-                  <Show when={dialog().icon}>
-                    <img
-                      src={`data:image/png;base64,${dialog().icon}`}
-                      alt="dialog icon"
-                      class="max-w-full rounded border"
-                    />
-                  </Show>
-                  <Show when={isFileExists()}>
-                    <div class="space-y-3">
-                      <Show when={p().filepath as string | undefined}>
-                        {fp => (
-                          <div>
-                            <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.filepath')}</p>
-                            <p class="text-sm text-foreground break-all font-mono bg-muted rounded px-2 py-1.5">{fp()}</p>
-                          </div>
-                        )}
-                      </Show>
-                      <div class="flex gap-4">
-                        <Show when={p().packagename as string | undefined}>
-                          {name => (
-                            <div class="flex-1 min-w-0">
-                              <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.package')}</p>
-                              <p class="text-sm text-foreground truncate">{name()}</p>
-                            </div>
-                          )}
-                        </Show>
-                        <Show when={p().host as string | undefined}>
-                          {host => (
-                            <div class="shrink-0">
-                              <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.host')}</p>
-                              <p class="text-sm text-foreground">{host()}</p>
-                            </div>
-                          )}
-                        </Show>
-                      </div>
-                      <RadioGroup
-                        class="pt-1"
-                        value={fileExistsAction()}
-                        onChange={v => setFileExistsAction(v as 'SKIP' | 'AUTO_RENAME' | 'OVERWRITE')}
-                        options={[
-                          { value: 'SKIP', label: t('dialogs.actionSkip') },
-                          { value: 'AUTO_RENAME', label: t('dialogs.actionAutoRename') },
-                          { value: 'OVERWRITE', label: t('dialogs.actionOverwrite') },
-                        ]}
-                      />
-                      <div class="border-t pt-3 mt-1">
-                        <Checkbox
-                          checked={fileExistsApplyAll()}
-                          onChange={setFileExistsApplyAll}
-                          label={t('dialogs.applyToPackage')}
-                        />
-                      </div>
-                    </div>
-                  </Show>
-                  <Show when={isExtractPassword()}>
-                    <div class="space-y-3">
-                      <Show when={p().archivename as string | undefined}>
+            <Dialog open={true} onClose={closeModal} title={dialogTitle(dialog())}>
+              <div class="px-6 py-4 space-y-4 max-h-[55vh] overflow-y-auto">
+                <Show when={dialog().icon}>
+                  <img
+                    src={`data:image/png;base64,${dialog().icon}`}
+                    alt="dialog icon"
+                    class="max-w-full rounded border"
+                  />
+                </Show>
+                <Show when={isFileExists()}>
+                  <div class="space-y-3">
+                    <Show when={p().filepath as string | undefined}>
+                      {fp => (
+                        <div>
+                          <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.filepath')}</p>
+                          <p class="text-sm text-foreground break-all font-mono bg-muted rounded px-2 py-1.5">{fp()}</p>
+                        </div>
+                      )}
+                    </Show>
+                    <div class="flex gap-4">
+                      <Show when={p().packagename as string | undefined}>
                         {name => (
-                          <div>
-                            <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.archiveName')}</p>
-                            <p class="text-sm text-foreground font-mono bg-muted rounded px-2 py-1.5 break-all">{name()}</p>
+                          <div class="flex-1 min-w-0">
+                            <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.package')}</p>
+                            <p class="text-sm text-foreground truncate">{name()}</p>
                           </div>
                         )}
                       </Show>
-                      <Show when={msg()}>
-                        <p class="text-sm text-foreground">{msg()}</p>
+                      <Show when={p().host as string | undefined}>
+                        {host => (
+                          <div class="shrink-0">
+                            <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.host')}</p>
+                            <p class="text-sm text-foreground">{host()}</p>
+                          </div>
+                        )}
                       </Show>
-                      <TextField
-                        type="text"
-                        value={archivePassword()}
-                        onChange={setArchivePassword}
-                        placeholder={t('dialogs.passwordPlaceholder')}
-                        inputProps={{
-                          autofocus: true,
-                          onKeyDown: (e: KeyboardEvent) => {
-                            if (e.key === 'Enter') {
-                              answerDialog('OK', { text: archivePassword() });
-                            }
-                          },
-                        }}
+                    </div>
+                    <RadioGroup
+                      class="pt-1"
+                      value={fileExistsAction()}
+                      onChange={v => setFileExistsAction(v as 'SKIP' | 'AUTO_RENAME' | 'OVERWRITE')}
+                      options={[
+                        { value: 'SKIP', label: t('dialogs.actionSkip') },
+                        { value: 'AUTO_RENAME', label: t('dialogs.actionAutoRename') },
+                        { value: 'OVERWRITE', label: t('dialogs.actionOverwrite') },
+                      ]}
+                    />
+                    <div class="border-t pt-3 mt-1">
+                      <Checkbox
+                        checked={fileExistsApplyAll()}
+                        onChange={setFileExistsApplyAll}
+                        label={t('dialogs.applyToPackage')}
                       />
                     </div>
-                  </Show>
-                  <Show when={!isExtractPassword() && msg()}>
-                    <p class="text-sm text-foreground whitespace-pre-wrap">{msg()}</p>
-                  </Show>
-                </div>
-                <div class="px-6 py-4 border-t flex gap-2 justify-end">
-                  <Button variant="secondary" onClick={() => answerDialog('CANCEL')}>
-                    {cancelText()}
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={() => {
-                      if (isExtractPassword()) {
-                        answerDialog('OK', { text: archivePassword() });
-                        return;
+                  </div>
+                </Show>
+                <Show when={isExtractPassword()}>
+                  <div class="space-y-3">
+                    <Show when={p().archivename as string | undefined}>
+                      {name => (
+                        <div>
+                          <p class="text-xs font-medium text-muted-foreground mb-1">{t('dialogs.archiveName')}</p>
+                          <p class="text-sm text-foreground font-mono bg-muted rounded px-2 py-1.5 break-all">{name()}</p>
+                        </div>
+                      )}
+                    </Show>
+                    <Show when={msg()}>
+                      <p class="text-sm text-foreground">{msg()}</p>
+                    </Show>
+                    <TextField
+                      type="text"
+                      value={archivePassword()}
+                      onChange={setArchivePassword}
+                      placeholder={t('dialogs.passwordPlaceholder')}
+                      inputProps={{
+                        'data-autofocus': '',
+                        'onKeyDown': (e: KeyboardEvent) => {
+                          if (e.key === 'Enter') {
+                            answerDialog('OK', { text: archivePassword() });
+                          }
+                        },
+                      }}
+                    />
+                  </div>
+                </Show>
+                <Show when={!isExtractPassword() && msg()}>
+                  <p class="text-sm text-foreground whitespace-pre-wrap">{msg()}</p>
+                </Show>
+              </div>
+              <div class="px-6 py-4 border-t flex gap-2 justify-end">
+                <Button variant="secondary" onClick={() => answerDialog('CANCEL')}>
+                  {cancelText()}
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    if (isExtractPassword()) {
+                      answerDialog('OK', { text: archivePassword() });
+                      return;
+                    }
+                    if (isFileExists()) {
+                      const packageid = p().packageid as string | undefined;
+                      if (fileExistsApplyAll() && packageid) {
+                        suppressPackageDialogToasts(packageid);
                       }
-                      if (isFileExists()) {
-                        const packageid = p().packageid as string | undefined;
-                        if (fileExistsApplyAll() && packageid) {
-                          suppressPackageDialogToasts(packageid);
-                        }
-                        answerDialog('OK', {
-                          action: fileExistsAction(),
-                          ...(fileExistsApplyAll() && packageid ? { packageid } : {}),
-                        });
-                        return;
-                      }
-                      answerDialog('OK');
-                    }}
-                    disabled={isExtractPassword() && archivePassword().trim() === ''}
-                  >
-                    {okText()}
-                  </Button>
-                </div>
-              </Dialog>
-            </Portal>
+                      answerDialog('OK', {
+                        action: fileExistsAction(),
+                        ...(fileExistsApplyAll() && packageid ? { packageid } : {}),
+                      });
+                      return;
+                    }
+                    answerDialog('OK');
+                  }}
+                  disabled={isExtractPassword() && archivePassword().trim() === ''}
+                >
+                  {okText()}
+                </Button>
+              </div>
+            </Dialog>
           );
         }}
       </Show>
@@ -273,73 +270,69 @@ export const NotificationModals: Component = () => {
           const imgSrc = () => captcha().imageData ? `data:${captcha().imageData}` : null;
 
           return (
-            <Portal>
-              <Dialog open={true} onClose={closeCaptchaModal} title={title()}>
-                <div class="px-6 py-4 space-y-4">
-                  <Show when={imgSrc()}>
-                    {src => (
-                      <img
-                        src={src()}
-                        alt="captcha"
-                        class="max-w-full rounded border mx-auto block pixelated"
-                      />
-                    )}
-                  </Show>
-                  <Show when={captcha().explain}>
-                    <p class="text-sm text-muted-foreground">{captcha().explain}</p>
-                  </Show>
-                  <TextField
-                    type="text"
-                    value={captchaSolution()}
-                    onChange={setCaptchaSolution}
-                    placeholder={t('captcha.solutionPlaceholder')}
-                    inputProps={{
-                      autofocus: true,
-                      onKeyDown: (e: KeyboardEvent) => {
-                        if (e.key === 'Enter') {
-                          submitCaptcha();
-                        }
-                      },
-                    }}
-                  />
-                </div>
-                <div class="px-6 py-4 border-t flex gap-2 justify-end">
-                  <Button variant="secondary" onClick={skipCaptcha}>
-                    {t('captcha.skip')}
-                  </Button>
-                  <Button variant="default" onClick={submitCaptcha} disabled={captchaSolution().trim() === ''}>
-                    {t('captcha.submit')}
-                  </Button>
-                </div>
-              </Dialog>
-            </Portal>
+            <Dialog open={true} onClose={closeCaptchaModal} title={title()}>
+              <div class="px-6 py-4 space-y-4">
+                <Show when={imgSrc()}>
+                  {src => (
+                    <img
+                      src={src()}
+                      alt="captcha"
+                      class="max-w-full rounded border mx-auto block pixelated"
+                    />
+                  )}
+                </Show>
+                <Show when={captcha().explain}>
+                  <p class="text-sm text-muted-foreground">{captcha().explain}</p>
+                </Show>
+                <TextField
+                  type="text"
+                  value={captchaSolution()}
+                  onChange={setCaptchaSolution}
+                  placeholder={t('captcha.solutionPlaceholder')}
+                  inputProps={{
+                    'data-autofocus': '',
+                    'onKeyDown': (e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        submitCaptcha();
+                      }
+                    },
+                  }}
+                />
+              </div>
+              <div class="px-6 py-4 border-t flex gap-2 justify-end">
+                <Button variant="secondary" onClick={skipCaptcha}>
+                  {t('captcha.skip')}
+                </Button>
+                <Button variant="default" onClick={submitCaptcha} disabled={captchaSolution().trim() === ''}>
+                  {t('captcha.submit')}
+                </Button>
+              </div>
+            </Dialog>
           );
         }}
       </Show>
 
       {/* Update Modal */}
       <Show when={showUpdateModal()}>
-        <Portal>
-          <Dialog open={true} onClose={() => setShowUpdateModal(false)} title={t('dialogs.updateModalTitle')}>
-            <div class="px-6 py-4 space-y-4">
-              <div class="flex items-start gap-3">
-                <span class="i-tabler-refresh-alert w-6 h-6 text-primary shrink-0 mt-0.5" />
-                <p class="text-sm text-foreground">{t('dialogs.updateModalDesc')}</p>
-              </div>
-              <div class="flex gap-2 justify-end">
-                <Button variant="secondary" onClick={() => setShowUpdateModal(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button variant="default" onClick={restartAndUpdate} disabled={restarting()}>
-                  <Show when={restarting()} fallback={<span class="i-tabler-refresh-dot w-4 h-4" />}>
-                    <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
-                  </Show>
-                  {t('config.system.restartAndUpdate')}
-                </Button>
-              </div>
+        <Dialog open={true} onClose={() => setShowUpdateModal(false)} title={t('dialogs.updateModalTitle')}>
+          <div class="px-6 py-4 space-y-4">
+            <div class="flex items-start gap-3">
+              <span class="i-tabler-refresh-alert w-6 h-6 text-primary shrink-0 mt-0.5" />
+              <p class="text-sm text-foreground">{t('dialogs.updateModalDesc')}</p>
             </div>
-          </Dialog>
-        </Portal>
+            <div class="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setShowUpdateModal(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button variant="default" onClick={restartAndUpdate} disabled={restarting()}>
+                <Show when={restarting()} fallback={<span class="i-tabler-refresh-dot w-4 h-4" />}>
+                  <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
+                </Show>
+                {t('config.system.restartAndUpdate')}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       </Show>
     </>
   );
@@ -412,7 +405,7 @@ export const NotificationsPanel: Component<Props> = (props) => {
   const dialogTitle = (d: JdDialog) =>
     d.properties?.title || d.type?.split('.').pop() || String(d.id);
 
-  const openItem = (item: { kind: 'dialog'; dialog: JdDialog } | { kind: 'captcha'; entry: CaptchaEntry } | { kind: 'update' }) => {
+  const openItem = (item: NonNullable<PendingOpen>) => {
     activePopupStore.closeAll();
     notificationsStore.openNotification(item);
   };

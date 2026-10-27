@@ -3,7 +3,7 @@ import type { Component, JSX } from 'solid-js';
 import { splitProps } from 'solid-js';
 import { cva, cx } from '../../lib/cva';
 
-export const badgeVariants = cva({
+const badgeVariants = cva({
   base: 'inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium',
   variants: {
     variant: {

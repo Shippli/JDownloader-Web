@@ -4,16 +4,6 @@ import { cx } from '../../lib/cva';
 
 type InputProps = JSX.InputHTMLAttributes<HTMLInputElement>;
 
-export const InlineInput: Component<InputProps> = (props) => {
-  const [local, rest] = splitProps(props, ['class']);
-  return (
-    <input
-      class={cx('w-full text-sm font-semibold bg-transparent border-b border-primary outline-none text-foreground', local.class)}
-      {...rest}
-    />
-  );
-};
-
 export const Input: Component<InputProps> = (props) => {
   const [local, rest] = splitProps(props, ['class']);
   return (

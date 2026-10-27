@@ -5,10 +5,8 @@ import { splitProps } from 'solid-js';
 import { cx } from '../../lib/cva';
 
 export const Drawer = DrawerPrimitive;
-export const DrawerTrigger = DrawerPrimitive.Trigger;
-export const DrawerClose = DrawerPrimitive.Close;
 
-export function DrawerOverlay<T extends ValidComponent = 'div'>(props: DynamicProps<T, ComponentProps<typeof DrawerPrimitive.Overlay>>) {
+function DrawerOverlay<T extends ValidComponent = 'div'>(props: DynamicProps<T, ComponentProps<typeof DrawerPrimitive.Overlay>>) {
   const [local, rest] = splitProps(props as ComponentProps<typeof DrawerPrimitive.Overlay>, ['class']);
   const ctx = DrawerPrimitive.useContext();
   return (

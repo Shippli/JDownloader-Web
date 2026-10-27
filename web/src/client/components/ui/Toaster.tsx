@@ -4,7 +4,7 @@ import { Portal } from 'solid-js/web';
 import { cx } from '../../lib/cva';
 import { buttonVariants } from './Button';
 
-export type ToastType = 'default' | 'info' | 'success' | 'warning' | 'error';
+type ToastType = 'default' | 'info' | 'success' | 'warning' | 'error';
 
 type ToastItem = {
   id: number;
