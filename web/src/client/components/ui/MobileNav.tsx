@@ -1,13 +1,13 @@
 import type { Component } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { For } from 'solid-js';
-import { navItems } from '../../nav';
+import { isNavActive, navItems } from '../../nav';
 import { NotificationsPanel } from '../NotificationsPanel';
 import { UserPanel } from '../UserPanel';
 
 export const MobileNav: Component = () => {
   const location = useLocation();
-  const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href);
+  const isActive = (href: string) => isNavActive(location.pathname, href);
 
   return (
     <nav

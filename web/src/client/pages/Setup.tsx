@@ -1,6 +1,8 @@
 import type { Component } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { createSignal, For, Show } from 'solid-js';
+import { BrandHeader } from '../components/BrandHeader';
+import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
 import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
@@ -62,10 +64,7 @@ const StepAccount: Component<{
         inputProps={{ autocomplete: 'new-password', minLength: 8 }}
       />
       <Show when={error()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
-          {error()}
-        </div>
+        <Alert>{error()}</Alert>
       </Show>
       <Button type="submit" class="w-full justify-center py-2.5 mt-2">
         {t('setup.next')}
@@ -196,35 +195,22 @@ const StepConnection: Component<{
         class="w-full justify-center py-2.5"
         onClick={handleTest}
         disabled={testing() || !props.data.host.trim() || !props.data.port.trim()}
+        loading={testing()}
+        icon="i-tabler-plug"
       >
-        <Show when={testing()}>
-          <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
-        </Show>
-        <Show when={!testing()}>
-          <span class="i-tabler-plug w-4 h-4" />
-        </Show>
         {t('setup.testConnection')}
       </Button>
 
       <Show when={tested()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-success/10 text-success text-sm">
-          <span class="i-tabler-circle-check w-4 h-4 flex-shrink-0" />
-          {t('setup.testSuccess')}
-        </div>
+        <Alert variant="success">{t('setup.testSuccess')}</Alert>
       </Show>
 
       <Show when={testError()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
-          {testError()}
-        </div>
+        <Alert>{testError()}</Alert>
       </Show>
 
       <Show when={finishError()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
-          {finishError()}
-        </div>
+        <Alert>{finishError()}</Alert>
       </Show>
 
       <div class="flex gap-3">
@@ -236,13 +222,9 @@ const StepConnection: Component<{
           class="flex-1 justify-center py-2.5"
           onClick={handleFinish}
           disabled={!tested() || finishing()}
+          loading={finishing()}
+          icon="i-tabler-check"
         >
-          <Show when={finishing()}>
-            <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
-          </Show>
-          <Show when={!finishing()}>
-            <span class="i-tabler-check w-4 h-4" />
-          </Show>
           {t('setup.finish')}
         </Button>
       </div>
@@ -328,12 +310,7 @@ const Setup: Component = () => {
   return (
     <div class="min-h-screen flex items-center justify-center bg-background p-4">
       <div class="w-full max-w-lg">
-        <div class="text-center mb-8">
-          <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary mb-4 shadow-lg">
-            <span class="i-tabler-ghost-filled w-7 h-7 text-primary-foreground" />
-          </div>
-          <h1 class="text-2xl font-bold text-foreground">JDownloader</h1>
-        </div>
+        <BrandHeader />
 
         <div class="rounded-xl border bg-card p-8 shadow-xs">
           <Stepper current={step()} />

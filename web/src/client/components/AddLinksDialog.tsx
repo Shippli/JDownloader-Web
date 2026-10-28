@@ -2,6 +2,7 @@ import type { Component } from 'solid-js';
 import { createSignal, Show } from 'solid-js';
 import { t } from '../i18n';
 import { jdApi } from '../lib/api';
+import { Alert } from './ui/Alert';
 import { Button } from './ui/Button';
 import { Dialog } from './ui/Dialog';
 import { Input } from './ui/Input';
@@ -158,10 +159,7 @@ const AddLinksDialog: Component<Props> = (props) => {
           <Switch checked={autostart()} onChange={setAutostart} label={t('addLinks.autostart')} />
 
           <Show when={error()}>
-            <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
-              {error()}
-            </div>
+            <Alert>{error()}</Alert>
           </Show>
         </div>
       </TabsRoot>

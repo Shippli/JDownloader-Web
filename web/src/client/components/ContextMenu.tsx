@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import { useLocation } from '@solidjs/router';
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from 'solid-js';
+import { onClickOutside } from '../lib/clickOutside';
 import { activePopupStore } from '../stores/activePopup';
 import { Drawer, DrawerContent, DrawerLabel } from './ui/Drawer';
 
@@ -74,33 +75,15 @@ const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; o
     });
 
     // Close on outside click or right-click
-    let enabled = false;
-    const timer = setTimeout(() => {
-      enabled = true;
-    }, 0);
-    const onOutsideClick = (e: MouseEvent) => {
-      if (!enabled) {
-        return;
-      }
-      if (ref.contains(e.target as Node)) {
-        return;
-      }
-      props.onClose();
-    };
+    onClickOutside(() => ref, props.onClose);
     const onOutsideCtx = (e: MouseEvent) => {
       e.preventDefault();
-      if (ref.contains(e.target as Node)) {
-        return;
+      if (!ref.contains(e.target as Node)) {
+        props.onClose();
       }
-      props.onClose();
     };
-    document.addEventListener('click', onOutsideClick);
     document.addEventListener('contextmenu', onOutsideCtx);
-    onCleanup(() => {
-      clearTimeout(timer);
-      document.removeEventListener('click', onOutsideClick);
-      document.removeEventListener('contextmenu', onOutsideCtx);
-    });
+    onCleanup(() => document.removeEventListener('contextmenu', onOutsideCtx));
   });
 
   const btnClass = (item: ContextMenuItem) =>

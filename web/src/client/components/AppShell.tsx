@@ -1,7 +1,7 @@
 import type { Component, JSX } from 'solid-js';
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { startSse, stopSse } from '../stores/sse';
-import { NotificationModals } from './NotificationsPanel';
+import { NotificationModals } from './notifications/NotificationModals';
 import { MobileNav } from './ui/MobileNav';
 import { SideNav } from './ui/SideNav';
 

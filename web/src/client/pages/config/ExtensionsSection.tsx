@@ -7,14 +7,15 @@ import {
   onMount,
   Show,
 } from 'solid-js';
+import { configEntryKey, ConfigEntryRow, configTypeLabel } from '../../components/ConfigEntryRow';
+import { Alert } from '../../components/ui/Alert';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Checkbox } from '../../components/ui/Checkbox';
-import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton, SkeletonList } from '../../components/ui/Skeleton';
 import { Switch } from '../../components/ui/Switch';
-import { t, tf } from '../../i18n';
+import { t } from '../../i18n';
 import { configApi, extensionsApi } from '../../lib/api';
 
 const ExtensionsSection: Component = () => {
@@ -27,8 +28,6 @@ const ExtensionsSection: Component = () => {
   const [settingsCache, setSettingsCache] = createSignal<Record<string, ConfigEntry[]>>({});
   const [settingsLoading, setSettingsLoading] = createSignal(false);
   const [editingKey, setEditingKey] = createSignal<string | null>(null);
-  const [editValue, setEditValue] = createSignal('');
-  const [saving, setSaving] = createSignal(false);
 
   const fetchExtensions = async () => {
     setLoading(true);
@@ -98,17 +97,6 @@ const ExtensionsSection: Component = () => {
     }
   };
 
-  const entryKey = (e: ConfigEntry) => `${e.interfaceName}::${e.key}`;
-
-  const isModified = (entry: ConfigEntry) =>
-    entry.value != null && entry.defaultValue != null
-    && String(entry.value) !== String(entry.defaultValue);
-
-  const startEdit = (entry: ConfigEntry) => {
-    setEditingKey(entryKey(entry));
-    setEditValue(String(entry.value ?? entry.defaultValue ?? ''));
-  };
-
   const reloadExtSettings = async () => {
     const name = expandedExt();
     if (!name) {
@@ -126,45 +114,6 @@ const ExtensionsSection: Component = () => {
     await loadExtSettings(ext);
   };
 
-  const saveEdit = async (entry: ConfigEntry) => {
-    setSaving(true);
-    setError('');
-    try {
-      const aType = entry.abstractType;
-      let value: unknown = editValue();
-      if (aType === 'BOOLEAN') {
-        value = editValue() === 'true';
-      } else if (aType === 'INT' || aType === 'LONG') {
-        value = Number.parseInt(editValue());
-      } else if (aType === 'DOUBLE' || aType === 'FLOAT') {
-        value = Number.parseFloat(editValue());
-      } else if (aType === 'STRING_LIST' || Array.isArray(entry.value) || Array.isArray(entry.defaultValue)) {
-        value = editValue().split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
-      }
-      await configApi.setSetting({ interfaceName: entry.interfaceName, storage: entry.storage, key: entry.key, value });
-      setEditingKey(null);
-      await reloadExtSettings();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetEdit = async (entry: ConfigEntry) => {
-    setSaving(true);
-    setError('');
-    try {
-      await configApi.resetSetting({ interfaceName: entry.interfaceName, storage: entry.storage, key: entry.key });
-      setEditingKey(null);
-      await reloadExtSettings();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const ToggleSwitch = (props: { ext: ExtensionEntry }) => {
     const isBusy = () => !!props.ext.id && busy() === props.ext.id;
     return (
@@ -180,10 +129,7 @@ const ExtensionsSection: Component = () => {
   return (
     <div class="space-y-4">
       <Show when={error()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
-          {error()}
-        </div>
+        <Alert>{error()}</Alert>
       </Show>
 
       <Show when={loading()}>
@@ -191,10 +137,7 @@ const ExtensionsSection: Component = () => {
       </Show>
 
       <Show when={!loading() && extensions().length === 0}>
-        <div class="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <span class="i-tabler-plug-off w-10 h-10 mb-2" />
-          <p class="text-sm">{t('config.extensions.empty')}</p>
-        </div>
+        <EmptyState icon="i-tabler-plug-off" text={t('config.extensions.empty')} class="py-16" />
       </Show>
 
       <Show when={!loading() && extensions().length > 0}>
@@ -212,9 +155,7 @@ const ExtensionsSection: Component = () => {
                       <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm font-medium text-foreground">{ext.name}</span>
                         <Show when={!ext.installed}>
-                          <span class="text-xs px-1.5 py-0.5 rounded bg-warning/15 text-warning">
-                            {t('config.extensions.notInstalled')}
-                          </span>
+                          <Badge variant="warning">{t('config.extensions.notInstalled')}</Badge>
                         </Show>
                       </div>
                       <Show when={ext.description}>
@@ -246,101 +187,26 @@ const ExtensionsSection: Component = () => {
                       </Show>
 
                       <For each={extSettings()}>
-                        {(entry) => {
-                          const key = () => entryKey(entry);
-                          const isEditing = () => editingKey() === key();
-                          const aType = entry.abstractType;
-                          const label = entry.displayName || entry.key;
-
-                          return (
-                            <div class="border-b last:border-0 px-4 py-3 pl-8">
-                              <Show
-                                when={isEditing()}
-                                fallback={(
-                                  <div class="flex items-start gap-3">
-                                    <div class="flex-1 min-w-0">
-                                      <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="text-sm font-medium text-foreground">{label}</span>
-                                        <Show when={entry.displayName && entry.displayName !== entry.key}>
-                                          <span class="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{entry.key}</span>
-                                        </Show>
-                                        <span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{aType}</span>
-                                      </div>
-                                      <Show when={entry.docs}>
-                                        <p class="text-xs text-muted-foreground mt-0.5">{entry.docs}</p>
-                                      </Show>
-                                      <p class={`text-sm mt-1 font-mono ${isModified(entry) ? 'text-warning font-semibold' : 'text-foreground'}`}>
-                                        {String(entry.value ?? entry.defaultValue ?? '–')}
-                                        <Show when={isModified(entry)}>
-                                          <span class="ml-2 text-xs font-sans font-normal text-warning opacity-70">
-                                            (
-                                            {tf('config.settings.defaultLabel', String(entry.defaultValue))}
-                                            )
-                                          </span>
-                                        </Show>
-                                      </p>
-                                    </div>
-                                    <Button variant="ghost" size="icon" class="shrink-0" onClick={() => startEdit(entry)} title={t('config.settings.btnEdit')}>
-                                      <span class="i-tabler-edit w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                )}
-                              >
-                                <div class="space-y-2">
-                                  <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="text-sm font-medium text-foreground">{label}</span>
-                                    <span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{aType}</span>
-                                  </div>
-                                  <Show when={entry.docs}>
-                                    <p class="text-xs text-muted-foreground">{entry.docs}</p>
-                                  </Show>
-                                  <Show
-                                    when={aType === 'BOOLEAN'}
-                                    fallback={(
-                                      <Show
-                                        when={aType === 'ENUM' && entry.enumOptions && entry.enumOptions.length > 0}
-                                        fallback={(
-                                          <Input
-                                            type={aType === 'INT' || aType === 'LONG' || aType === 'DOUBLE' || aType === 'FLOAT' ? 'number' : 'text'}
-                                            value={editValue()}
-                                            onInput={e => setEditValue(e.currentTarget.value)}
-                                          />
-                                        )}
-                                      >
-                                        <Select
-                                          value={editValue()}
-                                          onChange={setEditValue}
-                                          options={(entry.enumOptions ?? []).map(([val, lbl]) => ({ value: val, label: lbl || val }))}
-                                        />
-                                      </Show>
-                                    )}
-                                  >
-                                    <Checkbox
-                                      checked={editValue() === 'true'}
-                                      onChange={v => setEditValue(String(v))}
-                                      label={t('config.settings.enabled')}
-                                    />
-                                  </Show>
-                                  <div class="flex items-center gap-2 flex-wrap justify-end">
-                                    <Button variant="default" onClick={() => saveEdit(entry)} disabled={saving()}>
-                                      <Show when={saving()} fallback={<span class="i-tabler-check w-4 h-4" />}>
-                                        <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
-                                      </Show>
-                                      {t('config.settings.save')}
-                                    </Button>
-                                    <Button variant="secondary" onClick={() => resetEdit(entry)} disabled={saving()} title={t('config.settings.reset')}>
-                                      <span class="i-tabler-restore w-4 h-4" />
-                                      {t('config.settings.reset')}
-                                    </Button>
-                                    <Button variant="ghost" onClick={() => setEditingKey(null)}>
-                                      {t('config.settings.cancel')}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </Show>
-                            </div>
-                          );
-                        }}
+                        {entry => (
+                          <ConfigEntryRow
+                            entry={entry}
+                            class="pl-8"
+                            header={(
+                              <>
+                                <span class="text-sm font-medium text-foreground">{entry.displayName || entry.key}</span>
+                                <Show when={entry.displayName && entry.displayName !== entry.key}>
+                                  <Badge class="font-mono">{entry.key}</Badge>
+                                </Show>
+                                <Badge>{configTypeLabel(entry.abstractType)}</Badge>
+                              </>
+                            )}
+                            editing={editingKey() === configEntryKey(entry)}
+                            onEdit={() => setEditingKey(configEntryKey(entry))}
+                            onCancel={() => setEditingKey(null)}
+                            onSaved={reloadExtSettings}
+                            onError={setError}
+                          />
+                        )}
                       </For>
                     </div>
                   </Show>

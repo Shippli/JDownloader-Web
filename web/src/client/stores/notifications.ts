@@ -3,6 +3,10 @@ import { createSignal } from 'solid-js';
 import { toast } from '../components/ui/Toaster';
 import { t } from '../i18n';
 
+export function dialogTitle(d: JdDialog) {
+  return d.properties?.title || d.type?.split('.').pop() || String(d.id);
+}
+
 export type CaptchaEntry = { kind: 'captcha'; id: number; hoster?: string };
 export type PendingOpen
   = | { kind: 'dialog'; dialog: JdDialog }
@@ -53,7 +57,7 @@ export function applyNotificationsMessage(data: {
     for (const d of dialogList) {
       if (!knownDialogIds.has(d.id) && !isPackageSuppressed(d.properties?.packageid)) {
         const dialog = d;
-        toast.info(d.properties?.title || d.type?.split('.').pop() || t('dialogs.title'), {
+        toast.info(dialogTitle(d), {
           duration: 5000,
           onClick: () => setPendingOpen({ kind: 'dialog', dialog }),
         });

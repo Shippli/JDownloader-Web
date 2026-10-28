@@ -9,6 +9,12 @@ import { autoNavigateStore } from '../../stores/autoNavigate';
 import { compactViewStore } from '../../stores/compactView';
 import { debugStore } from '../../stores/debug';
 
+const TOGGLES = [
+  { i18nKey: 'config.compactView', store: compactViewStore },
+  { i18nKey: 'config.autoNavigate', store: autoNavigateStore },
+  { i18nKey: 'config.debugMode', store: debugStore },
+];
+
 const WebSection: Component = () => {
   return (
     <div class="flex flex-col gap-4">
@@ -32,44 +38,21 @@ const WebSection: Component = () => {
         </CardContent>
       </Card>
 
-      {/* Compact view */}
-      <Card>
-        <CardContent>
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-semibold text-foreground mb-1">{t('config.compactView.label')}</h2>
-              <p class="text-sm text-muted-foreground">{t('config.compactView.description')}</p>
-            </div>
-            <Switch checked={compactViewStore.enabled()} onChange={() => compactViewStore.toggle()} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Auto-navigate */}
-      <Card>
-        <CardContent>
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-semibold text-foreground mb-1">{t('config.autoNavigate.label')}</h2>
-              <p class="text-sm text-muted-foreground">{t('config.autoNavigate.description')}</p>
-            </div>
-            <Switch checked={autoNavigateStore.enabled()} onChange={() => autoNavigateStore.toggle()} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Debug mode */}
-      <Card>
-        <CardContent>
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-semibold text-foreground mb-1">{t('config.debugMode.label')}</h2>
-              <p class="text-sm text-muted-foreground">{t('config.debugMode.description')}</p>
-            </div>
-            <Switch checked={debugStore.enabled()} onChange={() => debugStore.toggle()} />
-          </div>
-        </CardContent>
-      </Card>
+      <For each={TOGGLES}>
+        {toggle => (
+          <Card>
+            <CardContent>
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h2 class="text-base font-semibold text-foreground mb-1">{t(`${toggle.i18nKey}.label`)}</h2>
+                  <p class="text-sm text-muted-foreground">{t(`${toggle.i18nKey}.description`)}</p>
+                </div>
+                <Switch checked={toggle.store.enabled()} onChange={() => toggle.store.toggle()} />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </For>
 
       {/* About */}
       <Card>

@@ -2,14 +2,14 @@ import type { Component } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { For, Show } from 'solid-js';
 import { t } from '../../i18n';
-import { navItems } from '../../nav';
+import { isNavActive, navItems } from '../../nav';
 import { collapsed, toggleSidebar } from '../AppShell';
 import { NotificationsPanel } from '../NotificationsPanel';
 import { UserPanel } from '../UserPanel';
 
 export const SideNav: Component = () => {
   const location = useLocation();
-  const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href);
+  const isActive = (href: string) => isNavActive(location.pathname, href);
 
   return (
     <aside

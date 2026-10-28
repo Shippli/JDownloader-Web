@@ -1,66 +1,19 @@
 import type { Component } from 'solid-js';
-import { A, useLocation, useNavigate } from '@solidjs/router';
-import { createEffect, createSignal, on, onCleanup, onMount, Show, untrack } from 'solid-js';
-import { Portal } from 'solid-js/web';
+import { A, useNavigate } from '@solidjs/router';
 import { t } from '../i18n';
 import { activePopupStore } from '../stores/activePopup';
 import { authStore } from '../stores/auth';
 import { themeStore } from '../stores/theme';
+import { NavPopup, navPopupItemClass } from './NavPopup';
 import { Avatar } from './ui/Avatar';
-import { Drawer, DrawerContent, DrawerLabel } from './ui/Drawer';
 
-type Props = {
-  collapsed?: boolean;
-  mobile?: boolean;
-};
-
-export const UserPanel: Component<Props> = (props) => {
+export const UserPanel: Component<{ collapsed?: boolean; mobile?: boolean }> = (props) => {
   const navigate = useNavigate();
-  const PANEL_ID = untrack(() => props.mobile) ? 'user-panel-mobile' : 'user-panel-desktop';
-  const [popupPos, setPopupPos] = createSignal({ bottom: 0, left: 0, width: 240 });
-
-  const isOpen = () => activePopupStore.active() === PANEL_ID;
-
-  let buttonRef: HTMLButtonElement | undefined;
-  let popupRef: HTMLDivElement | undefined;
-
   const isDark = () => themeStore.effectiveTheme() === 'dark';
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      activePopupStore.close(PANEL_ID);
-    }
+  const displayName = () => {
+    const u = authStore.user();
+    return u ? (u.name || u.email) : undefined;
   };
-  onMount(() => document.addEventListener('keydown', onKeyDown));
-  onCleanup(() => document.removeEventListener('keydown', onKeyDown));
-
-  const location = useLocation();
-  createEffect(on(() => location.pathname, () => activePopupStore.close(PANEL_ID), { defer: true }));
-
-  // Close on any click outside the popup
-  createEffect(() => {
-    if (!isOpen() || props.mobile) {
-      return;
-    }
-    let enabled = false;
-    const timer = setTimeout(() => {
-      enabled = true;
-    }, 0);
-    const onOutsideClick = (e: MouseEvent) => {
-      if (!enabled) {
-        return;
-      }
-      if (popupRef?.contains(e.target as Node)) {
-        return;
-      }
-      activePopupStore.close(PANEL_ID);
-    };
-    document.addEventListener('click', onOutsideClick);
-    onCleanup(() => {
-      clearTimeout(timer);
-      document.removeEventListener('click', onOutsideClick);
-    });
-  });
 
   const handleSignOut = async () => {
     activePopupStore.closeAll();
@@ -68,139 +21,32 @@ export const UserPanel: Component<Props> = (props) => {
     navigate('/login');
   };
 
-  const toggleDesktop = () => {
-    if (!isOpen() && buttonRef) {
-      const rect = buttonRef.getBoundingClientRect();
-      const width = props.collapsed ? 240 : rect.width;
-      setPopupPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width });
-      activePopupStore.open(PANEL_ID);
-    } else {
-      activePopupStore.closeAll();
-    }
-  };
-
-  const avatarName = () => {
-    const u = authStore.user();
-    return u ? (u.name || u.email) : undefined;
-  };
-
-  const Popup = () => (
-    <div class={props.mobile ? 'flex flex-col min-h-0' : 'bg-card border overflow-hidden rounded-xl shadow-xl'}>
-      <div class={`px-4 py-3 border-b ${props.mobile ? 'text-center' : ''}`}>
-        <Show
-          when={props.mobile}
-          fallback={(
-            <p class="text-sm font-semibold text-foreground truncate">
-              {authStore.user()?.name || authStore.user()?.email}
-            </p>
-          )}
-        >
-          <DrawerLabel class="block truncate">{authStore.user()?.name || authStore.user()?.email}</DrawerLabel>
-        </Show>
-        <Show when={authStore.user()?.name}>
-          <p class="text-xs text-muted-foreground truncate mt-0.5">{authStore.user()?.email}</p>
-        </Show>
-      </div>
+  return (
+    <NavPopup
+      id="user-panel"
+      collapsed={props.collapsed}
+      mobile={props.mobile}
+      icon={<Avatar name={displayName()} size="xs" />}
+      label={<span class="whitespace-nowrap truncate">{displayName()}</span>}
+      buttonTitle={displayName()}
+      heading={displayName() ?? ''}
+      subheading={authStore.user()?.name ? authStore.user()?.email : undefined}
+    >
       <div class="py-1">
-        <A
-          href="/config"
-          onClick={() => activePopupStore.closeAll()}
-          class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
-        >
+        <A href="/config" onClick={() => activePopupStore.closeAll()} class={navPopupItemClass(props.mobile)}>
           <span class="i-tabler-settings w-4 h-4 text-muted-foreground" />
           {t('nav.settings')}
         </A>
-        <button
-          onClick={() => {
-            themeStore.toggleTheme();
-          }}
-          class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
-        >
-          <Show
-            when={isDark()}
-            fallback={<span class="i-tabler-moon w-4 h-4 text-muted-foreground" />}
-          >
-            <span class="i-tabler-sun w-4 h-4 text-muted-foreground" />
-          </Show>
+        <button onClick={() => themeStore.toggleTheme()} class={navPopupItemClass(props.mobile)}>
+          <span class={`${isDark() ? 'i-tabler-sun' : 'i-tabler-moon'} w-4 h-4 text-muted-foreground`} />
           {isDark() ? t('nav.lightMode') : t('nav.darkMode')}
         </button>
         <div class="my-1 border-t" />
-        <button
-          onClick={handleSignOut}
-          class={`flex items-center gap-3 w-full px-4 py-3 text-sm text-destructive hover:bg-accent transition-colors ${props.mobile ? 'justify-center' : ''}`}
-        >
+        <button onClick={handleSignOut} class={navPopupItemClass(props.mobile, 'text-destructive')}>
           <span class="i-tabler-logout w-4 h-4" />
           {t('nav.logout')}
         </button>
       </div>
-    </div>
-  );
-
-  return (
-    <Show
-      when={props.mobile}
-      fallback={(
-        <div>
-          <button
-            ref={buttonRef}
-            onClick={toggleDesktop}
-            class="flex items-center gap-3 w-full rounded-lg px-3 h-9 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-            title={props.collapsed ? (authStore.user()?.name || authStore.user()?.email) : undefined}
-          >
-            <Avatar name={avatarName()} size="xs" />
-            <Show when={!props.collapsed}>
-              <span class="whitespace-nowrap truncate">
-                {authStore.user()?.name || authStore.user()?.email}
-              </span>
-            </Show>
-          </button>
-          <Show when={isOpen()}>
-            <Portal>
-              <div
-                ref={popupRef}
-                class="fixed z-210 bottom-(--popup-bottom) left-(--popup-left) w-(--popup-width)"
-                style={{ '--popup-bottom': `${popupPos().bottom}px`, '--popup-left': `${popupPos().left}px`, '--popup-width': `${popupPos().width}px` }}
-              >
-                <Popup />
-              </div>
-            </Portal>
-          </Show>
-        </div>
-      )}
-    >
-      {/* Mobile bottom-nav */}
-      <div class="relative flex-1">
-        <button
-          onClick={() => {
-            isOpen() ? activePopupStore.closeAll() : activePopupStore.open(PANEL_ID);
-          }}
-          ref={buttonRef}
-          title={authStore.user()?.name || authStore.user()?.email}
-          class="w-full flex items-center justify-center py-5 text-muted-foreground"
-        >
-          <Avatar name={avatarName()} size="xs" />
-        </button>
-        <Drawer
-          open={isOpen()}
-          closeOnOutsidePointerStrategy="pointerdown"
-          noOutsidePointerEvents={false}
-          trapFocus={false}
-          onOutsidePointer={(e) => {
-            if (buttonRef?.contains(e.target as Node)) {
-              e.preventDefault();
-            }
-          }}
-          onOpenChange={(open) => {
-            if (!open) {
-              activePopupStore.close(PANEL_ID);
-            }
-          }}
-        >
-          <DrawerContent>
-            <Popup />
-          </DrawerContent>
-        </Drawer>
-      </div>
-    </Show>
+    </NavPopup>
   );
 };

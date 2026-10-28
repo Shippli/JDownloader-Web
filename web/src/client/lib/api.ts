@@ -1,4 +1,5 @@
 // API client - communicates with our HonoJS backend
+import { language } from '../i18n';
 import { debugStore } from '../stores/debug';
 
 const BASE = '/api';
@@ -235,7 +236,8 @@ export type UserRecord = {
   id: string;
   name: string;
   email: string;
-  createdAt: number;
+  // ISO string (serialized Date)
+  createdAt: string;
 };
 
 export type DownloadPackage = {
@@ -446,4 +448,26 @@ export function formatEta(seconds: number): string {
     return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
   }
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+// Accepts epoch ms or an ISO string.
+export function formatDate(value: number | string): string {
+  if (!value || (typeof value === 'number' && value <= 0)) {
+    return '–';
+  }
+  return new Date(value).toLocaleDateString(language(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// Coarse duration, e.g. "2d 3h 15m".
+export function formatDuration(ms: number): string {
+  if (!ms) {
+    return '–';
+  }
+  const s = Math.floor(ms / 1000);
+  const parts = [
+    [Math.floor(s / 86400), 'd'],
+    [Math.floor((s % 86400) / 3600), 'h'],
+    [Math.floor((s % 3600) / 60), 'm'],
+  ] as const;
+  return parts.filter(([n]) => n > 0).map(([n, u]) => `${n}${u}`).join(' ') || '<1m';
 }

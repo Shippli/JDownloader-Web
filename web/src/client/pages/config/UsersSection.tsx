@@ -7,15 +7,88 @@ import {
   For,
   Show,
 } from 'solid-js';
+import { Alert } from '../../components/ui/Alert';
 import { Avatar } from '../../components/ui/Avatar';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Dialog } from '../../components/ui/Dialog';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { TextField } from '../../components/ui/TextField';
-import { language, t, tf } from '../../i18n';
-import { userApi } from '../../lib/api';
+import { t, tf } from '../../i18n';
+import { formatDate, userApi } from '../../lib/api';
 import { authStore } from '../../stores/auth';
+
+const AddUserDialog: Component<{ open: boolean; onClose: () => void; onAdded: () => void }> = (props) => {
+  const [name, setName] = createSignal('');
+  const [email, setEmail] = createSignal('');
+  const [password, setPassword] = createSignal('');
+  const [error, setError] = createSignal('');
+  const [adding, setAdding] = createSignal(false);
+
+  const close = () => {
+    setError('');
+    setName('');
+    setEmail('');
+    setPassword('');
+    props.onClose();
+  };
+
+  const add = async () => {
+    setAdding(true);
+    setError('');
+    try {
+      await userApi.create({ name: name(), email: email(), password: password() });
+      close();
+      props.onAdded();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <Dialog open={props.open} onClose={close} title={t('config.users.addModal.title')}>
+      <div class="px-6 py-4 space-y-3">
+        <Show when={error()}>
+          <Alert>{error()}</Alert>
+        </Show>
+        <TextField
+          label={t('config.users.addModal.name')}
+          type="text"
+          value={name()}
+          onChange={setName}
+          placeholder={t('config.users.addModal.namePlaceholder')}
+        />
+        <TextField
+          label={t('config.users.addModal.email')}
+          type="email"
+          value={email()}
+          onChange={setEmail}
+          placeholder={t('config.users.addModal.emailPlaceholder')}
+        />
+        <TextField
+          label={t('config.users.addModal.password')}
+          type="password"
+          value={password()}
+          onChange={setPassword}
+          placeholder={t('config.users.addModal.passwordPlaceholder')}
+          inputProps={{ minLength: 8, autocomplete: 'new-password' }}
+        />
+        <div class="flex items-center gap-2 pt-1 justify-end">
+          <Button variant="secondary" onClick={close}>
+            {t('config.users.addModal.cancel')}
+          </Button>
+          <Button variant="default" onClick={add} loading={adding()}>
+            {t('config.users.addModal.add')}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+};
 
 const UsersSection: Component = () => {
   const [users, { refetch }] = createResource(() => userApi.list());
@@ -27,23 +100,10 @@ const UsersSection: Component = () => {
   const [saving, setSaving] = createSignal(false);
 
   const [showAdd, setShowAdd] = createSignal(false);
-  const [newName, setNewName] = createSignal('');
-  const [newEmail, setNewEmail] = createSignal('');
-  const [newPassword, setNewPassword] = createSignal('');
-  const [addError, setAddError] = createSignal('');
-  const [adding, setAdding] = createSignal(false);
 
   const [confirmDeleteUser, setConfirmDeleteUser] = createSignal<UserRecord | null>(null);
 
   const currentUserId = () => authStore.user()?.id;
-
-  const closeAddModal = () => {
-    setShowAdd(false);
-    setAddError('');
-    setNewName('');
-    setNewEmail('');
-    setNewPassword('');
-  };
 
   const startEdit = (u: UserRecord) => {
     setEditingId(u.id);
@@ -85,105 +145,32 @@ const UsersSection: Component = () => {
     }
   };
 
-  const addUser = async () => {
-    setAdding(true);
-    setAddError('');
-    try {
-      await userApi.create({ name: newName(), email: newEmail(), password: newPassword() });
-      setShowAdd(false);
-      setNewName('');
-      setNewEmail('');
-      setNewPassword('');
-      refetch();
-    } catch (e) {
-      setAddError((e as Error).message);
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString(language(), { day: '2-digit', month: '2-digit', year: 'numeric' });
-
   return (
     <div class="space-y-4">
       <Show when={error()}>
-        <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
-          {error()}
-        </div>
+        <Alert>{error()}</Alert>
       </Show>
 
       <div class="flex gap-2 justify-end">
-        <Button
-          variant="default"
-          onClick={() => {
-            setShowAdd(true);
-            setAddError('');
-          }}
-        >
-          <span class="i-tabler-user-plus w-4 h-4" />
+        <Button variant="default" onClick={() => setShowAdd(true)} icon="i-tabler-user-plus">
           {t('config.users.add')}
         </Button>
       </div>
 
-      <Dialog open={showAdd()} onClose={closeAddModal} title={t('config.users.addModal.title')}>
-        <div class="px-6 py-4 space-y-3">
-          <Show when={addError()}>
-            <div class="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              <span class="i-tabler-alert-circle w-4 h-4 flex-shrink-0" />
-              {addError()}
-            </div>
-          </Show>
-          <TextField
-            label={t('config.users.addModal.name')}
-            type="text"
-            value={newName()}
-            onChange={setNewName}
-            placeholder={t('config.users.addModal.namePlaceholder')}
-          />
-          <TextField
-            label={t('config.users.addModal.email')}
-            type="email"
-            value={newEmail()}
-            onChange={setNewEmail}
-            placeholder={t('config.users.addModal.emailPlaceholder')}
-          />
-          <TextField
-            label={t('config.users.addModal.password')}
-            type="password"
-            value={newPassword()}
-            onChange={setNewPassword}
-            placeholder={t('config.users.addModal.passwordPlaceholder')}
-            inputProps={{ minLength: 8, autocomplete: 'new-password' }}
-          />
-          <div class="flex items-center gap-2 pt-1 justify-end">
-            <Button variant="secondary" onClick={() => closeAddModal()}>
-              {t('config.users.addModal.cancel')}
-            </Button>
-            <Button variant="default" onClick={addUser} disabled={adding()}>
-              <Show when={adding()}>
-                <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
-              </Show>
-              {t('config.users.addModal.add')}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <AddUserDialog open={showAdd()} onClose={() => setShowAdd(false)} onAdded={refetch} />
 
       <Show when={users.loading}>
         <SkeletonList rows={3} />
       </Show>
 
-      <Dialog open={confirmDeleteUser() !== null} onClose={() => setConfirmDeleteUser(null)} title={t('config.users.btnDelete')}>
-        <div class="px-6 py-4 space-y-4">
-          <p class="text-sm text-foreground">{tf('config.users.confirmDelete', confirmDeleteUser()?.name ?? '')}</p>
-          <div class="flex items-center gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setConfirmDeleteUser(null)}>{t('config.users.cancel')}</Button>
-            <Button variant="danger" onClick={deleteUser}>{t('config.users.btnDelete')}</Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDeleteUser() !== null}
+        title={t('config.users.btnDelete')}
+        message={tf('config.users.confirmDelete', confirmDeleteUser()?.name ?? '')}
+        confirmLabel={t('config.users.btnDelete')}
+        onConfirm={deleteUser}
+        onClose={() => setConfirmDeleteUser(null)}
+      />
 
       <Show when={!users.loading}>
         <Card class="overflow-hidden">
@@ -202,7 +189,7 @@ const UsersSection: Component = () => {
                           <div class="flex items-center gap-2">
                             <p class="text-sm font-medium text-foreground">{u.name}</p>
                             <Show when={isSelf()}>
-                              <span class="text-xs px-1.5 py-0.5 rounded bg-accent text-accent-foreground">{t('config.users.you')}</span>
+                              <Badge class="bg-accent text-accent-foreground">{t('config.users.you')}</Badge>
                             </Show>
                           </div>
                           <p class="text-xs text-muted-foreground">{u.email}</p>
@@ -212,9 +199,7 @@ const UsersSection: Component = () => {
                           </p>
                         </div>
                         <div class="flex items-center gap-1 shrink-0">
-                          <Button variant="ghost" size="icon" onClick={() => startEdit(u)} title={t('config.users.btnEdit')}>
-                            <span class="i-tabler-edit w-4 h-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => startEdit(u)} title={t('config.users.btnEdit')} icon="i-tabler-edit" />
                           <Button
                             variant="ghost"
                             size="icon"
@@ -222,9 +207,8 @@ const UsersSection: Component = () => {
                             disabled={isSelf()}
                             class="text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed"
                             title={isSelf() ? t('config.users.btnCannotDelete') : t('config.users.btnDelete')}
-                          >
-                            <span class="i-tabler-trash w-4 h-4" />
-                          </Button>
+                            icon="i-tabler-trash"
+                          />
                         </div>
                       </div>
                     )}
@@ -254,10 +238,7 @@ const UsersSection: Component = () => {
                         />
                       </div>
                       <div class="flex items-center gap-2 justify-end">
-                        <Button variant="default" onClick={() => saveEdit(u.id)} disabled={saving()}>
-                          <Show when={saving()} fallback={<span class="i-tabler-check w-4 h-4" />}>
-                            <span class="i-tabler-loader-2 animate-spin w-4 h-4" />
-                          </Show>
+                        <Button variant="default" onClick={() => saveEdit(u.id)} loading={saving()} icon="i-tabler-check">
                           {t('config.users.save')}
                         </Button>
                         <Button variant="secondary" onClick={() => setEditingId(null)}>{t('config.users.cancel')}</Button>

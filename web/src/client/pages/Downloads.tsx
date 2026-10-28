@@ -1,580 +1,220 @@
 import type { Component } from 'solid-js';
 import type { ContextMenuItem } from '../components/ContextMenu';
-import type { SortState } from '../components/ui/SortDropdown';
 import type { DownloadLink, DownloadPackage } from '../lib/api';
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import type { CtxMenuState, Selection } from '../lib/packageList';
+import type { Priority } from '../lib/priority';
+import { createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
 import ContextMenu from '../components/ContextMenu';
+import { ExpandButton, ListAlerts, SelectionControls } from '../components/PackageListParts';
 import PriorityBadge from '../components/PriorityBadge';
+import { PriorityDialog } from '../components/PriorityDialog';
 import { ScrollText } from '../components/ScrollText';
 import StatusBadge from '../components/StatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Checkbox } from '../components/ui/Checkbox';
-import { Dialog } from '../components/ui/Dialog';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { EmptyState } from '../components/ui/EmptyState';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { PromptDialog } from '../components/ui/PromptDialog';
 import { SkeletonList } from '../components/ui/Skeleton';
-import { SortDropdown } from '../components/ui/SortDropdown';
-import { TextField } from '../components/ui/TextField';
 import { t } from '../i18n';
 import { formatBytes, formatEta, formatSpeed, jdApi } from '../lib/api';
-import { getCached, setCached } from '../lib/pageCache';
-import { createPersistedSignal } from '../lib/persisted';
+import { createPackageList } from '../lib/packageList';
+import { priorityMenuItem } from '../lib/priority';
 import { compactViewStore } from '../stores/compactView';
-import { jdStore } from '../stores/jd';
 import { sseDownloads } from '../stores/sse';
 
-const Downloads: Component = () => {
-  const packages = () => sseDownloads()?.packages ?? ((getCached('dl.packages') as DownloadPackage[] | undefined) ?? []);
-  const links = () => sseDownloads()?.links ?? ((getCached('dl.links') as DownloadLink[] | undefined) ?? []);
-  const STATUS_RANK: Record<string, number> = { RUNNING: 0, WAITING: 1, QUEUED: 2, STOPPED: 3, FINISHED: 4 };
-  const STATUS_RANK_MAX = 5;
-  const [sortState, onSortChange] = createPersistedSignal<SortState>('dl.sort', { field: 'date', dir: 'desc' });
-  // Memoized: sorting runs once per data/sort change instead of once per consumer
-  // (desktop + compact list both read this on every SSE delta).
-  const sortedPackages = createMemo(() => {
-    const pkgs = [...packages()];
-    const { field, dir } = sortState();
-    if (field === 'name') {
-      pkgs.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (field === 'status') {
-      pkgs.sort((a, b) => (STATUS_RANK[a.status] ?? STATUS_RANK_MAX) - (STATUS_RANK[b.status] ?? STATUS_RANK_MAX));
-    }
-    return dir === 'desc' ? pkgs.reverse() : pkgs;
-  });
-  const state = () => sseDownloads()?.state ?? ((getCached('dl.state') as string | undefined) ?? 'IDLE');
-  const speed = () => sseDownloads()?.speed ?? ((getCached('dl.speed') as number | undefined) ?? 0);
-  const [loading, setLoading] = createSignal(getCached('dl.packages') == null);
-  const [expandedPkgs, setExpandedPkgs] = createSignal<Set<number>>(new Set());
-  const [selectedPkgs, setSelectedPkgs] = createSignal<Set<number>>(new Set());
-  const [selectedLinks, setSelectedLinks] = createSignal<Set<number>>(new Set());
-  const [error, setError] = createSignal('');
-  const [lastPkgClicked, setLastPkgClicked] = createSignal<number | null>(null);
-  const [lastLinkClicked, setLastLinkClicked] = createSignal<number | null>(null);
-  const [renameModal, setRenameModal] = createSignal<{ uuid: number; name: string } | null>(null);
-  const [renameValue, setRenameValue] = createSignal('');
-  const [priorityModal, setPriorityModal] = createSignal<{ linkIds: number[]; pkgIds: number[] } | null>(null);
-  const [ctxMenu, setCtxMenu] = createSignal<{ x: number; y: number; type: 'pkg' | 'link'; uuid: number; name: string; enabled: boolean; priority?: string; touch?: boolean } | null>(null);
+type ProgressColor = 'blue' | 'green' | 'yellow' | 'red';
 
-  const isExtracting = (status: string) => status.toLowerCase().includes('extracting');
+const STATE_ICON: Record<string, string> = {
+  RUNNING: 'i-tabler-player-play-filled text-success',
+  PAUSE: 'i-tabler-player-pause-filled text-warning',
+  STOPPED: 'i-tabler-player-stop-filled text-muted-foreground',
+  STOPPED_STATE: 'i-tabler-player-stop-filled text-muted-foreground',
+};
 
-  const selectAll = () => {
-    setSelectedPkgs(new Set(packages().map(p => p.uuid)));
-  };
+const STATE_LABEL_KEY: Record<string, string> = {
+  RUNNING: 'downloads.state.running',
+  PAUSE: 'downloads.state.paused',
+  IDLE: 'downloads.state.idle',
+  STOPPED: 'downloads.state.stopped',
+  STOPPED_STATE: 'downloads.state.stopped',
+  NA: 'downloads.state.na',
+  RECONNECT_REQUESTED: 'downloads.state.reconnect',
+  WAIT_RECONNECT: 'downloads.state.waitReconnect',
+};
 
-  const clearSelection = () => {
-    setSelectedPkgs(new Set<number>());
-    setSelectedLinks(new Set<number>());
-    setLastPkgClicked(null);
-    setLastLinkClicked(null);
-  };
+const isExtracting = (status?: string) => (status ?? '').toLowerCase().includes('extracting');
 
-  const hasSelection = () => selectedPkgs().size > 0 || selectedLinks().size > 0;
+function getProgress(loaded: number, total: number) {
+  return total > 0 ? Math.round((loaded / total) * 100) : 0;
+}
 
-  const [deleteModal, setDeleteModal] = createSignal<{ linkIds: number[]; pkgIds: number[]; message: string } | null>(null);
-  const [deleteWithFiles, setDeleteWithFiles] = createSignal(false);
-  const openDeleteModal = (linkIds: number[], pkgIds: number[], message: string) => {
-    setDeleteWithFiles(false);
-    setDeleteModal({ linkIds, pkgIds, message });
-  };
-  const executeDelete = async () => {
-    const dm = deleteModal();
-    setDeleteModal(null);
-    if (!dm) {
-      return;
-    }
-    try {
-      await jdApi.cleanupDownloads(dm.linkIds, dm.pkgIds, deleteWithFiles());
-      clearSelection();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+function packageProgressColor(pkg: DownloadPackage): ProgressColor {
+  if (pkg.finished) {
+    return 'green';
+  }
+  const s = (pkg.status ?? '').toLowerCase();
+  if (s.includes('error')) {
+    return 'red';
+  }
+  if (s.includes('wait')) {
+    return 'yellow';
+  }
+  return 'blue';
+}
 
-  const closeRenameModal = () => {
-    setRenameModal(null);
-    setRenameValue('');
-  };
-  const commitRename = async () => {
-    const rm = renameModal();
-    const name = renameValue().trim();
-    closeRenameModal();
-    if (!rm || !name) {
-      return;
-    }
-    try {
-      await jdApi.renameDownloadPackage(rm.uuid, name);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+const linkProgressColor = (link: DownloadLink): ProgressColor => link.finished ? 'green' : 'blue';
 
-  createEffect(() => {
-    const d = sseDownloads();
-    if (d === null) {
-      return;
-    }
-    setCached('dl.packages', d.packages);
-    setCached('dl.links', d.links);
-    setCached('dl.state', d.state);
-    setCached('dl.speed', d.speed);
-    setLoading(false);
-  });
+// Shows the *currently* extracting archive's own progress (0→100), resetting
+// per file. When one file finishes and the next hasn't started yet, JD reports
+// no "extracting" link for a moment — hold the last value (yellow ~100%) for a
+// short grace period so the bar doesn't flicker back to the green download bar
+// between files.
+const EXTRACT_GRACE_MS = 3000;
 
-  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-  let longPressMoved = false;
-  let longPressTriggered = false;
-  const startLongPress = (type: 'pkg' | 'link', uuid: number, name: string, enabled: boolean, priority?: string) => (e: TouchEvent) => {
-    e.stopPropagation();
-    longPressMoved = false;
-    longPressTriggered = false;
-    longPressTimer = setTimeout(() => {
-      if (!longPressMoved) {
-        longPressTriggered = true;
-        navigator.vibrate?.(50);
-        setCtxMenu({ x: 0, y: 0, type, uuid, name, enabled, priority, touch: true });
-      }
-      longPressTimer = null;
-    }, 500);
-  };
-  const endLongPress = (e: TouchEvent) => {
-    if (longPressTimer !== null) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-    if (longPressTriggered) {
-      e.preventDefault();
-      longPressTriggered = false;
-    }
-  };
-  const moveLongPress = () => {
-    longPressMoved = true;
-    if (longPressTimer !== null) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  };
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      if (ctxMenu()) {
-        setCtxMenu(null);
-      } else {
-        clearSelection();
-      }
-    } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      selectAll();
-    } else if (e.key === 'ArrowRight' && selectedPkgs().size > 0) {
-      const tag = (e.target as HTMLElement).tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-        return;
-      }
-      e.preventDefault();
-      setExpandedPkgs(prev => new Set([...prev, ...selectedPkgs()]));
-    } else if (e.key === 'ArrowLeft' && selectedPkgs().size > 0) {
-      const tag = (e.target as HTMLElement).tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-        return;
-      }
-      e.preventDefault();
-      setExpandedPkgs(prev => new Set([...prev].filter(id => !selectedPkgs().has(id))));
-    } else if ((e.key === 'Backspace' || e.key === 'Delete') && hasSelection()) {
-      const tag = (e.target as HTMLElement).tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-        return;
-      }
-      e.preventDefault();
-      openDeleteModal([...selectedLinks()], [...selectedPkgs()], t('downloads.confirm.removeSelected'));
-    }
-  };
-  document.addEventListener('keydown', onKeyDown);
-  onCleanup(() => {
-    document.removeEventListener('keydown', onKeyDown);
-  });
-
-  // Group links by package once per store update (O(L)) instead of filtering the
-  // full link list per package per render (O(P*L)).
-  const linksByPkg = createMemo(() => {
-    const map = new Map<number, DownloadLink[]>();
-    for (const l of links()) {
-      const arr = map.get(l.packageUUID);
-      if (arr) {
-        arr.push(l);
-      } else {
-        map.set(l.packageUUID, [l]);
-      }
-    }
-    return map;
-  });
-  const getPackageLinks = (pkgUUID: number) =>
-    linksByPkg().get(pkgUUID) ?? [];
-
-  const getProgress = (loaded: number, total: number) => {
-    if (!total || total <= 0) {
-      return 0;
-    }
-    return Math.round((loaded / total) * 100);
-  };
-
-  const getProgressColor = (pkg: DownloadPackage): 'blue' | 'green' | 'yellow' | 'red' => {
-    if (pkg.finished) {
-      return 'green';
-    }
-    const s = (pkg.status ?? '').toLowerCase();
-    if (s.includes('error')) {
-      return 'red';
-    }
-    if (s.includes('wait')) {
-      return 'yellow';
-    }
-    return 'blue';
-  };
-
-  const getExtractionProgress = (link: DownloadLink): number | null => {
-    if (!isExtracting(link.status ?? '')) {
-      return null;
-    }
-    return sseDownloads()?.exProgress[link.uuid] ?? 0;
-  };
-
-  // ── Package extraction progress ─────────────────────────────────────────────
-  // Shows the *currently* extracting archive's own progress (0→100), resetting
-  // per file. When one file finishes and the next hasn't started yet, JD reports
-  // no "extracting" link for a moment — hold the last value (yellow ~100%) for a
-  // short grace period so the bar doesn't flicker back to the green download bar
-  // between files.
-  const EXTRACT_GRACE_MS = 3000;
-  // pkgUUID → { pct: last seen %, lastSeenMs }. Plain map (non-reactive); the
-  // holdTick signal drives re-evaluation for the grace-expiry flip to green.
-  const extractHold = new Map<number, { pct: number; lastSeenMs: number }>();
+function createExtractionHold() {
+  // pkgUUID → last seen %. Plain map (non-reactive); holdTick drives
+  // re-evaluation for the grace-expiry flip to green.
+  const hold = new Map<number, { pct: number; lastSeenMs: number }>();
   const [holdTick, setHoldTick] = createSignal(0);
-  let holdTimer: ReturnType<typeof setTimeout> | null = null;
-  const armHoldTimer = () => {
-    if (holdTimer !== null || extractHold.size === 0) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const armTimer = () => {
+    if (timer !== null || hold.size === 0) {
       return;
     }
-    holdTimer = setTimeout(() => {
-      holdTimer = null;
+    timer = setTimeout(() => {
+      timer = null;
       const now = Date.now();
-      for (const [uuid, h] of extractHold) {
+      for (const [uuid, h] of hold) {
         if (now - h.lastSeenMs >= EXTRACT_GRACE_MS) {
-          extractHold.delete(uuid);
+          hold.delete(uuid);
         }
       }
-      setHoldTick(t => t + 1);
-      armHoldTimer(); // re-arm while any hold is still live
+      setHoldTick(n => n + 1);
+      armTimer(); // re-arm while any hold is still live
     }, EXTRACT_GRACE_MS + 250);
   };
   // Record every actively-extracting link on each store update. The exProgress
-  // ticker stops once no link extracts, so the grace flip relies on armHoldTimer.
+  // ticker stops once no link extracts, so the grace flip relies on armTimer.
   createEffect(() => {
     const d = sseDownloads();
     if (d === null) {
       return;
     }
-    const ex = d.exProgress;
     const now = Date.now();
     for (const l of d.links) {
-      if (isExtracting(l.status ?? '')) {
-        extractHold.set(l.packageUUID, { pct: ex[l.uuid] ?? 0, lastSeenMs: now });
+      if (isExtracting(l.status)) {
+        hold.set(l.packageUUID, { pct: d.exProgress[l.uuid] ?? 0, lastSeenMs: now });
       }
     }
-    armHoldTimer();
+    armTimer();
   });
   onCleanup(() => {
-    if (holdTimer !== null) {
-      clearTimeout(holdTimer);
+    if (timer !== null) {
+      clearTimeout(timer);
     }
   });
-  const pkgExtractValue = (pkgUUID: number, pkgLinks: DownloadLink[]): number | null => {
-    holdTick(); // reactive dep so the grace-expiry flip re-runs
+
+  // Read inside JSX (tracked scope).
+  // eslint-disable-next-line solid/reactivity
+  return (pkgUUID: number, pkgLinks: DownloadLink[]): number | null => {
+    holdTick();
     const ex = sseDownloads()?.exProgress ?? {};
-    const extractingLink = pkgLinks.find(l => isExtracting(l.status ?? ''));
+    const extractingLink = pkgLinks.find(l => isExtracting(l.status));
     if (extractingLink) {
-      return ex[extractingLink.uuid] ?? extractHold.get(pkgUUID)?.pct ?? 0;
+      return ex[extractingLink.uuid] ?? hold.get(pkgUUID)?.pct ?? 0;
     }
-    const held = extractHold.get(pkgUUID);
+    const held = hold.get(pkgUUID);
     if (held && Date.now() - held.lastSeenMs < EXTRACT_GRACE_MS) {
       return held.pct;
     }
     return null;
   };
+}
 
-  const toggleExpand = (uuid: number) => {
-    setExpandedPkgs((prev) => {
-      const next = new Set(prev);
-      if (next.has(uuid)) {
-        next.delete(uuid);
-      } else {
-        next.add(uuid);
-      }
-      return next;
-    });
+const Downloads: Component = () => {
+  const packages = () => sseDownloads()?.packages ?? [];
+  const links = () => sseDownloads()?.links ?? [];
+  const state = () => sseDownloads()?.state ?? 'IDLE';
+  const speed = () => sseDownloads()?.speed ?? 0;
+  const loading = () => sseDownloads() === null;
+  const isRunning = () => state() === 'RUNNING';
+
+  const [error, setError] = createSignal('');
+  const run = (p: Promise<unknown>) => p.catch(e => setError((e as Error).message));
+
+  const [deleteModal, setDeleteModal] = createSignal<Selection & { message: string } | null>(null);
+  const [deleteWithFiles, setDeleteWithFiles] = createSignal(false);
+  const [renameModal, setRenameModal] = createSignal<{ uuid: number; name: string } | null>(null);
+  const [priorityModal, setPriorityModal] = createSignal<Selection | null>(null);
+
+  const openDeleteModal = (sel: Selection, message: string) => {
+    setDeleteWithFiles(false);
+    setDeleteModal({ ...sel, message });
   };
 
-  const togglePkgSelect = (uuid: number, shiftKey: boolean) => {
-    const pkgList = sortedPackages();
-    const currentIndex = pkgList.findIndex(p => p.uuid === uuid);
+  const list = createPackageList({
+    packages,
+    links,
+    sortKey: 'dl.sort',
+    onDeleteSelection: sel => openDeleteModal(sel, t('downloads.confirm.removeSelected')),
+  });
 
-    if (shiftKey && lastPkgClicked() !== null) {
-      const lastIndex = pkgList.findIndex(p => p.uuid === lastPkgClicked());
-      if (lastIndex !== -1) {
-        const from = Math.min(lastIndex, currentIndex);
-        const to = Math.max(lastIndex, currentIndex);
-        const rangeUuids = pkgList.slice(from, to + 1).map(p => p.uuid);
-        setSelectedPkgs((prev) => {
-          const next = new Set(prev);
-          rangeUuids.forEach(id => next.add(id));
-          return next;
-        });
-        return;
-      }
-    }
-
-    setLastPkgClicked(uuid);
-    setSelectedPkgs((prev) => {
-      const next = new Set(prev);
-      if (next.has(uuid)) {
-        next.delete(uuid);
-        const pkgLinks = getPackageLinks(uuid).map(l => l.uuid);
-        setSelectedLinks((prev2) => {
-          const n2 = new Set(prev2);
-          pkgLinks.forEach(id => n2.delete(id));
-          return n2;
-        });
-      } else {
-        next.add(uuid);
-      }
-      return next;
-    });
-  };
-
-  const toggleLinkSelect = (uuid: number, shiftKey: boolean) => {
-    const allLinks = links();
-
-    if (shiftKey && lastLinkClicked() !== null) {
-      const currentIndex = allLinks.findIndex(l => l.uuid === uuid);
-      const lastIndex = allLinks.findIndex(l => l.uuid === lastLinkClicked());
-      if (lastIndex !== -1 && currentIndex !== -1) {
-        const from = Math.min(lastIndex, currentIndex);
-        const to = Math.max(lastIndex, currentIndex);
-        const rangeUuids = allLinks.slice(from, to + 1).map(l => l.uuid);
-        setSelectedLinks((prev) => {
-          const next = new Set(prev);
-          rangeUuids.forEach(id => next.add(id));
-          return next;
-        });
-        return;
-      }
-    }
-
-    setLastLinkClicked(uuid);
-    setSelectedLinks((prev) => {
-      const next = new Set(prev);
-      if (next.has(uuid)) {
-        next.delete(uuid);
-      } else {
-        next.add(uuid);
-      }
-      return next;
-    });
-  };
-
-  const handleRemove = () => {
-    if (!selectedPkgs().size && !selectedLinks().size) {
-      return;
-    }
-    openDeleteModal([...selectedLinks()], [...selectedPkgs()], t('downloads.confirm.removeSelected'));
-  };
-
-  const handleForce = async () => {
-    if (!selectedPkgs().size && !selectedLinks().size) {
-      return;
-    }
-    try {
-      await jdApi.forceDownload([...selectedLinks()], [...selectedPkgs()]);
-    } catch (e) {
-      setError((e as Error).message);
+  const executeDelete = async () => {
+    const dm = deleteModal();
+    setDeleteModal(null);
+    if (dm) {
+      await run(jdApi.cleanupDownloads(dm.linkIds, dm.pkgIds, deleteWithFiles()).then(list.clearSelection));
     }
   };
 
-  const ctxTitle = () => {
-    const cm = ctxMenu();
-    if (!cm) {
-      return '';
-    }
-    const inSel = cm.type === 'pkg' ? selectedPkgs().has(cm.uuid) : selectedLinks().has(cm.uuid);
-    if (inSel && hasSelection()) {
-      const total = selectedPkgs().size + selectedLinks().size;
-      return `${total} ${t('common.selected')}`;
-    }
-    return cm.name;
-  };
+  const extractValue = createExtractionHold();
+  const linkExtractValue = (link: DownloadLink): number | null =>
+    isExtracting(link.status) ? sseDownloads()?.exProgress[link.uuid] ?? 0 : null;
 
-  const ctxTarget = () => {
-    const cm = ctxMenu();
-    if (!cm) {
-      return { linkIds: [] as number[], pkgIds: [] as number[] };
-    }
-    const inSel = cm.type === 'pkg' ? selectedPkgs().has(cm.uuid) : selectedLinks().has(cm.uuid);
-    if (inSel && hasSelection()) {
-      return { linkIds: [...selectedLinks()], pkgIds: [...selectedPkgs()] };
-    }
-    return cm.type === 'pkg' ? { linkIds: [], pkgIds: [cm.uuid] } : { linkIds: [cm.uuid], pkgIds: [] };
-  };
-
-  const buildCtxItems = (): ContextMenuItem[] => {
-    const cm = ctxMenu();
-    if (!cm) {
-      return [];
-    }
-    const { type, uuid, enabled } = cm;
-    const { linkIds, pkgIds } = ctxTarget();
-
+  const buildCtxItems = (cm: CtxMenuState): ContextMenuItem[] => {
+    const target = list.ctxTarget(cm);
+    const { linkIds, pkgIds } = target;
+    const setPriority = (p: Priority) => run(jdApi.setDownloadPriority(p, linkIds, pkgIds));
     const items: ContextMenuItem[] = [];
 
-    if (type === 'pkg' && pkgIds.length === 1 && linkIds.length === 0) {
-      items.push({
-        label: t('downloads.ctx.rename'),
-        icon: 'i-tabler-pencil',
-        onClick: () => {
-          setRenameModal({ uuid, name: cm.name });
-          setRenameValue(cm.name);
-        },
-      });
+    if (cm.type === 'pkg' && pkgIds.length === 1 && linkIds.length === 0) {
+      items.push({ label: t('downloads.ctx.rename'), icon: 'i-tabler-pencil', onClick: () => setRenameModal({ uuid: cm.uuid, name: cm.name }) });
     }
-
-    items.push({
-      label: t('downloads.ctx.delete'),
-      icon: 'i-tabler-trash',
-      danger: true,
-      onClick: () => openDeleteModal(linkIds, pkgIds, t('downloads.confirm.delete')),
-    });
-    items.push({
-      label: enabled ? t('common.disable') : t('common.enable'),
-      icon: enabled ? 'i-tabler-player-pause' : 'i-tabler-player-play',
-      onClick: async () => {
-        const newEnabled = !enabled;
-        await jdApi.enableDownloads(newEnabled, linkIds, pkgIds).catch(e => setError((e as Error).message));
+    items.push(
+      { label: t('downloads.ctx.delete'), icon: 'i-tabler-trash', danger: true, onClick: () => openDeleteModal(target, t('downloads.confirm.delete')) },
+      {
+        label: cm.enabled ? t('common.disable') : t('common.enable'),
+        icon: cm.enabled ? 'i-tabler-player-pause' : 'i-tabler-player-play',
+        onClick: () => run(jdApi.enableDownloads(!cm.enabled, linkIds, pkgIds)),
       },
-    });
-    items.push({
-      label: t('common.priority.label'),
-      icon: 'i-tabler-sort-ascending',
-      ...(cm.touch
-        ? { onClick: () => setPriorityModal({ linkIds, pkgIds }) }
-        : { submenu: [
-            { label: t('common.priority.highest'), icon: 'i-tabler-arrow-bar-up', onClick: async () => {
-              await jdApi.setDownloadPriority('HIGHEST', linkIds, pkgIds).catch(e => setError((e as Error).message));
-            } },
-            { label: t('common.priority.higher'), icon: 'i-tabler-arrows-up', onClick: async () => {
-              await jdApi.setDownloadPriority('HIGHER', linkIds, pkgIds).catch(e => setError((e as Error).message));
-            } },
-            { label: t('common.priority.high'), icon: 'i-tabler-arrow-up', onClick: async () => {
-              await jdApi.setDownloadPriority('HIGH', linkIds, pkgIds).catch(e => setError((e as Error).message));
-            } },
-            { label: t('common.priority.default'), icon: 'i-tabler-minus', onClick: async () => {
-              await jdApi.setDownloadPriority('DEFAULT', linkIds, pkgIds).catch(e => setError((e as Error).message));
-            } },
-            { label: t('common.priority.low'), icon: 'i-tabler-arrow-down', onClick: async () => {
-              await jdApi.setDownloadPriority('LOW', linkIds, pkgIds).catch(e => setError((e as Error).message));
-            } },
-          ] }
-      ),
-    });
-    items.push({
-      label: t('downloads.ctx.checkStatus'),
-      icon: 'i-tabler-refresh',
-      onClick: async () => {
-        await jdApi.checkDownloadLinks(linkIds, pkgIds).catch(e => setError((e as Error).message));
+      priorityMenuItem(cm.touch, () => setPriorityModal(target), setPriority),
+      { label: t('downloads.ctx.checkStatus'), icon: 'i-tabler-refresh', onClick: () => run(jdApi.checkDownloadLinks(linkIds, pkgIds)) },
+      {
+        label: cm.type === 'pkg' ? t('downloads.ctx.resetPkg') : t('downloads.ctx.resetLink'),
+        icon: 'i-tabler-eraser',
+        separator: true,
+        onClick: () => run(jdApi.resetDownloads(linkIds, pkgIds)),
       },
-    });
-
-    // Downloads-specific
-    items.push({
-      label: type === 'pkg' ? t('downloads.ctx.resetPkg') : t('downloads.ctx.resetLink'),
-      icon: 'i-tabler-eraser',
-      separator: true,
-      onClick: async () => {
-        await jdApi.resetDownloads(linkIds, pkgIds).catch(e => setError((e as Error).message));
-      },
-    });
-    items.push({
-      label: t('downloads.ctx.force'),
-      icon: 'i-tabler-bolt',
-      onClick: async () => {
-        await jdApi.forceDownload(linkIds, pkgIds).catch(e => setError((e as Error).message));
-      },
-    });
+      { label: t('downloads.ctx.force'), icon: 'i-tabler-bolt', onClick: () => run(jdApi.forceDownload(linkIds, pkgIds)) },
+    );
     const allFinished
       = pkgIds.every(id => packages().find(p => p.uuid === id)?.finished)
         && linkIds.every(id => links().find(l => l.uuid === id)?.finished);
     if (allFinished && (pkgIds.length > 0 || linkIds.length > 0)) {
-      items.push({
-        label: t('downloads.ctx.extract'),
-        icon: 'i-tabler-file-zip',
-        onClick: async () => {
-          await jdApi.extractArchive(linkIds, pkgIds).catch(e => setError((e as Error).message));
-        },
-      });
+      items.push({ label: t('downloads.ctx.extract'), icon: 'i-tabler-file-zip', onClick: () => run(jdApi.extractArchive(linkIds, pkgIds)) });
     }
-
     return items;
   };
 
-  const isRunning = () => state() === 'RUNNING';
+  const handleTogglePlay = () => run(isRunning() ? jdApi.stop() : jdApi.start());
 
-  const handleTogglePlay = async () => {
-    try {
-      if (isRunning()) {
-        await jdApi.stop();
-      } else {
-        await jdApi.start();
-      }
-    } catch (e) {
-      setError((e as Error).message);
-    }
+  const handleForce = () => {
+    const { linkIds, pkgIds } = list.selection();
+    return run(jdApi.forceDownload(linkIds, pkgIds));
   };
-
-  const stateLabel = () => {
-    const s = state();
-    const labels: Record<string, string> = {
-      RUNNING: t('downloads.state.running'),
-      PAUSE: t('downloads.state.paused'),
-      IDLE: t('downloads.state.idle'),
-      STOPPED: t('downloads.state.stopped'),
-      STOPPED_STATE: t('downloads.state.stopped'),
-      NA: t('downloads.state.na'),
-      RECONNECT_REQUESTED: t('downloads.state.reconnect'),
-      WAIT_RECONNECT: t('downloads.state.waitReconnect'),
-    };
-    return labels[s] ?? s;
-  };
-
-  const stateIconClass = () => {
-    const s = state();
-    if (s === 'RUNNING') {
-      return 'i-tabler-player-play-filled text-success';
-    }
-    if (s === 'PAUSE') {
-      return 'i-tabler-player-pause-filled text-warning';
-    }
-    if (s === 'STOPPED' || s === 'STOPPED_STATE') {
-      return 'i-tabler-player-stop-filled text-muted-foreground';
-    }
-    return 'i-tabler-circle-dot text-muted-foreground';
-  };
-
-  onMount(() => {
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Element;
-      if (target.closest('main') && !target.closest('[data-list-card]')) {
-        clearSelection();
-      }
-    };
-    document.addEventListener('click', handler);
-    onCleanup(() => document.removeEventListener('click', handler));
-  });
 
   return (
     <div>
@@ -583,8 +223,8 @@ const Downloads: Component = () => {
         <div class="min-w-0 flex-1">
           <h1 class="text-2xl font-bold tracking-tight text-foreground truncate">{t('downloads.title')}</h1>
           <div class="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground overflow-hidden">
-            <span class={`${stateIconClass()} inline-block w-4 h-4 flex-shrink-0`} />
-            <span class="invisible sm:visible truncate">{stateLabel()}</span>
+            <span class={`${STATE_ICON[state()] ?? 'i-tabler-circle-dot text-muted-foreground'} inline-block w-4 h-4 flex-shrink-0`} />
+            <span class="invisible sm:visible truncate">{STATE_LABEL_KEY[state()] ? t(STATE_LABEL_KEY[state()]) : state()}</span>
             <Show when={speed() > 0}>
               <span class="hidden sm:inline">·</span>
               <span class="text-muted-foreground font-medium flex-shrink-0">{formatSpeed(speed())}</span>
@@ -594,74 +234,46 @@ const Downloads: Component = () => {
 
         {/* Controller buttons */}
         <div class="flex items-center gap-2 flex-shrink-0">
-          <Button variant="default" onClick={handleTogglePlay}>
-            <Show
-              when={isRunning()}
-              fallback={<span class="i-tabler-player-play w-4 h-4" />}
-            >
-              <span class="i-tabler-player-stop w-4 h-4" />
-            </Show>
+          <Button variant="default" onClick={handleTogglePlay} icon={isRunning() ? 'i-tabler-player-stop' : 'i-tabler-player-play'}>
             <span class="hidden sm:inline">
               {isRunning() ? t('downloads.toolbar.stop') : t('downloads.toolbar.start')}
             </span>
           </Button>
-          <Show when={!hasSelection()}>
-            <Button variant="secondary" onClick={() => jdApi.pause(state() !== 'PAUSE')} title={t('downloads.toolbar.pause')}>
-              <span class="i-tabler-player-pause w-4 h-4" />
+          <Show when={!list.hasSelection()}>
+            <Button variant="secondary" onClick={() => run(jdApi.pause(state() !== 'PAUSE'))} title={t('downloads.toolbar.pause')} icon="i-tabler-player-pause">
               <span class="hidden sm:inline">{t('downloads.toolbar.pause')}</span>
             </Button>
           </Show>
 
-          <Show when={hasSelection()}>
+          <Show when={list.hasSelection()}>
             <div class="w-px h-6 bg-border" />
-            <Button variant="secondary" onClick={handleForce}>
-              <span class="i-tabler-bolt w-4 h-4" />
+            <Button variant="secondary" onClick={handleForce} icon="i-tabler-bolt">
               <span class="hidden sm:inline">{t('downloads.toolbar.force')}</span>
             </Button>
-            <Button variant="danger" onClick={handleRemove}>
-              <span class="i-tabler-trash w-4 h-4" />
+            <Button variant="danger" onClick={() => openDeleteModal(list.selection(), t('downloads.confirm.removeSelected'))} icon="i-tabler-trash">
               <span class="hidden sm:inline">{t('downloads.toolbar.remove')}</span>
-            </Button>
-            <Button variant="ghost" size="icon" onClick={clearSelection}>
-              <span class="i-tabler-x w-4 h-4" />
             </Button>
           </Show>
 
-          <Show when={!hasSelection() && packages().length > 0}>
-            <Button variant="ghost" onClick={selectAll} class="text-sm">{t('common.selectAll')}</Button>
-          </Show>
-          <Show when={packages().length > 0}>
-            <SortDropdown
-              value={sortState()}
-              onChange={onSortChange}
-              labels={{ date: t('common.sortByDate'), name: t('common.sortByName'), status: t('common.sortByStatus') }}
-            />
-          </Show>
+          <SelectionControls
+            hasSelection={list.hasSelection()}
+            hasItems={packages().length > 0}
+            onClear={list.clearSelection}
+            onSelectAll={list.selectAll}
+            sort={list.sortState()}
+            onSortChange={list.setSortState}
+          />
         </div>
       </div>
 
-      <Show when={jdStore.connected() === false}>
-        <div class="flex items-center gap-2 p-4 rounded-xl bg-destructive/10 text-destructive mb-4">
-          <span class="i-tabler-plug-off w-5 h-5 flex-shrink-0" />
-          <span class="text-sm">{t('downloads.jdUnavailable')}</span>
-        </div>
-      </Show>
-      <Show when={error() && jdStore.connected() !== false}>
-        <div class="flex items-center gap-2 p-4 rounded-xl bg-destructive/10 text-destructive mb-4">
-          <span class="i-tabler-alert-circle w-5 h-5 flex-shrink-0" />
-          <span class="text-sm">{error()}</span>
-        </div>
-      </Show>
+      <ListAlerts unavailableText={t('downloads.jdUnavailable')} error={error()} />
 
       <Show when={loading()}>
         <SkeletonList rows={6} />
       </Show>
 
       <Show when={!loading() && packages().length === 0}>
-        <div class="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <span class="i-tabler-inbox w-12 h-12 mb-3" />
-          <p class="text-sm">{t('downloads.empty')}</p>
-        </div>
+        <EmptyState icon="i-tabler-inbox" text={t('downloads.empty')} />
       </Show>
 
       {/* Package list */}
@@ -669,40 +281,27 @@ const Downloads: Component = () => {
         when={compactViewStore.enabled()}
         fallback={(
           <div class="flex flex-col gap-3">
-            <For each={sortedPackages()}>
+            <For each={list.sortedPackages()}>
               {(pkg) => {
-                const pkgLinks = () => getPackageLinks(pkg.uuid);
+                const pkgLinks = () => list.packageLinks(pkg.uuid);
                 const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
-                const pkgExProgress = () => pkgExtractValue(pkg.uuid, pkgLinks());
-                const isExpanded = () => expandedPkgs().has(pkg.uuid);
-                const isSelected = () => selectedPkgs().has(pkg.uuid);
+                const pkgExProgress = () => extractValue(pkg.uuid, pkgLinks());
 
                 return (
                   <Card
                     class="overflow-hidden transition-all"
-                    selected={isSelected()}
+                    selected={list.isPkgSelected(pkg.uuid)}
                     data-list-card
-                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, (pkg.enabled ?? false), pkg.priority)}
-                    onTouchEnd={endLongPress}
-                    onTouchMove={moveLongPress}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      if (navigator.maxTouchPoints > 0) {
-                        return;
-                      }
-                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: (pkg.enabled ?? false), priority: pkg.priority });
-                    }}
+                    {...list.itemHandlers('pkg', pkg)}
                   >
                     {/* Package header */}
                     <div
                       class="p-4 cursor-pointer select-none"
-                      onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
+                      onClick={e => list.togglePkgSelect(pkg.uuid, e.shiftKey)}
                     >
                       <div class="flex items-center gap-3">
-                        {/* Checkbox */}
-                        <Checkbox checked={isSelected()} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
+                        <Checkbox checked={list.isPkgSelected(pkg.uuid)} onChange={() => {}} size="md" class="pointer-events-none flex-shrink-0" />
 
-                        {/* Info */}
                         <div class="flex-1 min-w-0" classList={{ 'opacity-40': !pkg.enabled }}>
                           <div class="flex items-start justify-between gap-2 flex-wrap">
                             <div class="flex-1 min-w-0">
@@ -712,14 +311,11 @@ const Downloads: Component = () => {
                                 <PriorityBadge priority={pkg.priority} />
                                 <span class="text-xs text-muted-foreground">
                                   {formatBytes(pkg.bytesLoaded)}
-                                  {' '}
-                                  /
+                                  {' / '}
                                   {formatBytes(pkg.bytesTotal)}
                                 </span>
                                 <Show when={pkg.speed > 0}>
-                                  <span class="text-xs text-muted-foreground font-medium">
-                                    {formatSpeed(pkg.speed)}
-                                  </span>
+                                  <span class="text-xs text-muted-foreground font-medium">{formatSpeed(pkg.speed)}</span>
                                 </Show>
                                 <Show when={pkg.eta > 0}>
                                   <span class="text-xs text-muted-foreground">
@@ -733,24 +329,12 @@ const Downloads: Component = () => {
                               </div>
                             </div>
 
-                            {/* Expand button */}
                             <Show when={pkg.childCount > 0}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                class="shrink-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleExpand(pkg.uuid);
-                                }}
-                              >
-                                <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
-                              </Button>
+                              <ExpandButton expanded={list.isExpanded(pkg.uuid)} onToggle={() => list.toggleExpand(pkg.uuid)} />
                             </Show>
                           </div>
 
-                          {/* Progress bar */}
-                          <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : getProgressColor(pkg)} class="mt-2.5" />
+                          <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : packageProgressColor(pkg)} class="mt-2.5" />
                           <div class="flex justify-between mt-1">
                             <span class="text-xs text-muted-foreground">
                               {progress()}
@@ -767,34 +351,22 @@ const Downloads: Component = () => {
                     </div>
 
                     {/* Links (expanded) */}
-                    <Show when={isExpanded() && pkgLinks().length > 0}>
+                    <Show when={list.isExpanded(pkg.uuid) && pkgLinks().length > 0}>
                       <div class="border-t">
                         <For each={pkgLinks()}>
                           {(link) => {
-                            const linkProgress = () => getProgress(link.bytesLoaded, link.bytesTotal);
-                            const exProg = () => getExtractionProgress(link);
-                            const isLinkSelected = () => selectedLinks().has(link.uuid);
+                            const exProg = () => linkExtractValue(link);
+                            const isLinkSelected = () => list.isLinkSelected(link.uuid);
 
                             return (
                               <div
                                 class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
                                   isLinkSelected() ? 'bg-info/5' : 'hover:bg-muted/50'
                                 }`}
-                                onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
-                                onTouchStart={startLongPress('link', link.uuid, link.name, (link.enabled ?? false), link.priority)}
-                                onTouchEnd={endLongPress}
-                                onTouchMove={moveLongPress}
-                                onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (navigator.maxTouchPoints > 0) {
-                                    return;
-                                  }
-                                  setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: (link.enabled ?? false), priority: link.priority });
-                                }}
+                                onClick={e => list.toggleLinkSelect(link.uuid, e.shiftKey)}
+                                {...list.itemHandlers('link', link)}
                               >
                                 <div class="flex items-center gap-3 pl-8">
-                                  {/* Link checkbox */}
                                   <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
 
                                   <div class="flex-1 min-w-0" classList={{ 'opacity-40': !link.enabled }}>
@@ -809,8 +381,7 @@ const Downloads: Component = () => {
                                       <span class="text-xs text-muted-foreground">{link.host}</span>
                                       <span class="text-xs text-muted-foreground">
                                         {formatBytes(link.bytesLoaded)}
-                                        {' '}
-                                        /
+                                        {' / '}
                                         {formatBytes(link.bytesTotal)}
                                       </span>
                                       <Show when={link.speed > 0}>
@@ -828,8 +399,8 @@ const Downloads: Component = () => {
                                       </Show>
                                     </div>
                                     <ProgressBar
-                                      value={exProg() ?? linkProgress()}
-                                      color={exProg() !== null ? 'yellow' : link.finished ? 'green' : 'blue'}
+                                      value={exProg() ?? getProgress(link.bytesLoaded, link.bytesTotal)}
+                                      color={exProg() !== null ? 'yellow' : linkProgressColor(link)}
                                       class="mt-1.5"
                                     />
                                   </div>
@@ -849,16 +420,14 @@ const Downloads: Component = () => {
       >
         {/* Compact list */}
         <Card class="overflow-hidden">
-          <For each={sortedPackages()}>
+          <For each={list.sortedPackages()}>
             {(pkg, index) => {
-              const pkgLinks = () => getPackageLinks(pkg.uuid);
+              const pkgLinks = () => list.packageLinks(pkg.uuid);
               const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
-              const pkgExProgress = () => pkgExtractValue(pkg.uuid, pkgLinks());
-              const isSelected = () => selectedPkgs().has(pkg.uuid);
-              const isExpanded = () => expandedPkgs().has(pkg.uuid);
-              const expandBg = () => index() % 2 === 0
-                ? 'bg-info/5'
-                : 'bg-background';
+              const pkgExProgress = () => extractValue(pkg.uuid, pkgLinks());
+              const isSelected = () => list.isPkgSelected(pkg.uuid);
+              const isExpanded = () => list.isExpanded(pkg.uuid);
+              const expandBg = () => index() % 2 === 0 ? 'bg-info/5' : 'bg-background';
 
               return (
                 <>
@@ -866,17 +435,8 @@ const Downloads: Component = () => {
                   <div
                     class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-info/5' : isExpanded() ? expandBg() : 'bg-muted/40 hover:bg-muted/70'}`}
                     data-list-card
-                    onClick={e => togglePkgSelect(pkg.uuid, e.shiftKey)}
-                    onTouchStart={startLongPress('pkg', pkg.uuid, pkg.name, (pkg.enabled ?? false), pkg.priority)}
-                    onTouchEnd={endLongPress}
-                    onTouchMove={moveLongPress}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      if (navigator.maxTouchPoints > 0) {
-                        return;
-                      }
-                      setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pkg', uuid: pkg.uuid, name: pkg.name, enabled: (pkg.enabled ?? false), priority: pkg.priority });
-                    }}
+                    onClick={e => list.togglePkgSelect(pkg.uuid, e.shiftKey)}
+                    {...list.itemHandlers('pkg', pkg)}
                   >
                     <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
                     <ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !pkg.enabled }}>{pkg.name}</ScrollText>
@@ -885,19 +445,9 @@ const Downloads: Component = () => {
                     <Show when={pkg.speed > 0}>
                       <span class="text-xs text-muted-foreground font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
                     </Show>
-                    <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : getProgressColor(pkg)} class="w-16 flex-shrink-0" />
+                    <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : packageProgressColor(pkg)} class="w-16 flex-shrink-0" />
                     <Show when={pkg.childCount > 0}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="shrink-0 -mr-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleExpand(pkg.uuid);
-                        }}
-                      >
-                        <span class={`i-tabler-chevron-down w-4 h-4 transition-transform ${isExpanded() ? 'rotate-180' : ''}`} />
-                      </Button>
+                      <ExpandButton expanded={isExpanded()} onToggle={() => list.toggleExpand(pkg.uuid)} class="shrink-0 -mr-1" />
                     </Show>
                   </div>
                   {/* Link rows */}
@@ -929,26 +479,15 @@ const Downloads: Component = () => {
                     </div>
                     <For each={pkgLinks()}>
                       {(link) => {
-                        const linkProgress = () => getProgress(link.bytesLoaded, link.bytesTotal);
-                        const isLinkSelected = () => selectedLinks().has(link.uuid);
-                        const exProg = () => getExtractionProgress(link);
+                        const isLinkSelected = () => list.isLinkSelected(link.uuid);
+                        const exProg = () => linkExtractValue(link);
 
                         return (
                           <div
                             class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-info/5' : expandBg()}`}
                             data-list-card
-                            onClick={e => toggleLinkSelect(link.uuid, e.shiftKey)}
-                            onTouchStart={startLongPress('link', link.uuid, link.name, (link.enabled ?? false), link.priority)}
-                            onTouchEnd={endLongPress}
-                            onTouchMove={moveLongPress}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (navigator.maxTouchPoints > 0) {
-                                return;
-                              }
-                              setCtxMenu({ x: e.clientX, y: e.clientY, type: 'link', uuid: link.uuid, name: link.name, enabled: (link.enabled ?? false), priority: link.priority });
-                            }}
+                            onClick={e => list.toggleLinkSelect(link.uuid, e.shiftKey)}
+                            {...list.itemHandlers('link', link)}
                           >
                             <Checkbox checked={isLinkSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
                             <ScrollText class="text-xs text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !link.enabled }}>{link.name}</ScrollText>
@@ -956,8 +495,8 @@ const Downloads: Component = () => {
                             <StatusBadge status={link.status ?? ''} iconOnly />
                             <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
                             <ProgressBar
-                              value={exProg() !== null ? exProg()! : linkProgress()}
-                              color={exProg() !== null ? 'yellow' : link.finished ? 'green' : 'blue'}
+                              value={exProg() ?? getProgress(link.bytesLoaded, link.bytesTotal)}
+                              color={exProg() !== null ? 'yellow' : linkProgressColor(link)}
                               class="w-16 flex-shrink-0"
                             />
                           </div>
@@ -971,82 +510,38 @@ const Downloads: Component = () => {
           </For>
         </Card>
       </Show>
+
       {/* Context menu — desktop: positioned menu, touch: bottom sheet */}
-      <Show when={ctxMenu()} keyed>
-        {cm => <ContextMenu x={cm.x} y={cm.y} touch={cm.touch} title={ctxTitle()} items={buildCtxItems()} onClose={() => setCtxMenu(null)} />}
+      <Show when={list.ctxMenu()} keyed>
+        {cm => <ContextMenu x={cm.x} y={cm.y} touch={cm.touch} title={list.ctxTitle(cm)} items={buildCtxItems(cm)} onClose={() => list.setCtxMenu(null)} />}
       </Show>
-      {/* Delete confirmation modal */}
-      <Dialog open={!!deleteModal()} onClose={() => setDeleteModal(null)} title={t('common.delete')}>
-        <div class="px-6 py-4 space-y-4">
-          <p class="text-sm text-foreground">{deleteModal()?.message}</p>
-          <Checkbox
-            checked={deleteWithFiles()}
-            onChange={v => setDeleteWithFiles(v)}
-            label={t('downloads.confirm.deleteWithFiles')}
-          />
-          <div class="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setDeleteModal(null)}>{t('common.cancel')}</Button>
-            <Button variant="danger" onClick={executeDelete}>{t('common.delete')}</Button>
-          </div>
-        </div>
-      </Dialog>
-      {/* Priority modal */}
-      <Dialog open={!!priorityModal()} onClose={() => setPriorityModal(null)} title={t('common.priority.label')}>
-        <Show when={priorityModal()} keyed>
-          {(pm) => {
-            const setPriority = async (p: string) => {
-              const { linkIds, pkgIds } = pm;
-              setPriorityModal(null);
-              await jdApi.setDownloadPriority(p, linkIds, pkgIds).catch(e => setError((e as Error).message));
-            };
-            const priorities = [
-              { key: 'HIGHEST', label: t('common.priority.highest'), icon: 'i-tabler-arrow-bar-up' },
-              { key: 'HIGHER', label: t('common.priority.higher'), icon: 'i-tabler-arrows-up' },
-              { key: 'HIGH', label: t('common.priority.high'), icon: 'i-tabler-arrow-up' },
-              { key: 'DEFAULT', label: t('common.priority.default'), icon: 'i-tabler-minus' },
-              { key: 'LOW', label: t('common.priority.low'), icon: 'i-tabler-arrow-down' },
-            ] as const;
-            return (
-              <div class="py-2">
-                <For each={priorities}>
-                  {p => (
-                    <button
-                      class="flex items-center justify-center gap-3 w-full px-6 py-3 text-sm text-foreground hover:bg-accent transition-colors"
-                      onClick={() => setPriority(p.key)}
-                    >
-                      <span class={`${p.icon} w-4 h-4 text-muted-foreground`} />
-                      {p.label}
-                    </button>
-                  )}
-                </For>
-              </div>
-            );
-          }}
-        </Show>
-      </Dialog>
-      {/* Rename modal */}
-      <Dialog open={!!renameModal()} onClose={closeRenameModal} title={t('downloads.renameModal.title')}>
-        <div class="px-6 py-4 space-y-4">
-          <TextField
-            type="text"
-            value={renameValue()}
-            onChange={setRenameValue}
-            inputProps={{
-              'onKeyDown': (e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  commitRename();
-                }
-              },
-              'data-autofocus': '',
-            }}
-          />
-          <div class="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={closeRenameModal}>{t('common.cancel')}</Button>
-            <Button variant="default" onClick={commitRename}>{t('common.save')}</Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={!!deleteModal()}
+        title={t('common.delete')}
+        message={deleteModal()?.message}
+        confirmLabel={t('common.delete')}
+        onConfirm={executeDelete}
+        onClose={() => setDeleteModal(null)}
+      >
+        <Checkbox checked={deleteWithFiles()} onChange={setDeleteWithFiles} label={t('downloads.confirm.deleteWithFiles')} />
+      </ConfirmDialog>
+      <PriorityDialog
+        open={!!priorityModal()}
+        onClose={() => setPriorityModal(null)}
+        onSelect={(p) => {
+          const pm = priorityModal();
+          if (pm) {
+            run(jdApi.setDownloadPriority(p, pm.linkIds, pm.pkgIds));
+          }
+        }}
+      />
+      <PromptDialog
+        open={!!renameModal()}
+        title={t('downloads.renameModal.title')}
+        initialValue={renameModal()?.name}
+        onSubmit={name => run(jdApi.renameDownloadPackage(renameModal()!.uuid, name))}
+        onClose={() => setRenameModal(null)}
+      />
     </div>
   );
 };
