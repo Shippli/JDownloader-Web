@@ -232,7 +232,7 @@ const Downloads: Component = () => {
           <h1 class="text-2xl font-bold tracking-tight text-foreground truncate">{t('downloads.title')}</h1>
           <div class="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground overflow-hidden">
             <span class={`${STATE_ICON[state()] ?? 'i-tabler-circle-dot text-muted-foreground'} inline-block w-4 h-4 flex-shrink-0`} />
-            <span class="invisible sm:visible truncate">{STATE_LABEL_KEY[state()] ? t(STATE_LABEL_KEY[state()]) : state()}</span>
+            <span class="hidden sm:inline truncate">{STATE_LABEL_KEY[state()] ? t(STATE_LABEL_KEY[state()]) : state()}</span>
             <Show when={speed() > 0}>
               <span class="hidden sm:inline">·</span>
               <span class="text-muted-foreground font-medium flex-shrink-0">{formatSpeed(speed())}</span>

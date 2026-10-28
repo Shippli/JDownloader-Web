@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import { createResource, createSignal, Show } from 'solid-js';
 import { ConfigSection } from '../../../components/ConfigSection';
+import { FormActions } from '../../../components/FormActions';
 import { Alert } from '../../../components/ui/Alert';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -56,12 +57,7 @@ export const ConnectionCard: Component<{ onSaved: () => void }> = (props) => {
                   <NumberField label={t('config.info.port')} value={Number(port())} onChange={v => setPort(String(v))} required minValue={1} maxValue={65535} placeholder="3128" />
                 </div>
               </div>
-              <div class="flex gap-2 justify-end">
-                <Button type="submit" variant="default" loading={saving()} icon="i-tabler-check">
-                  {t('config.info.save')}
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => setEditing(false)}>{t('config.info.cancel')}</Button>
-              </div>
+              <FormActions saving={saving()} onCancel={() => setEditing(false)} />
             </form>
           )}
         >

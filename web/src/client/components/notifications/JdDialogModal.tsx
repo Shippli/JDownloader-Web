@@ -6,7 +6,7 @@ import { dialogsApi } from '../../lib/api';
 import { dialogTitle, suppressPackageDialogToasts } from '../../stores/notifications';
 import { Button } from '../ui/Button';
 import { Checkbox } from '../ui/Checkbox';
-import { Dialog } from '../ui/Dialog';
+import { Dialog, DialogBody, DialogFooter } from '../ui/Dialog';
 import { RadioGroup } from '../ui/RadioGroup';
 import { TextField } from '../ui/TextField';
 
@@ -34,7 +34,7 @@ export const JdDialogModal: Component<{ dialog: JdDialogDetail; onClose: () => v
 
   return (
     <Dialog open={true} onClose={props.onClose} title={dialogTitle(props.dialog)}>
-      <div class="px-6 py-4 space-y-4 max-h-[55vh] overflow-y-auto">
+      <DialogBody class="max-h-[55vh] overflow-y-auto">
         <Show when={props.dialog.icon}>
           <img
             src={`data:image/png;base64,${props.dialog.icon}`}
@@ -121,8 +121,8 @@ export const JdDialogModal: Component<{ dialog: JdDialogDetail; onClose: () => v
         <Show when={!isExtractPassword() && msg()}>
           <p class="text-sm text-foreground whitespace-pre-wrap">{msg()}</p>
         </Show>
-      </div>
-      <div class="px-6 py-4 border-t flex gap-2 justify-end">
+      </DialogBody>
+      <DialogFooter bordered>
         <Button variant="secondary" onClick={() => answerDialog('CANCEL')}>
           {cancelText()}
         </Button>
@@ -150,7 +150,7 @@ export const JdDialogModal: Component<{ dialog: JdDialogDetail; onClose: () => v
         >
           {okText()}
         </Button>
-      </div>
+      </DialogFooter>
     </Dialog>
   );
 };

@@ -4,7 +4,7 @@ import { createSignal, Show } from 'solid-js';
 import { t } from '../../i18n';
 import { captchaApi } from '../../lib/api';
 import { Button } from '../ui/Button';
-import { Dialog } from '../ui/Dialog';
+import { Dialog, DialogBody, DialogFooter } from '../ui/Dialog';
 import { TextField } from '../ui/TextField';
 
 export const CaptchaModal: Component<{ captcha: JdCaptchaDetail; onClose: () => void }> = (props) => {
@@ -29,7 +29,7 @@ export const CaptchaModal: Component<{ captcha: JdCaptchaDetail; onClose: () => 
 
   return (
     <Dialog open={true} onClose={props.onClose} title={title()}>
-      <div class="px-6 py-4 space-y-4">
+      <DialogBody>
         <Show when={imgSrc()}>
           {src => (
             <img
@@ -56,15 +56,15 @@ export const CaptchaModal: Component<{ captcha: JdCaptchaDetail; onClose: () => 
             },
           }}
         />
-      </div>
-      <div class="px-6 py-4 border-t flex gap-2 justify-end">
+      </DialogBody>
+      <DialogFooter bordered>
         <Button variant="secondary" onClick={skipCaptcha}>
           {t('captcha.skip')}
         </Button>
         <Button variant="default" onClick={submitCaptcha} disabled={captchaSolution().trim() === ''}>
           {t('captcha.submit')}
         </Button>
-      </div>
+      </DialogFooter>
     </Dialog>
   );
 };

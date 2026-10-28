@@ -51,3 +51,12 @@ export const Dialog: Component<DialogProps> = (props) => {
     </KobalteDialog.Root>
   );
 };
+
+export const DialogBody: Component<{ class?: string; children: JSX.Element }> = props => (
+  <div class={cx('px-6 py-4 space-y-4', props.class)}>{props.children}</div>
+);
+
+// Right-aligned action row; `bordered` when it sits below a DialogBody.
+export const DialogFooter: Component<{ bordered?: boolean; children: JSX.Element }> = props => (
+  <div class={cx('flex gap-2 justify-end', props.bordered && 'px-6 py-4 border-t')}>{props.children}</div>
+);

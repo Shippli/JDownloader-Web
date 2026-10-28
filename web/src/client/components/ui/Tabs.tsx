@@ -23,7 +23,7 @@ export const TabsList: Component<ListProps> = (props) => {
     <div
       ref={ref}
       onWheel={onWheel}
-      class={cx('overflow-x-auto overflow-y-hidden scrollbar-none [&::-webkit-scrollbar]:hidden', props.class)}
+      class={cx('overflow-x-auto overflow-y-hidden scrollbar-none', props.class)}
     >
       <KobalteTabs.List class="flex gap-1">
         {props.children}

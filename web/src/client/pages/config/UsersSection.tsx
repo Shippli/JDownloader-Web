@@ -7,13 +7,14 @@ import {
   For,
   Show,
 } from 'solid-js';
+import { FormActions } from '../../components/FormActions';
 import { Alert } from '../../components/ui/Alert';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { Dialog } from '../../components/ui/Dialog';
+import { Dialog, DialogBody, DialogFooter } from '../../components/ui/Dialog';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { TextField } from '../../components/ui/TextField';
 import { t, tf } from '../../i18n';
@@ -51,7 +52,7 @@ const AddUserDialog: Component<{ open: boolean; onClose: () => void; onAdded: ()
 
   return (
     <Dialog open={props.open} onClose={close} title={t('config.users.addModal.title')}>
-      <div class="px-6 py-4 space-y-3">
+      <DialogBody>
         <Show when={error()}>
           <Alert>{error()}</Alert>
         </Show>
@@ -77,15 +78,15 @@ const AddUserDialog: Component<{ open: boolean; onClose: () => void; onAdded: ()
           placeholder={t('config.users.addModal.passwordPlaceholder')}
           inputProps={{ minLength: 8, autocomplete: 'new-password' }}
         />
-        <div class="flex items-center gap-2 pt-1 justify-end">
+        <DialogFooter>
           <Button variant="secondary" onClick={close}>
-            {t('config.users.addModal.cancel')}
+            {t('common.cancel')}
           </Button>
           <Button variant="default" onClick={add} loading={adding()}>
             {t('config.users.addModal.add')}
           </Button>
-        </div>
-      </div>
+        </DialogFooter>
+      </DialogBody>
     </Dialog>
   );
 };
@@ -237,12 +238,7 @@ const UsersSection: Component = () => {
                           class="sm:col-span-2"
                         />
                       </div>
-                      <div class="flex items-center gap-2 justify-end">
-                        <Button variant="default" onClick={() => saveEdit(u.id)} loading={saving()} icon="i-tabler-check">
-                          {t('config.users.save')}
-                        </Button>
-                        <Button variant="secondary" onClick={() => setEditingId(null)}>{t('config.users.cancel')}</Button>
-                      </div>
+                      <FormActions saving={saving()} onSave={() => saveEdit(u.id)} onCancel={() => setEditingId(null)} />
                     </div>
                   </Show>
                 </div>

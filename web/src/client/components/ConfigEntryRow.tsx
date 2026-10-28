@@ -4,6 +4,7 @@ import { createEffect, createSignal, Show } from 'solid-js';
 import { t, tf } from '../i18n';
 import { configApi } from '../lib/api';
 import { cx } from '../lib/cva';
+import { FormActions } from './FormActions';
 import { Button } from './ui/Button';
 import { Checkbox } from './ui/Checkbox';
 import { Select } from './ui/Select';
@@ -148,17 +149,15 @@ export const ConfigEntryRow: Component<ConfigEntryRowProps> = (props) => {
               label={t('config.settings.enabled')}
             />
           </Show>
-          <div class="flex items-center gap-2 flex-wrap justify-end">
-            <Button variant="default" onClick={() => persist(configApi.setSetting({ ...ref(), value: coerceSettingValue(props.entry, editValue()) }))} loading={saving()} icon="i-tabler-check">
-              {t('config.settings.save')}
-            </Button>
+          <FormActions
+            saving={saving()}
+            onSave={() => persist(configApi.setSetting({ ...ref(), value: coerceSettingValue(props.entry, editValue()) }))}
+            onCancel={props.onCancel}
+          >
             <Button variant="secondary" onClick={() => persist(configApi.resetSetting(ref()))} disabled={saving()} title={t('config.settings.reset')} icon="i-tabler-restore">
               {t('config.settings.reset')}
             </Button>
-            <Button variant="ghost" onClick={() => props.onCancel()}>
-              {t('config.settings.cancel')}
-            </Button>
-          </div>
+          </FormActions>
         </div>
       </Show>
     </div>

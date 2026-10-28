@@ -2,6 +2,7 @@ import type { Component, JSX } from 'solid-js';
 import type { DownloadConfig } from '../../../lib/api';
 import { createResource, createSignal, Show } from 'solid-js';
 import { ConfigSection } from '../../../components/ConfigSection';
+import { FormActions } from '../../../components/FormActions';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Checkbox } from '../../../components/ui/Checkbox';
@@ -48,12 +49,7 @@ const ConfigRow: Component<RowProps> = props => (
         <Show when={props.error}>
           <p class="text-xs text-destructive">{props.error}</p>
         </Show>
-        <div class="flex gap-2 justify-end">
-          <Button type="submit" variant="default" loading={props.saving} icon="i-tabler-check">
-            {t('config.dlconfig.save')}
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => props.onCancel()}>{t('config.dlconfig.cancel')}</Button>
-        </div>
+        <FormActions saving={props.saving} onCancel={props.onCancel} />
       </form>
     </Show>
   </div>

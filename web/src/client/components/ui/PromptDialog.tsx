@@ -2,7 +2,7 @@ import type { Component } from 'solid-js';
 import { createEffect, createSignal } from 'solid-js';
 import { t } from '../../i18n';
 import { Button } from './Button';
-import { Dialog } from './Dialog';
+import { Dialog, DialogBody, DialogFooter } from './Dialog';
 import { TextField } from './TextField';
 
 type PromptDialogProps = {
@@ -31,7 +31,7 @@ export const PromptDialog: Component<PromptDialogProps> = (props) => {
   };
   return (
     <Dialog open={props.open} onClose={props.onClose} title={props.title}>
-      <div class="px-6 py-4 space-y-4">
+      <DialogBody>
         <TextField
           type="text"
           value={value()}
@@ -47,11 +47,11 @@ export const PromptDialog: Component<PromptDialogProps> = (props) => {
             'data-autofocus': '',
           }}
         />
-        <div class="flex gap-2 justify-end">
+        <DialogFooter>
           <Button variant="secondary" onClick={() => props.onClose()}>{t('common.cancel')}</Button>
           <Button variant="default" onClick={submit}>{t('common.save')}</Button>
-        </div>
-      </div>
+        </DialogFooter>
+      </DialogBody>
     </Dialog>
   );
 };

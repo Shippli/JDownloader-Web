@@ -8,7 +8,7 @@ export function ScrollText(props: ScrollTextProps) {
   return (
     <span
       {...rest}
-      class={`block text-ellipsis overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden ${local.class ?? ''}`}
+      class={`block text-ellipsis overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none ${local.class ?? ''}`}
     >
       {local.children}
     </span>

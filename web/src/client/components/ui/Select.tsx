@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import * as KobalteSelect from '@kobalte/core/select';
 import { cx } from '../../lib/cva';
+import { inputClass } from './Input';
 
 export type SelectOption = { value: string; label: string };
 
@@ -38,20 +39,21 @@ export const Select: Component<SelectProps> = (props) => {
     >
       <KobalteSelect.Trigger
         class={cx(
-          'inline-flex items-center justify-between w-full px-3 py-2 rounded-lg border border-input bg-transparent dark:bg-input/30 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-50 disabled:cursor-not-allowed',
+          inputClass,
+          'inline-flex items-center justify-between gap-2',
           props.class,
         )}
       >
-        <KobalteSelect.Value<SelectOption>>
+        <KobalteSelect.Value<SelectOption> class="truncate">
           {state => state.selectedOption().label}
         </KobalteSelect.Value>
-        <KobalteSelect.Icon>
-          <span class="i-tabler-chevron-down w-4 h-4 text-muted-foreground" />
+        <KobalteSelect.Icon class="shrink-0 text-muted-foreground">
+          <span class="i-tabler-chevron-down w-4 h-4 block" />
         </KobalteSelect.Icon>
       </KobalteSelect.Trigger>
       <KobalteSelect.Portal>
-        <KobalteSelect.Content class="z-50 min-w-32 rounded-lg border bg-popover text-popover-foreground shadow-md data-[expanded]:animate-in data-[expanded]:fade-in-0 data-[expanded]:zoom-in-95 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95">
-          <KobalteSelect.Listbox class="p-1 max-h-60 overflow-y-auto" />
+        <KobalteSelect.Content class="z-200 min-w-32 rounded-lg border bg-popover text-popover-foreground shadow-md data-[expanded]:animate-in data-[expanded]:fade-in-0 data-[expanded]:zoom-in-95 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95">
+          <KobalteSelect.Listbox class="p-1 max-h-60 overflow-y-auto scrollbar-none" />
         </KobalteSelect.Content>
       </KobalteSelect.Portal>
     </KobalteSelect.Root>

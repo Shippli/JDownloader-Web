@@ -1,26 +1,27 @@
 import type { Component } from 'solid-js';
-import { Show } from 'solid-js';
+import type { BadgeVariant } from './ui/Badge';
 import { t } from '../i18n';
+import { Badge } from './ui/Badge';
 
 type StatusBadgeProps = {
   status: string;
   iconOnly?: boolean;
 };
 
-type StatusStyle = { icon: string; color: string; bg: string };
+type StatusStyle = { icon: string; variant: BadgeVariant };
 
 const STATUS_RULES: Array<{ test: (s: string) => boolean; style: StatusStyle }> = [
-  { test: s => s.includes('extracting'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-warning', bg: 'bg-warning/10' } },
-  { test: s => s.includes('ok') || s.includes('finished') || s.includes('complete'), style: { icon: 'i-tabler-check', color: 'text-success', bg: 'bg-success/10' } },
-  { test: s => s.includes('download') || s.includes('loading') || s.includes('running'), style: { icon: 'i-tabler-loader-2 animate-spin', color: 'text-foreground', bg: 'bg-muted' } },
-  { test: s => s.includes('error') || s.includes('failed'), style: { icon: 'i-tabler-alert-circle', color: 'text-destructive', bg: 'bg-destructive/10' } },
-  { test: s => s.startsWith('file already exists'), style: { icon: 'i-tabler-file-alert', color: 'text-warning', bg: 'bg-warning/10' } },
-  { test: s => s.startsWith('try restarting'), style: { icon: 'i-tabler-refresh-alert', color: 'text-warning', bg: 'bg-warning/10' } },
-  { test: s => s.includes('wait') || s.includes('queue'), style: { icon: 'i-tabler-clock', color: 'text-warning', bg: 'bg-warning/10' } },
-  { test: s => s.includes('paused'), style: { icon: 'i-tabler-player-pause', color: 'text-warning', bg: 'bg-warning/10' } },
+  { test: s => s.includes('extracting'), style: { icon: 'i-tabler-loader-2 animate-spin', variant: 'warning' } },
+  { test: s => s.includes('ok') || s.includes('finished') || s.includes('complete'), style: { icon: 'i-tabler-check', variant: 'success' } },
+  { test: s => s.includes('download') || s.includes('loading') || s.includes('running'), style: { icon: 'i-tabler-loader-2 animate-spin', variant: 'neutral' } },
+  { test: s => s.includes('error') || s.includes('failed'), style: { icon: 'i-tabler-alert-circle', variant: 'danger' } },
+  { test: s => s.startsWith('file already exists'), style: { icon: 'i-tabler-file-alert', variant: 'warning' } },
+  { test: s => s.startsWith('try restarting'), style: { icon: 'i-tabler-refresh-alert', variant: 'warning' } },
+  { test: s => s.includes('wait') || s.includes('queue'), style: { icon: 'i-tabler-clock', variant: 'warning' } },
+  { test: s => s.includes('paused'), style: { icon: 'i-tabler-player-pause', variant: 'warning' } },
 ];
 
-const DEFAULT_STYLE: StatusStyle = { icon: 'i-tabler-minus', color: 'text-muted-foreground', bg: 'bg-muted' };
+const DEFAULT_STYLE: StatusStyle = { icon: 'i-tabler-minus', variant: 'default' };
 
 function getStatusStyle(status: string): StatusStyle {
   const s = status?.toLowerCase() ?? '';
@@ -56,15 +57,9 @@ const StatusBadge: Component<StatusBadgeProps> = (props) => {
   };
 
   return (
-    <span
-      class={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${style().color} ${style().bg}`}
-      title={props.status}
-    >
-      <span class={`${style().icon} w-3 h-3 flex-shrink-0`} />
-      <Show when={!props.iconOnly}>
-        <span class="truncate max-w-40">{label()}</span>
-      </Show>
-    </span>
+    <Badge shape="pill" variant={style().variant} icon={style().icon} iconOnly={props.iconOnly} title={props.status}>
+      <span class="truncate max-w-40">{label()}</span>
+    </Badge>
   );
 };
 

@@ -1,13 +1,14 @@
 import type { Component } from 'solid-js';
 import type { JdAccount } from '../../lib/api';
-import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createResource, createSignal, For, Show } from 'solid-js';
 import { Alert } from '../../components/ui/Alert';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Combobox } from '../../components/ui/Combobox';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { Dialog } from '../../components/ui/Dialog';
+import { Dialog, DialogBody, DialogFooter } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { Switch } from '../../components/ui/Switch';
@@ -28,7 +29,6 @@ const AddAccountDialog: Component<{ open: boolean } & DialogCallbacks> = (props)
   const [user, setUser] = createSignal('');
   const [pass, setPass] = createSignal('');
   const [saving, setSaving] = createSignal(false);
-  const [suggestOpen, setSuggestOpen] = createSignal(false);
   const [hosters, setHosters] = createSignal<string[]>([]);
   const [hostersLoading, setHostersLoading] = createSignal(false);
   let hostersRequested = false;
@@ -46,17 +46,10 @@ const AddAccountDialog: Component<{ open: boolean } & DialogCallbacks> = (props)
       .finally(() => setHostersLoading(false));
   });
 
-  const suggestions = createMemo(() => {
-    const q = hoster().toLowerCase().trim();
-    const all = hosters();
-    return (q ? all.filter(h => h.toLowerCase().includes(q)) : all).slice(0, MAX_HOSTER_SUGGESTIONS);
-  });
-
   const close = () => {
     setHoster('');
     setUser('');
     setPass('');
-    setSuggestOpen(false);
     props.onClose();
   };
 
@@ -77,69 +70,46 @@ const AddAccountDialog: Component<{ open: boolean } & DialogCallbacks> = (props)
 
   return (
     <Dialog open={props.open} onClose={close} title={t('config.accounts.addModal.title')}>
-      <form onSubmit={submit} class="px-6 py-4 space-y-3">
-        <div>
+      <form onSubmit={submit}>
+        <DialogBody>
+          <div>
+            <Combobox
+              label={t('config.accounts.addModal.hoster')}
+              value={hoster()}
+              onChange={setHoster}
+              options={hosters()}
+              maxOptions={MAX_HOSTER_SUGGESTIONS}
+              placeholder={t('config.accounts.addModal.hosterPlaceholder')}
+              disabled={hostersLoading()}
+              required
+            />
+            <Show when={hostersLoading()}>
+              <p class="text-xs text-muted-foreground mt-1">{t('config.accounts.addModal.hosterLoading')}</p>
+            </Show>
+          </div>
           <TextField
-            label={t('config.accounts.addModal.hoster')}
+            label={t('config.accounts.addModal.username')}
             type="text"
-            value={hoster()}
-            onChange={(v) => {
-              setHoster(v);
-              setSuggestOpen(true);
-            }}
-            placeholder={t('config.accounts.addModal.hosterPlaceholder')}
-            inputProps={{
-              onFocus: () => setSuggestOpen(true),
-              // Delay so a click on a suggestion lands before the list closes.
-              onBlur: () => setTimeout(setSuggestOpen, 150, false),
-              autocomplete: 'off',
-              required: true,
-            }}
+            value={user()}
+            onChange={setUser}
+            inputProps={{ required: true }}
           />
-          <Show when={hostersLoading()}>
-            <p class="text-xs text-muted-foreground mt-1">{t('config.accounts.addModal.hosterLoading')}</p>
-          </Show>
-          <Show when={suggestOpen() && suggestions().length > 0}>
-            <div class="mt-1 border rounded-lg bg-card max-h-48 overflow-y-auto shadow-xs">
-              <For each={suggestions()}>
-                {h => (
-                  <button
-                    type="button"
-                    class="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
-                    onMouseDown={() => {
-                      setHoster(h);
-                      setSuggestOpen(false);
-                    }}
-                  >
-                    {h}
-                  </button>
-                )}
-              </For>
-            </div>
-          </Show>
-        </div>
-        <TextField
-          label={t('config.accounts.addModal.username')}
-          type="text"
-          value={user()}
-          onChange={setUser}
-          inputProps={{ required: true }}
-        />
-        <TextField
-          label={t('config.accounts.addModal.password')}
-          type="password"
-          value={pass()}
-          onChange={setPass}
-          inputProps={{ required: true }}
-        />
-        <div class="flex gap-2 pt-2 justify-end">
-          <Button type="button" variant="secondary" onClick={close}>
-            {t('config.accounts.addModal.cancel')}
-          </Button>
-          <Button type="submit" variant="default" loading={saving()}>
-            {t('config.accounts.addModal.add')}
-          </Button>
-        </div>
+          <TextField
+            label={t('config.accounts.addModal.password')}
+            type="password"
+            value={pass()}
+            onChange={setPass}
+            inputProps={{ required: true }}
+          />
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={close}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" variant="default" loading={saving()}>
+              {t('config.accounts.addModal.add')}
+            </Button>
+          </DialogFooter>
+        </DialogBody>
       </form>
     </Dialog>
   );
@@ -176,29 +146,31 @@ const CredentialsDialog: Component<{ account: JdAccount | null } & DialogCallbac
 
   return (
     <Dialog open={props.account !== null} onClose={props.onClose} title={t('config.accounts.credsModal.title')}>
-      <form onSubmit={submit} class="px-6 py-4 space-y-3">
-        <TextField
-          label={t('config.accounts.credsModal.username')}
-          type="text"
-          value={user()}
-          onChange={setUser}
-          inputProps={{ required: true }}
-        />
-        <TextField
-          label={t('config.accounts.credsModal.password')}
-          type="password"
-          value={pass()}
-          onChange={setPass}
-          inputProps={{ required: true }}
-        />
-        <div class="flex items-center gap-2 justify-end">
-          <Button type="button" variant="secondary" onClick={() => props.onClose()}>
-            {t('config.accounts.credsModal.cancel')}
-          </Button>
-          <Button type="submit" variant="default" loading={saving()} icon="i-tabler-check">
-            {t('config.accounts.credsModal.save')}
-          </Button>
-        </div>
+      <form onSubmit={submit}>
+        <DialogBody>
+          <TextField
+            label={t('config.accounts.credsModal.username')}
+            type="text"
+            value={user()}
+            onChange={setUser}
+            inputProps={{ required: true }}
+          />
+          <TextField
+            label={t('config.accounts.credsModal.password')}
+            type="password"
+            value={pass()}
+            onChange={setPass}
+            inputProps={{ required: true }}
+          />
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => props.onClose()}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" variant="default" loading={saving()} icon="i-tabler-check">
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogBody>
       </form>
     </Dialog>
   );
