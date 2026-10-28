@@ -347,6 +347,24 @@ function showNotification(title, message) {
   }).catch(() => {});
 }
 
+// Focus an open web UI tab, or open one.
+async function openWebUi() {
+  if (!config.serverUrl) return;
+  // query throws if serverUrl isn't a valid match pattern → just open a new tab
+  const [tab] = await browser.tabs.query({ url: config.serverUrl + '/*' }).catch(() => []);
+  if (tab) {
+    await browser.tabs.update(tab.id, { active: true });
+    await browser.windows.update(tab.windowId, { focused: true });
+  } else {
+    await browser.tabs.create({ url: config.serverUrl });
+  }
+}
+
+browser.notifications.onClicked.addListener((id) => {
+  browser.notifications.clear(id).catch(() => {});
+  openWebUi().catch(console.error);
+});
+
 // ─── CNL Handling ─────────────────────────────────────────────────────────────
 
 function notifyCnlError(message) {
