@@ -65,6 +65,14 @@ function packageProgressColor(pkg: DownloadPackage): ProgressColor {
   return 'blue';
 }
 
+// JD reports the package as "Finished" while its links are still extracting.
+function packageStatus(pkg: DownloadPackage, pkgLinks: DownloadLink[], extracting: boolean): string {
+  if (!extracting) {
+    return pkg.status ?? '';
+  }
+  return pkgLinks.find(l => isExtracting(l.status))?.status ?? 'Extracting';
+}
+
 const linkProgressColor = (link: DownloadLink): ProgressColor => link.finished ? 'green' : 'blue';
 
 // Shows the *currently* extracting archive's own progress (0→100), resetting
@@ -286,6 +294,7 @@ const Downloads: Component = () => {
                 const pkgLinks = () => list.packageLinks(pkg.uuid);
                 const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
                 const pkgExProgress = () => extractValue(pkg.uuid, pkgLinks());
+                const pkgStatus = () => packageStatus(pkg, pkgLinks(), pkgExProgress() !== null);
 
                 return (
                   <Card
@@ -307,7 +316,7 @@ const Downloads: Component = () => {
                             <div class="flex-1 min-w-0">
                               <ScrollText class="font-semibold text-foreground text-sm" title={pkg.name}>{pkg.name}</ScrollText>
                               <div class="flex items-center gap-3 mt-1 flex-wrap">
-                                <StatusBadge status={pkg.status ?? ''} />
+                                <StatusBadge status={pkgStatus()} />
                                 <PriorityBadge priority={pkg.priority} />
                                 <span class="text-xs text-muted-foreground">
                                   {formatBytes(pkg.bytesLoaded)}
@@ -425,6 +434,7 @@ const Downloads: Component = () => {
               const pkgLinks = () => list.packageLinks(pkg.uuid);
               const progress = () => getProgress(pkg.bytesLoaded, pkg.bytesTotal);
               const pkgExProgress = () => extractValue(pkg.uuid, pkgLinks());
+              const pkgStatus = () => packageStatus(pkg, pkgLinks(), pkgExProgress() !== null);
               const isSelected = () => list.isPkgSelected(pkg.uuid);
               const isExpanded = () => list.isExpanded(pkg.uuid);
               const expandBg = () => index() % 2 === 0 ? 'bg-info/5' : 'bg-background';
@@ -441,7 +451,7 @@ const Downloads: Component = () => {
                     <Checkbox checked={isSelected()} onChange={() => {}} class="pointer-events-none flex-shrink-0" />
                     <ScrollText class="text-xs font-semibold text-foreground flex-1 min-w-0" classList={{ 'opacity-40': !pkg.enabled }}>{pkg.name}</ScrollText>
                     <PriorityBadge priority={pkg.priority} iconOnly />
-                    <StatusBadge status={pkg.status ?? ''} iconOnly />
+                    <StatusBadge status={pkgStatus()} iconOnly />
                     <Show when={pkg.speed > 0}>
                       <span class="text-xs text-muted-foreground font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
                     </Show>
@@ -454,10 +464,10 @@ const Downloads: Component = () => {
                   <Show when={isExpanded()}>
                     {/* Package summary row */}
                     <div class={`flex border-b text-xs divide-x divide-border ${expandBg()}`}>
-                      <Show when={pkg.status}>
+                      <Show when={pkgStatus()}>
                         <div class="flex flex-1 flex-col items-center justify-center gap-0.5 px-3 py-2 text-center min-w-0 overflow-hidden">
                           <span class="text-muted-foreground uppercase tracking-wide text-2xs">{t('downloads.summaryStatus')}</span>
-                          <span class="text-foreground font-medium truncate max-w-full" title={pkg.status}>{pkg.status}</span>
+                          <span class="text-foreground font-medium truncate max-w-full" title={pkgStatus()}>{pkgStatus()}</span>
                         </div>
                       </Show>
                       <div class="flex flex-col items-center justify-center gap-0.5 px-3 py-2 text-center">
