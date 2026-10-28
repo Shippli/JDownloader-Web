@@ -8,15 +8,13 @@ export const PRIORITIES = [
   { key: 'HIGHER', labelKey: 'common.priority.higher', icon: 'i-tabler-arrows-up', variant: 'warning' },
   { key: 'HIGH', labelKey: 'common.priority.high', icon: 'i-tabler-arrow-up', variant: 'warning' },
   { key: 'DEFAULT', labelKey: 'common.priority.default', icon: 'i-tabler-minus', variant: undefined },
-  { key: 'LOW', labelKey: 'common.priority.low', icon: 'i-tabler-arrow-down', variant: 'default' },
+  { key: 'LOWER', labelKey: 'common.priority.low', icon: 'i-tabler-arrow-down', variant: 'default' },
 ] as const;
 
 export type Priority = typeof PRIORITIES[number]['key'];
 
-// JD's LOWER is shown as LOW.
 export function priorityInfo(priority: string | undefined) {
-  const key = priority === 'LOWER' ? 'LOW' : priority;
-  return PRIORITIES.find(p => p.key === key);
+  return PRIORITIES.find(p => p.key === priority);
 }
 
 // Desktop: submenu; touch: opens the priority dialog instead.
