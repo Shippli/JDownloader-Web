@@ -67,5 +67,9 @@
   "errorUnknownJkFormat":  {
     "message": "Unbekanntes jk-Format (kein Hexschlüssel gefunden): $DETAILS$",
     "placeholders": { "details": { "content": "$1" } }
+  },
+  "errorCnlMissingData":   {
+    "message": "addcrypted2 empfangen, aber Daten fehlen (crypted=$CRYPTED$, jk=$JK$)",
+    "placeholders": { "crypted": { "content": "$1" }, "jk": { "content": "$2" } }
   }
 }

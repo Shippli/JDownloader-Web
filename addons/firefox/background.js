@@ -10,8 +10,10 @@ const config = {
   notifications: true,   // when false, no desktop notifications are shown
 };
 
+const normalizeUrl = url => (url || '').replace(/\/$/, '');
+
 browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend', 'notifications']).then((data) => {
-  config.serverUrl     = data.serverUrl || '';
+  config.serverUrl     = normalizeUrl(data.serverUrl);
   config.token         = data.token     || null;
   config.cnlActive     = data.cnlActive !== false;
   config.autoSend      = data.autoSend  !== false;
@@ -22,8 +24,11 @@ browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend', 'notif
 });
 
 browser.storage.onChanged.addListener((changes) => {
-  if (changes.serverUrl) config.serverUrl = changes.serverUrl.newValue || '';
-  if (changes.cnlActive) config.cnlActive = changes.cnlActive.newValue !== false;
+  if (changes.serverUrl) config.serverUrl = normalizeUrl(changes.serverUrl.newValue);
+  if (changes.cnlActive) {
+    config.cnlActive = changes.cnlActive.newValue !== false;
+    updateBadge();
+  }
   if (changes.autoSend)  config.autoSend  = changes.autoSend.newValue  !== false;
   if (changes.notifications) config.notifications = changes.notifications.newValue !== false;
   if (changes.token) {
@@ -56,9 +61,6 @@ async function updateBadge() {
     browser.browserAction.setBadgeText({ text: '' });
   }
 }
-
-// crossdomain.xml base64 encoded
-const CROSSDOMAIN_RESPONSE = 'data:text/xml;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/Pg0KPGNyb3NzLWRvbWFpbi1wb2xpY3k+DQogIDxzaXRlLWNvbnRyb2wgcGVybWl0dGVkLWNyb3NzLWRvbWFpbi1wb2xpY2llcz0ibWFzdGVyLW9ubHkiLz4NCiAgPGFsbG93LWFjY2Vzcy1mcm9tIGRvbWFpbj0iKiIvPg0KICA8YWxsb3ctaHR0cC1yZXF1ZXN0LWhlYWRlcnMtZnJvbSBkb21haW49IioiIGhlYWRlcnM9IioiLz4NCjwvY3Jvc3MtZG9tYWluLXBvbGljeT4=';
 
 // ─── URL Helpers ──────────────────────────────────────────────────────────────
 
@@ -98,7 +100,7 @@ function readFormData(requestBody) {
 
 // ─── AES-CBC Decryption ───────────────────────────────────────────────────────
 
-async function hexToBytes(hex) {
+function hexToBytes(hex) {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
   return bytes;
@@ -124,7 +126,7 @@ async function decryptCnl(crypted, jkScript) {
 
   if (!keyHex || typeof keyHex !== 'string') throw new Error('jk did not return a valid hex key');
 
-  const keyBytes = await hexToBytes(keyHex.trim());
+  const keyBytes = hexToBytes(keyHex.trim());
   const iv       = keyBytes.slice(0, 16);
 
   const ciphertextStr   = atob(crypted);
@@ -207,7 +209,7 @@ async function sendItem(item) {
   const body = { links: item.links.trim(), packageName: item.packageName, autostart: false };
   if (item.extractPassword) body.extractPassword = item.extractPassword;
 
-  const response = await fetch(config.serverUrl.replace(/\/$/, '') + '/api/jd/grabber/add', {
+  const response = await fetch(config.serverUrl + '/api/jd/grabber/add', {
     method:      'POST',
     credentials: 'include',
     headers:     { 'Content-Type': 'application/json' },
@@ -222,6 +224,22 @@ async function sendItem(item) {
   if (!response.ok) {
     throw new Error('Backend returned ' + response.status);
   }
+}
+
+// Session expired – drop the token (badge updates via storage.onChanged) and ask for re-login.
+async function handleUnauthorized() {
+  config.token = null;
+  await browser.storage.local.remove('token');
+  showNotification('JDownloader', browser.i18n.getMessage('notifSessionExpired'));
+}
+
+function linkCount(links) {
+  return links.trim().split(/\r?\n/).filter(u => u.trim()).length;
+}
+
+function notifyLinksAdded(links) {
+  const n = linkCount(links);
+  showNotification('JDownloader', n === 1 ? browser.i18n.getMessage('notifLinksAdded1') : browser.i18n.getMessage('notifLinksAddedN', String(n)));
 }
 
 // Processes the full queue. Stops on first network error (server still down).
@@ -243,11 +261,7 @@ async function flushQueue() {
         sent.push(item.id);
       } catch (err) {
         if (err.status === 401) {
-          // Session expired – stop, require re-login
-          config.token = null;
-          await browser.storage.local.remove('token');
-          await updateBadge();
-          showNotification('JDownloader', browser.i18n.getMessage('notifSessionExpired'));
+          await handleUnauthorized();
           return;
         }
         // Network / server error – stop and try again later
@@ -284,7 +298,7 @@ browser.alarms.onAlarm.addListener((alarm) => {
 async function isCompanionReady() {
   if (!config.serverUrl || !config.token) return false;
   try {
-    const res = await fetch(config.serverUrl.replace(/\/$/, '') + '/api/jd/status', { credentials: 'include' });
+    const res = await fetch(config.serverUrl + '/api/jd/status', { credentials: 'include' });
     if (!res.ok) return false;
     const data = await res.json();
     return data.configured === true && data.connected === true;
@@ -309,10 +323,7 @@ async function sendToBackend(links, packageName, extractPassword) {
     await sendItem({ links, packageName, extractPassword });
   } catch (err) {
     if (err.status === 401) {
-      config.token = null;
-      await browser.storage.local.remove('token');
-      await updateBadge();
-      showNotification('JDownloader', browser.i18n.getMessage('notifSessionExpired'));
+      await handleUnauthorized();
       return;
     }
     // Network error → queue for later
@@ -321,8 +332,7 @@ async function sendToBackend(links, packageName, extractPassword) {
     return;
   }
 
-  const urlCount = links.trim().split(/\r?\n/).filter(u => u.trim()).length;
-  showNotification('JDownloader', urlCount === 1 ? browser.i18n.getMessage('notifLinksAdded1') : browser.i18n.getMessage('notifLinksAddedN', String(urlCount)));
+  notifyLinksAdded(links);
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -335,6 +345,34 @@ function showNotification(title, message) {
     title,
     message,
   }).catch(() => {});
+}
+
+// ─── CNL Handling ─────────────────────────────────────────────────────────────
+
+function notifyCnlError(message) {
+  showNotification(browser.i18n.getMessage('notifCnlError'), message);
+}
+
+// kind: 'add' (plain links) or 'addcrypted2' (encrypted). packageOverride is the
+// name captured on the page, if any.
+function processCnl(kind, fd, packageOverride) {
+  if (kind === 'addcrypted2') {
+    const crypted = fd.crypted || '';
+    const jk      = fd.jk      || '';
+    // Package name comes from the `package` field, never `source` (the referer URL).
+    const packageName = packageOverride || fd.package || '';
+    if (!crypted || !jk) {
+      notifyCnlError(browser.i18n.getMessage('errorCnlMissingData', [String(!!crypted), String(!!jk)]));
+      return;
+    }
+    decryptCnl(crypted, jk)
+      .then(urls => sendToBackend(urls, packageName, fd.passwords || ''))
+      .catch(err => notifyCnlError(err.message));
+    return;
+  }
+  const links       = fd.urls || fd.source || '';
+  const packageName = packageOverride || fd.package || fd.refer || '';
+  if (links) sendToBackend(links, packageName).catch(err => notifyCnlError(err.message));
 }
 
 // ─── WebRequest Interceptor ───────────────────────────────────────────────────
@@ -360,30 +398,12 @@ function handleRequest(details) {
   if (matchesCnlHost(url, '/crossdomain.xml')) return { cancel: true };
   if (url.includes('?fromExtension'))          return {};
 
-  // Plain links
-  if (matchesCnlHost(url, '/flash/add')) {
-    const fd          = readFormData(details.requestBody || {});
-    const links       = fd.urls || fd.source || '';
-    const packageName = fd.package || fd.refer || '';
-    if (links) sendToBackend(links, packageName).catch(console.error);
+  if (matchesCnlHost(url, '/flash/addcrypted2')) {
+    processCnl('addcrypted2', readFormData(details.requestBody || {}));
     return { cancel: true };
   }
-
-  // Encrypted links
-  if (matchesCnlHost(url, '/flash/addcrypted2')) {
-    const fd          = readFormData(details.requestBody || {});
-    const crypted     = fd.crypted   || '';
-    const jk          = fd.jk        || '';
-    // Package name comes from the `package` field, not `source` (the referer URL).
-    const packageName = fd.package   || '';
-    const passwords   = fd.passwords || '';
-    if (crypted && jk) {
-      decryptCnl(crypted, jk)
-        .then(urls => sendToBackend(urls, packageName, passwords))
-        .catch(err => showNotification(browser.i18n.getMessage('notifCnlError'), err.message));
-    } else {
-      showNotification(browser.i18n.getMessage('notifCnlError'), `addcrypted2 empfangen, aber Daten fehlen (crypted=${!!crypted}, jk=${!!jk})`);
-    }
+  if (matchesCnlHost(url, '/flash/add')) {
+    processCnl('add', readFormData(details.requestBody || {}));
     return { cancel: true };
   }
 
@@ -399,29 +419,6 @@ browser.webRequest.onBeforeRequest.addListener(
 // ─── Message Handler (from popup) ────────────────────────────────────────────
 
 browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === 'getStatus') {
-    loadQueue().then(queue => {
-      sendResponse({ serverUrl: config.serverUrl, loggedIn: !!config.token, queueSize: queue.length, autoSend: config.autoSend });
-    });
-    return true;
-  }
-
-  if (message.type === 'logout') {
-    config.token = null;
-    browser.storage.local.remove('token').then(() => {
-      updateBadge();
-      sendResponse({ ok: true });
-    });
-    return true;
-  }
-
-  if (message.type === 'setCnlActive') {
-    config.cnlActive = message.active;
-    updateBadge();
-    sendResponse({ ok: true });
-    return true;
-  }
-
   if (message.type === 'flushQueue') {
     flushQueue().then(() => loadQueue()).then(queue => {
       sendResponse({ queueSize: queue.length });
@@ -432,25 +429,9 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // CNL form data captured by the injected page-context script (bypasses mixed-content blocking)
   if (message.type === 'cnlFormIntercept') {
     if (!config.cnlActive) { sendResponse({ ok: false }); return true; }
-    const fd     = message.formData || {};
-    const action = message.action   || '';
-    if (action.includes('/flash/addcrypted2')) {
-      const crypted     = fd.crypted   || '';
-      const jk          = fd.jk        || '';
-      // Prefer the name captured on the page (package field / JDData[3]); fall
-      // back to the raw `package` field. Never `source` — that is the referer URL.
-      const packageName = message.packageName || fd.package || '';
-      const passwords   = fd.passwords || '';
-      if (crypted && jk) {
-        decryptCnl(crypted, jk)
-          .then(urls => sendToBackend(urls, packageName, passwords))
-          .catch(err => showNotification(browser.i18n.getMessage('notifCnlError'), err.message));
-      }
-    } else if (action.includes('/flash/add')) {
-      const links       = fd.urls || fd.source || '';
-      const packageName = message.packageName || fd.package || fd.refer || '';
-      if (links) sendToBackend(links, packageName).catch(err => showNotification(browser.i18n.getMessage('notifCnlError'), err.message));
-    }
+    const action = message.action || '';
+    const kind   = action.includes('/flash/addcrypted2') ? 'addcrypted2' : action.includes('/flash/add') ? 'add' : null;
+    if (kind) processCnl(kind, message.formData || {}, message.packageName);
     sendResponse({ ok: true });
     return true;
   }
@@ -470,12 +451,6 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === 'setAutoSend') {
-    config.autoSend = message.active;
-    sendResponse({ ok: true });
-    return true;
-  }
-
   if (message.type === 'sendQueueItem') {
     loadQueue().then(async queue => {
       const item = queue.find(i => i.id === message.id);
@@ -485,15 +460,11 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         const updated = queue.filter(i => i.id !== message.id);
         await saveQueue(updated);
         await updateBadge();
-        const n = item.links.trim().split(/\r?\n/).filter(u => u.trim()).length;
-        showNotification('JDownloader', n === 1 ? browser.i18n.getMessage('notifLinksAdded1') : browser.i18n.getMessage('notifLinksAddedN', String(n)));
+        notifyLinksAdded(item.links);
         sendResponse({ ok: true, queueSize: updated.length });
       } catch (err) {
         if (err.status === 401) {
-          config.token = null;
-          await browser.storage.local.remove('token');
-          await updateBadge();
-          showNotification('JDownloader', browser.i18n.getMessage('notifSessionExpired'));
+          await handleUnauthorized();
         }
         sendResponse({ ok: false, error: err.message });
       }

@@ -120,15 +120,6 @@ async function refreshQueueUI(inOfflineView = false) {
   }
 }
 
-// Legacy helper used by showConnected / showOffline (called with just the count)
-function updateQueueUI(queueSize, inOfflineView = false) {
-  if (queueSize > 0) {
-    refreshQueueUI(inOfflineView);
-  } else {
-    (inOfflineView ? offlineQueueInfo : queueInfo).classList.add('hidden');
-  }
-}
-
 flushQueueBtn.addEventListener('click', async () => {
   flushQueueBtn.textContent = t('btnFlushQueueLoading');
   flushQueueBtn.disabled = true;
@@ -145,24 +136,22 @@ clearQueueBtn.addEventListener('click', async () => {
 
 // ─── State helpers ────────────────────────────────────────────────────────────
 
-function showConnected(serverUrl, queueSize = 0) {
+function showConnected(serverUrl) {
   loginView.classList.add('hidden');
   offlineView.classList.add('hidden');
   connectedView.classList.remove('hidden');
   statusText.textContent = t('statusConnected');
   statusDot.className = 'status-dot connected';
   connServerUrl.textContent = serverUrl.replace(/^https?:\/\//, '');
-  updateQueueUI(queueSize, false);
 }
 
-function showOffline(serverUrl, queueSize = 0) {
+function showOffline(serverUrl) {
   loginView.classList.add('hidden');
   connectedView.classList.add('hidden');
   offlineView.classList.remove('hidden');
   statusText.textContent = t('statusOffline');
   statusDot.className = 'status-dot offline';
   offlineServer.textContent = serverUrl.replace(/^https?:\/\//, '');
-  updateQueueUI(queueSize, true);
 }
 
 function showLogin() {
@@ -195,7 +184,7 @@ function setLoading(loading) {
 
 // ─── Session check ────────────────────────────────────────────────────────────
 
-async function checkSession(serverUrl, token) {
+async function checkSession(serverUrl) {
   try {
     const res = await fetch(serverUrl.replace(/\/$/, '') + '/api/auth/get-session', { credentials: 'include' });
     if (res.ok) {
@@ -208,96 +197,67 @@ async function checkSession(serverUrl, token) {
   }
 }
 
-// ─── Toggle state helpers ─────────────────────────────────────────────────────
+// ─── Toggles ──────────────────────────────────────────────────────────────────
+// Each toggle mirrors a boolean in storage (default true); background.js
+// picks changes up via storage.onChanged.
 
-// Apply both toggle states synchronously (call before making the view visible)
-function applyToggleStates(cnlActive, autoSend, notifications = true) {
-  cnlToggle.checked          = cnlActive;
-  cnlDesc.textContent        = cnlActive ? t('toggleCnlActive') : t('toggleCnlStopped');
-  autoSendToggle.checked     = autoSend;
-  autoSendDesc.textContent   = autoSend  ? t('toggleCnlActive') : t('toggleAutoSendManual');
-  notifToggle.checked        = notifications;
-  notifDesc.textContent      = notifications ? t('toggleNotifOn') : t('toggleNotifOff');
+const TOGGLES = [
+  { key: 'cnlActive',     input: cnlToggle,      desc: cnlDesc,      on: 'toggleCnlActive', off: 'toggleCnlStopped' },
+  { key: 'autoSend',      input: autoSendToggle, desc: autoSendDesc, on: 'toggleCnlActive', off: 'toggleAutoSendManual' },
+  { key: 'notifications', input: notifToggle,    desc: notifDesc,    on: 'toggleNotifOn',   off: 'toggleNotifOff' },
+];
+
+function renderToggle(toggle, active) {
+  toggle.input.checked     = active;
+  toggle.desc.textContent  = t(active ? toggle.on : toggle.off);
 }
 
-// ─── CNL toggle ───────────────────────────────────────────────────────────────
-
-async function loadCnlState() {
-  const data = await browser.storage.local.get('cnlActive');
-  const active = data.cnlActive !== false;
-  cnlToggle.checked = active;
-  cnlDesc.textContent = active ? t('toggleCnlActive') : t('toggleCnlStopped');
+// Apply stored toggle states synchronously (call before making the view visible)
+function applyToggleStates(data) {
+  for (const toggle of TOGGLES) renderToggle(toggle, data[toggle.key] !== false);
 }
 
-cnlToggle.addEventListener('change', async () => {
-  const active = cnlToggle.checked;
-  cnlDesc.textContent = active ? t('toggleCnlActive') : t('toggleCnlStopped');
-  await browser.storage.local.set({ cnlActive: active });
-  browser.runtime.sendMessage({ type: 'setCnlActive', active }).catch(() => {});
-});
-
-// ─── Auto-Send toggle ─────────────────────────────────────────────────────────
-
-async function loadAutoSendState() {
-  const data = await browser.storage.local.get('autoSend');
-  const active = data.autoSend !== false;
-  autoSendToggle.checked = active;
-  autoSendDesc.textContent = active ? t('toggleCnlActive') : t('toggleAutoSendManual');
+for (const toggle of TOGGLES) {
+  toggle.input.addEventListener('change', () => {
+    const active = toggle.input.checked;
+    renderToggle(toggle, active);
+    browser.storage.local.set({ [toggle.key]: active });
+  });
 }
 
-autoSendToggle.addEventListener('change', async () => {
-  const active = autoSendToggle.checked;
-  autoSendDesc.textContent = active ? t('toggleCnlActive') : t('toggleAutoSendManual');
-  await browser.storage.local.set({ autoSend: active });
-  browser.runtime.sendMessage({ type: 'setAutoSend', active }).catch(() => {});
-});
+const STORED_KEYS = ['serverUrl', 'token', 'email', ...TOGGLES.map(tg => tg.key)];
 
-// ─── Notifications toggle ─────────────────────────────────────────────────────
-
-async function loadNotifState() {
-  const data = await browser.storage.local.get('notifications');
-  const active = data.notifications !== false;
-  notifToggle.checked = active;
-  notifDesc.textContent = active ? t('toggleNotifOn') : t('toggleNotifOff');
+// Shows the view matching the stored session. Returns the session state
+// ('connected' | 'offline' | 'invalid' | 'none').
+async function resolveSession() {
+  const data = await browser.storage.local.get(STORED_KEYS);
+  if (!data.token || !data.serverUrl) {
+    showLogin();
+    return 'none';
+  }
+  // Apply toggle states before the view becomes visible to avoid the flash
+  applyToggleStates(data);
+  const result = await checkSession(data.serverUrl);
+  if (result === 'connected') {
+    showConnected(data.serverUrl);
+    await refreshQueueUI(false);
+  } else if (result === 'offline') {
+    showOffline(data.serverUrl);
+    await refreshQueueUI(true);
+  } else {
+    await browser.storage.local.remove('token');
+    showLogin();
+  }
+  return result;
 }
-
-notifToggle.addEventListener('change', async () => {
-  const active = notifToggle.checked;
-  notifDesc.textContent = active ? t('toggleNotifOn') : t('toggleNotifOff');
-  await browser.storage.local.set({ notifications: active });
-});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
-  const data = await browser.storage.local.get(['serverUrl', 'token', 'email', 'cnlActive', 'autoSend', 'notifications']);
-
+  const data = await browser.storage.local.get(['serverUrl', 'email']);
   if (data.serverUrl) serverUrlInput.value = data.serverUrl;
   if (data.email)     emailInput.value     = data.email;
-
-  if (data.token && data.serverUrl) {
-    // Apply toggle states before the view becomes visible to avoid the flash
-    applyToggleStates(data.cnlActive !== false, data.autoSend !== false, data.notifications !== false);
-
-    const result = await checkSession(data.serverUrl, data.token);
-
-    if (result === 'connected') {
-      showConnected(data.serverUrl);
-      await refreshQueueUI(false);
-      return;
-    }
-
-    if (result === 'offline') {
-      showOffline(data.serverUrl);
-      await refreshQueueUI(true);
-      return;
-    }
-
-    // Token invalid → clear and show login
-    await browser.storage.local.remove('token');
-  }
-
-  showLogin();
+  await resolveSession();
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -340,9 +300,7 @@ loginForm.addEventListener('submit', async (e) => {
     }
 
     await browser.storage.local.set({ serverUrl, token, email });
-    await loadCnlState();
-    await loadAutoSendState();
-    await loadNotifState();
+    applyToggleStates(await browser.storage.local.get(STORED_KEYS));
     showConnected(serverUrl);
     // token change triggers flushQueue in background; wait briefly then refresh list
     setTimeout(() => refreshQueueUI(false), 500);
@@ -359,27 +317,9 @@ loginForm.addEventListener('submit', async (e) => {
 retryBtn.addEventListener('click', async () => {
   retryBtn.disabled = true;
   retryBtn.textContent = t('btnRetryLoading');
-
-  const data = await browser.storage.local.get(['serverUrl', 'token', 'cnlActive', 'autoSend', 'notifications']);
-  if (data.token && data.serverUrl) {
-    applyToggleStates(data.cnlActive !== false, data.autoSend !== false, data.notifications !== false);
-    const result = await checkSession(data.serverUrl, data.token);
-
-    if (result === 'connected') {
-      showConnected(data.serverUrl);
-      await refreshQueueUI(false);
-      browser.runtime.sendMessage({ type: 'flushQueue' }).catch(() => {});
-      return;
-    }
-
-    if (result === 'invalid') {
-      await browser.storage.local.remove('token');
-      showLogin();
-      return;
-    }
+  if (await resolveSession() === 'connected') {
+    browser.runtime.sendMessage({ type: 'flushQueue' }).catch(() => {});
   }
-
-  // Still offline
   retryBtn.disabled = false;
   retryBtn.textContent = t('btnRetry');
 });
@@ -388,7 +328,6 @@ retryBtn.addEventListener('click', async () => {
 
 async function doLogout() {
   await browser.storage.local.remove('token');
-  await browser.runtime.sendMessage({ type: 'logout' }).catch(() => {});
   passwordInput.value = '';
   showLogin();
 }
