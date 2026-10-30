@@ -11,8 +11,7 @@ const de = {
     notifications: 'Benachrichtigungen',
   },
   dialogs: {
-    title: 'Benachrichtigungen',
-    empty: 'Keine ausstehenden Dialoge',
+    empty: 'Keine Benachrichtigungen',
     updateEntry: 'Update verfügbar',
     updateModalTitle: 'JDownloader Update',
     updateModalDesc: 'Eine neue Version von JDownloader ist verfügbar. Neustart zum Installieren.',

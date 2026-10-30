@@ -2,7 +2,7 @@ import { createSignal } from 'solid-js';
 
 const [_active, _setActive] = createSignal<string | null>(null);
 
-export const activePopupStore = {
+export const activeMenuStore = {
   active: _active,
   open: (id: string) => _setActive(id),
   close: (id: string) => {

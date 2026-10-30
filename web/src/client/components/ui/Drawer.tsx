@@ -41,3 +41,8 @@ export function DrawerLabel(props: ComponentProps<typeof DrawerPrimitive.Label>)
   const [local, rest] = splitProps(props, ['class']);
   return <DrawerPrimitive.Label class={cx('text-sm font-semibold text-foreground', local.class)} {...rest} />;
 }
+
+// Full-width, centered action row inside a drawer.
+export function drawerItemClass(destructive?: boolean) {
+  return cx('flex items-center justify-center gap-3 w-full px-4 py-3 text-sm transition-colors hover:bg-accent', destructive ? 'text-destructive' : 'text-foreground');
+}

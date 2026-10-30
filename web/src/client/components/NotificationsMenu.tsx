@@ -2,29 +2,25 @@ import type { Component } from 'solid-js';
 import type { PendingOpen } from '../stores/notifications';
 import { For, Show } from 'solid-js';
 import { t } from '../i18n';
-import { activePopupStore } from '../stores/activePopup';
 import { dialogTitle, notificationsStore } from '../stores/notifications';
-import { NavPopup, navPopupItemClass } from './NavPopup';
+import { NavMenu, NavMenuItem } from './NavMenu';
 
 type Props = {
   collapsed?: boolean;
   mobile?: boolean;
 };
 
-// ─── Panel (popup list in sidebar / mobile nav) ───────────────────────────────
+// ─── Menu (sidebar dropdown / mobile drawer) ─────────────────────────────────
 
-export const NotificationsPanel: Component<Props> = (props) => {
+export const NotificationsMenu: Component<Props> = (props) => {
   const { dialogs, captchas, updateAvailable } = notificationsStore;
   const count = () => dialogs().length + captchas().length + (updateAvailable() ? 1 : 0);
 
-  const openItem = (item: NonNullable<PendingOpen>) => {
-    activePopupStore.closeAll();
-    notificationsStore.openNotification(item);
-  };
+  const openItem = (item: NonNullable<PendingOpen>) => notificationsStore.openNotification(item);
 
   return (
-    <NavPopup
-      id="notifications-panel"
+    <NavMenu
+      id="notifications-menu"
       collapsed={props.collapsed}
       mobile={props.mobile}
       icon={(
@@ -39,7 +35,6 @@ export const NotificationsPanel: Component<Props> = (props) => {
       )}
       label={<span class="whitespace-nowrap">{t('nav.notifications')}</span>}
       buttonTitle={t('nav.notifications')}
-      heading={t('dialogs.title')}
     >
       <div class="max-h-72 overflow-y-auto">
         <Show
@@ -47,32 +42,29 @@ export const NotificationsPanel: Component<Props> = (props) => {
           fallback={<p class="text-sm text-muted-foreground text-center py-6 px-4">{t('dialogs.empty')}</p>}
         >
           <Show when={updateAvailable()}>
-            <button onClick={() => openItem({ kind: 'update' })} class={navPopupItemClass(props.mobile)}>
-              <span class="i-tabler-refresh-alert w-4 h-4 shrink-0 text-primary" />
-              <p class="text-sm font-medium text-foreground truncate">{t('dialogs.updateEntry')}</p>
-            </button>
+            <NavMenuItem icon="i-tabler-refresh-alert text-primary" onSelect={() => openItem({ kind: 'update' })}>
+              <span class="truncate">{t('dialogs.updateEntry')}</span>
+            </NavMenuItem>
           </Show>
           <For each={captchas()}>
             {entry => (
-              <button onClick={() => openItem({ kind: 'captcha', entry })} class={navPopupItemClass(props.mobile)}>
-                <span class="i-tabler-shield-lock w-4 h-4 shrink-0 text-warning" />
-                <p class="text-sm font-medium text-foreground truncate">
+              <NavMenuItem icon="i-tabler-shield-lock text-warning" onSelect={() => openItem({ kind: 'captcha', entry })}>
+                <span class="truncate">
                   {t('captcha.label')}
                   {entry.hoster ? ` — ${entry.hoster}` : ''}
-                </p>
-              </button>
+                </span>
+              </NavMenuItem>
             )}
           </For>
           <For each={dialogs()}>
             {dialog => (
-              <button onClick={() => openItem({ kind: 'dialog', dialog })} class={navPopupItemClass(props.mobile)}>
-                <span class="i-tabler-info-circle w-4 h-4 shrink-0 text-info" />
-                <p class="text-sm font-medium text-foreground truncate">{dialogTitle(dialog)}</p>
-              </button>
+              <NavMenuItem icon="i-tabler-info-circle text-info" onSelect={() => openItem({ kind: 'dialog', dialog })}>
+                <span class="truncate">{dialogTitle(dialog)}</span>
+              </NavMenuItem>
             )}
           </For>
         </Show>
       </div>
-    </NavPopup>
+    </NavMenu>
   );
 };

@@ -4,8 +4,8 @@ import { For, Show } from 'solid-js';
 import { t } from '../../i18n';
 import { isNavActive, navItems } from '../../nav';
 import { collapsed, toggleSidebar } from '../AppShell';
-import { NotificationsPanel } from '../NotificationsPanel';
-import { UserPanel } from '../UserPanel';
+import { NotificationsMenu } from '../NotificationsMenu';
+import { UserMenu } from '../UserMenu';
 
 export const SideNav: Component = () => {
   const location = useLocation();
@@ -58,8 +58,8 @@ export const SideNav: Component = () => {
       </nav>
 
       <div class="p-2 border-t space-y-1">
-        <NotificationsPanel collapsed={collapsed()} />
-        <UserPanel collapsed={collapsed()} />
+        <NotificationsMenu collapsed={collapsed()} />
+        <UserMenu collapsed={collapsed()} />
       </div>
     </aside>
   );

@@ -2,8 +2,8 @@ import type { Component } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { For } from 'solid-js';
 import { isNavActive, navItems } from '../../nav';
-import { NotificationsPanel } from '../NotificationsPanel';
-import { UserPanel } from '../UserPanel';
+import { NotificationsMenu } from '../NotificationsMenu';
+import { UserMenu } from '../UserMenu';
 
 export const MobileNav: Component = () => {
   const location = useLocation();
@@ -26,8 +26,8 @@ export const MobileNav: Component = () => {
           </A>
         )}
       </For>
-      <NotificationsPanel mobile />
-      <UserPanel mobile />
+      <NotificationsMenu mobile />
+      <UserMenu mobile />
     </nav>
   );
 };
