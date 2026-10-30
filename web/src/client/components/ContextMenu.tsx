@@ -1,9 +1,21 @@
 import type { Component } from 'solid-js';
+import { useContextMenuContext } from '@kobalte/core/context-menu';
+import { useMenuContext } from '@kobalte/core/menu';
 import { useLocation } from '@solidjs/router';
-import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from 'solid-js';
-import { onClickOutside } from '../lib/clickOutside';
-import { activePopupStore } from '../stores/activePopup';
-import { Drawer, DrawerContent, DrawerLabel } from './ui/Drawer';
+import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
+import { cx } from '../lib/cva';
+import { activeMenuStore } from '../stores/activeMenu';
+import {
+  ContextMenuContent,
+  ContextMenuItem as ContextMenuItemPrimitive,
+  ContextMenuPortal,
+  ContextMenu as ContextMenuRoot,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+} from './ui/ContextMenu';
+import { Drawer, DrawerContent, drawerItemClass, DrawerLabel } from './ui/Drawer';
 
 export type ContextMenuItem = {
   label: string;
@@ -27,147 +39,80 @@ type Props = {
 
 // ─── Desktop positioned context menu ─────────────────────────────────────────
 
-const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; onClose: () => void }> = (props) => {
-  let ref!: HTMLDivElement;
-  const [pos, setPos] = createSignal({ x: untrack(() => props.x), y: untrack(() => props.y) });
-  const [subIdx, setSubIdx] = createSignal<number | null>(null);
-  const [subOpenLeft, setSubOpenLeft] = createSignal(false);
-  let closeTimer: ReturnType<typeof setTimeout> | null = null;
-  let openTimer: ReturnType<typeof setTimeout> | null = null;
-  const openSub = (idx: number) => {
-    if (closeTimer) {
-      clearTimeout(closeTimer);
-      closeTimer = null;
-    }
-    if (subIdx() === idx) {
-      return;
-    }
-    if (openTimer) {
-      return;
-    }
-    openTimer = setTimeout(() => {
-      const menuRight = pos().x + (ref?.getBoundingClientRect().width ?? 220);
-      setSubOpenLeft(window.innerWidth - menuRight < 220);
-      setSubIdx(idx);
-      openTimer = null;
-    }, 180);
-  };
-  const cancelOpen = () => {
-    if (openTimer) {
-      clearTimeout(openTimer);
-      openTimer = null;
-    }
-  };
-  const closeSub = () => {
-    cancelOpen();
-    closeTimer = setTimeout(() => {
-      setSubIdx(null);
-      closeTimer = null;
-    }, 80);
-  };
+const ItemContent: Component<{ item: ContextMenuItem }> = props => (
+  <>
+    <Show when={props.item.icon}>
+      <span class={cx(props.item.icon, 'size-4 shrink-0', !props.item.danger && 'text-muted-foreground')} />
+    </Show>
+    <span>{props.item.label}</span>
+  </>
+);
 
+// Opens the trigger-less menu at x/y on mount.
+const OpenAt: Component<{ x: number; y: number }> = (props) => {
+  const contextMenu = useContextMenuContext();
+  const menu = useMenuContext();
   onMount(() => {
-    activePopupStore.closeAll();
-    const { width, height } = ref.getBoundingClientRect();
-    setPos({
-      x: Math.max(8, Math.min(props.x, window.innerWidth - width - 8)),
-      y: Math.max(8, Math.min(props.y, window.innerHeight - height - 8)),
-    });
-
-    // Close on outside click or right-click
-    onClickOutside(() => ref, props.onClose);
-    const onOutsideCtx = (e: MouseEvent) => {
-      e.preventDefault();
-      if (!ref.contains(e.target as Node)) {
-        props.onClose();
-      }
-    };
-    document.addEventListener('contextmenu', onOutsideCtx);
-    onCleanup(() => document.removeEventListener('contextmenu', onOutsideCtx));
+    contextMenu.setAnchorRect({ x: props.x, y: props.y });
+    menu.open(true);
   });
+  return null;
+};
 
-  const btnClass = (item: ContextMenuItem) =>
-    `w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors ${
-      item.danger
-        ? 'text-destructive hover:bg-destructive/10'
-        : 'text-foreground hover:bg-accent'
-    }`;
+const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; onClose: () => void }> = (props) => {
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  onMount(() => activeMenuStore.closeAll());
+  onCleanup(() => clearTimeout(closeTimer));
 
   return (
-    <div
-      ref={ref}
-      class="fixed bg-popover text-popover-foreground border rounded-xl shadow-xl py-1.5 min-w-52.5 z-70 left-(--menu-x) top-(--menu-y)"
-      style={{ '--menu-x': `${pos().x}px`, '--menu-y': `${pos().y}px` }}
+    <ContextMenuRoot
+      onOpenChange={(open) => {
+        if (!open) {
+          closeTimer = setTimeout(props.onClose, 150);
+        }
+      }}
+      modal={false}
     >
-      <For each={props.items}>
-        {(item, i) => (
-          <>
-            <Show when={item.separator && i() > 0}>
-              <div class="h-px mx-2 my-1 bg-muted-foreground/20" />
-            </Show>
-            <Show
-              when={item.submenu?.length}
-              fallback={(
-                <button
-                  class={btnClass(item)}
-                  onClick={() => {
-                    item.onClick?.();
-                    props.onClose();
-                  }}
-                >
-                  <Show when={item.icon}><span class={`${item.icon} w-4 h-4 flex-shrink-0`} /></Show>
-                  <span>{item.label}</span>
-                </button>
-              )}
-            >
-              <div
-                class="relative"
-                onMouseEnter={() => openSub(i())}
-                onMouseLeave={() => {
-                  cancelOpen();
-                  closeSub();
-                }}
-              >
-                <button class={`${btnClass(item)} justify-between`}>
-                  <div class="flex items-center gap-3">
-                    <Show when={item.icon}><span class={`${item.icon} w-4 h-4 flex-shrink-0`} /></Show>
-                    <span>{item.label}</span>
-                  </div>
-                  <span class={`${subIdx() === i() && subOpenLeft() ? 'i-tabler-chevron-left' : 'i-tabler-chevron-right'} w-3.5 h-3.5 text-muted-foreground flex-shrink-0`} />
-                </button>
-                <Show when={subIdx() === i()}>
-                  {/* Transparent bridge fills the gap so mouse movement doesn't trigger onMouseLeave */}
-                  <div
-                    class={`absolute top-0 h-full w-2 ${subOpenLeft() ? 'right-full' : 'left-full'}`}
-                    onMouseEnter={() => openSub(i())}
-                  />
-                  <div
-                    class={`absolute top-1/2 -translate-y-1/2 bg-popover text-popover-foreground border rounded-xl shadow-xl py-1.5 min-w-40 z-10 ${subOpenLeft() ? 'right-full mr-2' : 'left-full ml-2'}`}
-                    onMouseEnter={() => openSub(i())}
-                    onMouseLeave={closeSub}
-                  >
-                    <For each={item.submenu}>
-                      {sub => (
-                        <button
-                          class="w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-accent text-foreground transition-colors"
-                          onClick={() => {
-                            sub.onClick?.();
-                            props.onClose();
-                          }}
-                        >
-                          <Show when={sub.icon}><span class={`${sub.icon} w-4 h-4 flex-shrink-0`} /></Show>
-                          <span>{sub.label}</span>
-                        </button>
-                      )}
-                    </For>
-                  </div>
+      <OpenAt x={props.x} y={props.y} />
+      <ContextMenuPortal>
+        <ContextMenuContent class="z-70 min-w-52" onContextMenu={(e: MouseEvent) => e.preventDefault()}>
+          <For each={props.items}>
+            {(item, i) => (
+              <>
+                <Show when={item.separator && i() > 0}>
+                  <ContextMenuSeparator />
                 </Show>
-              </div>
-            </Show>
-          </>
-        )}
-      </For>
-    </div>
+                <Show
+                  when={item.submenu?.length}
+                  fallback={(
+                    <ContextMenuItemPrimitive variant={item.danger ? 'destructive' : 'default'} onSelect={() => item.onClick?.()}>
+                      <ItemContent item={item} />
+                    </ContextMenuItemPrimitive>
+                  )}
+                >
+                  <ContextMenuSub overlap gutter={4}>
+                    <ContextMenuSubTrigger>
+                      <ItemContent item={item} />
+                    </ContextMenuSubTrigger>
+                    <ContextMenuPortal>
+                      <ContextMenuSubContent class="z-70 min-w-40">
+                        <For each={item.submenu}>
+                          {sub => (
+                            <ContextMenuItemPrimitive variant={sub.danger ? 'destructive' : 'default'} onSelect={() => sub.onClick?.()}>
+                              <ItemContent item={sub} />
+                            </ContextMenuItemPrimitive>
+                          )}
+                        </For>
+                      </ContextMenuSubContent>
+                    </ContextMenuPortal>
+                  </ContextMenuSub>
+                </Show>
+              </>
+            )}
+          </For>
+        </ContextMenuContent>
+      </ContextMenuPortal>
+    </ContextMenuRoot>
   );
 };
 
@@ -184,12 +129,9 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
     setOpen(false);
     closeTimer = setTimeout(props.onClose, 350);
   };
-  onMount(() => activePopupStore.closeAll());
+  onMount(() => activeMenuStore.closeAll());
   onCleanup(() => clearTimeout(closeTimer));
   createEffect(on(() => location.pathname, close, { defer: true }));
-
-  const itemClass = (danger?: boolean) =>
-    `flex items-center gap-3 justify-center w-full px-4 py-3 text-sm transition-colors hover:bg-accent ${danger ? 'text-destructive' : 'text-foreground'}`;
 
   return (
     <Drawer
@@ -218,7 +160,7 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
                   when={item.submenu?.length}
                   fallback={(
                     <button
-                      class={itemClass(item.danger)}
+                      class={drawerItemClass(item.danger)}
                       onClick={() => {
                         item.onClick?.();
                         close();
@@ -235,7 +177,7 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
                   <For each={item.submenu}>
                     {sub => (
                       <button
-                        class={itemClass()}
+                        class={drawerItemClass()}
                         onClick={() => {
                           sub.onClick?.();
                           close();
