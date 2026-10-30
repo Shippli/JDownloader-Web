@@ -14,7 +14,9 @@ type Props = {
 
 export const NotificationsMenu: Component<Props> = (props) => {
   const { dialogs, captchas, updateAvailable } = notificationsStore;
-  const count = () => dialogs().length + captchas().length + (updateAvailable() ? 1 : 0);
+  const count = () => dialogs().length + captchas().length + (updateAvailable()
+    ? 1
+    : 0);
 
   const openItem = (item: NonNullable<PendingOpen>) => notificationsStore.openNotification(item);
 
@@ -28,7 +30,9 @@ export const NotificationsMenu: Component<Props> = (props) => {
           <span class="i-tabler-bell w-5 h-5" />
           <Show when={count() > 0}>
             <span class="absolute -top-1.5 -right-1.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-destructive text-white text-2xs font-bold flex items-center justify-center leading-none">
-              {count() > 9 ? '9+' : count()}
+              {count() > 9
+                ? '9+'
+                : count()}
             </span>
           </Show>
         </span>
@@ -51,7 +55,9 @@ export const NotificationsMenu: Component<Props> = (props) => {
               <NavMenuItem icon="i-tabler-shield-lock text-warning" onSelect={() => openItem({ kind: 'captcha', entry })}>
                 <span class="truncate">
                   {t('captcha.label')}
-                  {entry.hoster ? ` — ${entry.hoster}` : ''}
+                  {entry.hoster
+                    ? ` — ${entry.hoster}`
+                    : ''}
                 </span>
               </NavMenuItem>
             )}

@@ -41,7 +41,9 @@ const AddAccountDialog: Component<{ open: boolean } & DialogCallbacks> = (props)
     setHostersLoading(true);
     const onError = props.onError;
     configApi.listPremiumHosters()
-      .then(list => setHosters(Array.isArray(list) ? list : []))
+      .then(list => setHosters(Array.isArray(list)
+        ? list
+        : []))
       .catch(e => onError((e as Error).message))
       .finally(() => setHostersLoading(false));
   });
@@ -212,7 +214,9 @@ const AccountsSection: Component = () => {
   };
 
   const toggleAccount = (acc: JdAccount) =>
-    withBusy(acc.uuid, () => acc.enabled ? configApi.disableAccounts([acc.uuid]) : configApi.enableAccounts([acc.uuid]));
+    withBusy(acc.uuid, () => acc.enabled
+      ? configApi.disableAccounts([acc.uuid])
+      : configApi.enableAccounts([acc.uuid]));
 
   const deleteAccount = () => {
     const acc = confirmDeleteAcc();

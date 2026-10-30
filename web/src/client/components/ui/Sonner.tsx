@@ -16,7 +16,9 @@ export function Toaster(props: Parameters<typeof Sonner>[0]) {
   return (
     <Sonner
       theme={themeStore.effectiveTheme()}
-      position={mobile() ? 'top-center' : 'bottom-right'}
+      position={mobile()
+        ? 'top-center'
+        : 'bottom-right'}
       icons={{
         success: (
           <svg

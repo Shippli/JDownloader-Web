@@ -26,7 +26,12 @@ export const SortDropdown: Component<Props> = (props) => {
 
   const handleSelect = (field: SortField) => {
     if (field === props.value.field) {
-      props.onChange({ field, dir: props.value.dir === 'asc' ? 'desc' : 'asc' });
+      props.onChange({
+        field,
+        dir: props.value.dir === 'asc'
+          ? 'desc'
+          : 'asc',
+      });
     } else {
       props.onChange({ field, dir: 'asc' });
     }
@@ -57,7 +62,10 @@ export const SortDropdown: Component<Props> = (props) => {
                     when={isActive()}
                     fallback={<span class="w-4 h-4" />}
                   >
-                    <span class={`${props.value.dir === 'asc' ? 'i-tabler-arrow-up' : 'i-tabler-arrow-down'} w-4 h-4`} />
+                    <span class={`${props.value.dir === 'asc'
+                      ? 'i-tabler-arrow-up'
+                      : 'i-tabler-arrow-down'} w-4 h-4`}
+                    />
                   </Show>
                   {props.labels[field]}
                 </DropdownMenu.Item>

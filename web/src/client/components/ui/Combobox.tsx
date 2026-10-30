@@ -23,8 +23,12 @@ export const Combobox: Component<ComboboxProps> = (props) => {
   const filtered = createMemo(() => {
     const q = query().toLowerCase().trim();
     const all = props.options;
-    const matches = q ? all.filter(o => o.toLowerCase().includes(q)) : all;
-    return props.maxOptions ? matches.slice(0, props.maxOptions) : matches;
+    const matches = q
+      ? all.filter(o => o.toLowerCase().includes(q))
+      : all;
+    return props.maxOptions
+      ? matches.slice(0, props.maxOptions)
+      : matches;
   });
 
   return (

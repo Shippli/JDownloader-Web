@@ -44,7 +44,9 @@ export const Avatar: Component<AvatarProps> = (props) => {
         when={local.src}
         fallback={(
           <span aria-hidden="true">
-            {local.name ? getInitials(local.name) : '?'}
+            {local.name
+              ? getInitials(local.name)
+              : '?'}
           </span>
         )}
       >

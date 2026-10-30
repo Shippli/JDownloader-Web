@@ -121,7 +121,9 @@ const ExtensionsSection: Component = () => {
         checked={!!props.ext.enabled}
         onChange={() => toggle(props.ext)}
         disabled={isBusy() || !props.ext.installed}
-        title={props.ext.enabled ? t('config.extensions.disable') : t('config.extensions.enable')}
+        title={props.ext.enabled
+          ? t('config.extensions.disable')
+          : t('config.extensions.enable')}
       />
     );
   };
@@ -165,7 +167,10 @@ const ExtensionsSection: Component = () => {
 
                     <Show when={hasConfig()}>
                       <Button variant="ghost" size="icon" class="shrink-0" onClick={() => toggleExpand(ext)} title={t('config.extensions.openSettings')}>
-                        <span class={`i-tabler-settings w-4 h-4 transition-transform duration-200 ${isExpanded() ? 'rotate-45' : ''}`} />
+                        <span class={`i-tabler-settings w-4 h-4 transition-transform duration-200 ${isExpanded()
+                          ? 'rotate-45'
+                          : ''}`}
+                        />
                       </Button>
                     </Show>
 

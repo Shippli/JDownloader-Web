@@ -12,7 +12,9 @@ function DrawerOverlay<T extends ValidComponent = 'div'>(props: DynamicProps<T, 
   return (
     <DrawerPrimitive.Overlay
       class={cx('fixed inset-0 z-40 bg-black/50 backdrop-blur-xs opacity-(--drawer-progress) data-[transitioning]:transition-opacity data-[transitioning]:duration-300', local.class)}
-      style={{ '--drawer-progress': ctx.openPercentage() }}
+      style={{
+        '--drawer-progress': ctx.openPercentage(),
+      }}
       {...rest}
     />
   );

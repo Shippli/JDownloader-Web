@@ -40,7 +40,11 @@ const AddUserDialog: Component<{ open: boolean; onClose: () => void; onAdded: ()
     setAdding(true);
     setError('');
     try {
-      await userApi.create({ name: name(), email: email(), password: password() });
+      await userApi.create({
+        name: name(),
+        email: email(),
+        password: password(),
+      });
       close();
       props.onAdded();
     } catch (e) {
@@ -118,7 +122,10 @@ const UsersSection: Component = () => {
     setSaving(true);
     setError('');
     try {
-      await userApi.update(id, { name: editName(), email: editEmail() });
+      await userApi.update(id, {
+        name: editName(),
+        email: editEmail(),
+      });
       if (editPassword()) {
         await userApi.changePassword(id, editPassword());
       }
@@ -207,7 +214,9 @@ const UsersSection: Component = () => {
                             onClick={() => setConfirmDeleteUser(u)}
                             disabled={isSelf()}
                             class="text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title={isSelf() ? t('config.users.btnCannotDelete') : t('config.users.btnDelete')}
+                            title={isSelf()
+                              ? t('config.users.btnCannotDelete')
+                              : t('config.users.btnDelete')}
                             icon="i-tabler-trash"
                           />
                         </div>

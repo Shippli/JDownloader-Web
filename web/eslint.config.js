@@ -15,16 +15,29 @@ export default antfu({
   rules: {
     'pnpm/json-enforce-catalog': 'off',
     // To allow export on top of files
-    'ts/no-use-before-define': ['error', { allowNamedExports: true, functions: false }],
+    'ts/no-use-before-define': [
+      'error',
+      { allowNamedExports: true, functions: false },
+    ],
     'curly': ['error', 'all'],
-    'vitest/consistent-test-it': ['error', { fn: 'test' }],
+    'vitest/consistent-test-it': [
+      'error',
+      { fn: 'test' },
+    ],
     'ts/consistent-type-definitions': ['error', 'type'],
-    'style/brace-style': ['error', '1tbs', { allowSingleLine: false }],
-    'unused-imports/no-unused-vars': ['error', {
-      argsIgnorePattern: '^_',
-      varsIgnorePattern: '^_',
-      caughtErrorsIgnorePattern: '^_',
-    }],
+    'style/brace-style': [
+      'error',
+      '1tbs',
+      { allowSingleLine: false },
+    ],
+    'unused-imports/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      },
+    ],
   },
 }, {
   files: ['src/locales/*.dictionary.ts'],
@@ -38,26 +51,39 @@ export default antfu({
     shadcn,
   },
   rules: {
-    'shadcn/no-restyle': ['error', { allow: ['layout'] }],
+    'shadcn/no-restyle': [
+      'error',
+      {
+        allow: ['layout'],
+      },
+    ],
     'shadcn/no-raw-colors': 'error',
-    'shadcn/no-arbitrary-values': ['error', {
-      allow: ['max-h-[*vh]', 'grid-cols-[1fr_auto]'],
-    }],
+    'shadcn/no-arbitrary-values': [
+      'error',
+      {
+        allow: ['max-h-[*vh]', 'grid-cols-[1fr_auto]'],
+      },
+    ],
     'shadcn/no-inline-styles': 'error',
-    'shadcn/no-unknown-classes': ['error', {
-      allow: [
-        'i-tabler-*',
-        'animate-in',
-        'animate-out',
-        'fade-in-*',
-        'fade-out-*',
-        'zoom-in-*',
-        'zoom-out-*',
-        'slide-in-from-*',
-        'slide-out-to-*',
-        'pixelated',
-      ],
-    }],
+    'shadcn/no-unknown-classes': [
+      'error',
+      {
+        allow: [
+          'i-tabler-*',
+          'animate-in',
+          'animate-out',
+          'fade-in-*',
+          'fade-out-*',
+          'zoom-in-*',
+          'zoom-out-*',
+          'slide-in-from-*',
+          'slide-out-to-*',
+          'pixelated',
+          'scroll-fade',
+          'scroll-fade-*',
+        ],
+      },
+    ],
     'shadcn/require-static-classes': 'error',
   },
 }, {

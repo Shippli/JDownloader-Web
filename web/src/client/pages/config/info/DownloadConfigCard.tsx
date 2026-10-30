@@ -97,7 +97,9 @@ export const DownloadConfigCard: Component = () => {
   });
 
   const speedLabel = (bytesPerSec: number) =>
-    bytesPerSec > 0 ? `${Math.round(bytesPerSec / 1024)} ${t('config.dlconfig.speedLimitUnit')}` : t('config.dlconfig.speedUnlimited');
+    bytesPerSec > 0
+      ? `${Math.round(bytesPerSec / 1024)} ${t('config.dlconfig.speedLimitUnit')}`
+      : t('config.dlconfig.speedUnlimited');
 
   const numberInput = (max?: number) => <NumberField value={editText()} onChange={setEditText} minValue={max ? 1 : 0} maxValue={max} />;
 
@@ -127,7 +129,9 @@ export const DownloadConfigCard: Component = () => {
             <ConfigRow
               {...row('MaxPerHost')}
               label={t('config.dlconfig.maxPerHost')}
-              value={c().MaxDownloadsPerHostEnabled ? String(c().MaxSimultaneDownloadsPerHost ?? '–') : t('common.disabled')}
+              value={c().MaxDownloadsPerHostEnabled
+                ? String(c().MaxSimultaneDownloadsPerHost ?? '–')
+                : t('common.disabled')}
               onEdit={() => startEdit('MaxPerHost', c().MaxSimultaneDownloadsPerHost, c().MaxDownloadsPerHostEnabled ?? false)}
               onSave={() => save(Promise.all([
                 configApi.setDownloadConfig('MaxDownloadsPerHostEnabled', editBool()),

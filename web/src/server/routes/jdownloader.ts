@@ -47,38 +47,62 @@ proxyPost('/downloads/cleanup', '/downloadsV2/cleanup', b => [
   b.deleteFiles ? 'REMOVE_LINKS_AND_DELETE_FILES' : 'REMOVE_LINKS_ONLY',
   'SELECTED',
 ]);
-proxyPost('/downloads/enable', '/downloadsV2/setEnabled', b => [b.enabled ?? true, ...selection(b)]);
-proxyPost('/downloads/priority', '/downloadsV2/setPriority', b => [b.priority, ...selection(b)]);
+proxyPost('/downloads/enable', '/downloadsV2/setEnabled', b => [
+  b.enabled ?? true,
+  ...selection(b),
+]);
+proxyPost('/downloads/priority', '/downloadsV2/setPriority', b => [
+  b.priority,
+  ...selection(b),
+]);
 proxyPost('/downloads/check', '/downloadsV2/startOnlineStatusCheck', selection);
 proxyPost('/downloads/extract', '/extraction/startExtractionNow', selection);
 
 jd.patch('/downloads/packages/:id/name', async (c) => {
   const { name } = await c.req.json();
-  return c.json(await jdClient.call('/downloadsV2/renamePackage', [idParam(c), name]));
+  return c.json(await jdClient.call('/downloadsV2/renamePackage', [
+    idParam(c),
+    name,
+  ]));
 });
 
 // ─── Link Grabber ──────────────────────────────────────────────────────────
 
-proxyPost('/grabber/add', '/linkgrabberv2/addLinks', b => [{
-  links: b.links,
-  packageName: b.packageName,
-  extractPassword: b.extractPassword,
-  downloadPassword: b.downloadPassword,
-  destinationFolder: b.destinationFolder,
-  autostart: b.autostart ?? false,
-  assignJobID: true,
-}]);
+proxyPost('/grabber/add', '/linkgrabberv2/addLinks', b => [
+  {
+    links: b.links,
+    packageName: b.packageName,
+    extractPassword: b.extractPassword,
+    downloadPassword: b.downloadPassword,
+    destinationFolder: b.destinationFolder,
+    autostart: b.autostart ?? false,
+    assignJobID: true,
+  },
+]);
 proxyPost('/grabber/addContainer', '/linkgrabberv2/addContainer', b => [b.type, b.content]);
 proxyPost('/grabber/move', '/linkgrabberv2/moveToDownloadlist', selection);
 proxyPost('/grabber/remove', '/linkgrabberv2/removeLinks', selection);
-proxyPost('/grabber/enable', '/linkgrabberv2/setEnabled', b => [b.enabled ?? true, ...selection(b)]);
-proxyPost('/grabber/priority', '/linkgrabberv2/setPriority', b => [b.priority, ...selection(b)]);
-proxyPost('/grabber/new-package', '/linkgrabberv2/movetoNewPackage', b => [...selection(b), b.name ?? '', b.downloadPath ?? '']);
+proxyPost('/grabber/enable', '/linkgrabberv2/setEnabled', b => [
+  b.enabled ?? true,
+  ...selection(b),
+]);
+proxyPost('/grabber/priority', '/linkgrabberv2/setPriority', b => [
+  b.priority,
+  ...selection(b),
+]);
+proxyPost('/grabber/new-package', '/linkgrabberv2/movetoNewPackage', b => [
+  ...selection(b),
+  b.name ?? '',
+  b.downloadPath ?? '',
+]);
 proxyPost('/grabber/check', '/linkgrabberv2/startOnlineStatusCheck', selection);
 
 jd.patch('/grabber/packages/:id/name', async (c) => {
   const { name } = await c.req.json();
-  return c.json(await jdClient.call('/linkgrabberv2/renamePackage', [idParam(c), name]));
+  return c.json(await jdClient.call('/linkgrabberv2/renamePackage', [
+    idParam(c),
+    name,
+  ]));
 });
 
 // ─── Accounts ─────────────────────────────────────────────────────────────────
@@ -91,29 +115,51 @@ proxyPost('/accounts/disable', '/accountsV2/disableAccounts', b => [b.ids ?? []]
 proxyPost('/accounts/refresh', '/accountsV2/refreshAccounts', b => [b.ids ?? []]);
 proxyPost('/accounts/add', '/accountsV2/addAccount', b => [b.hoster, b.username, b.password]);
 
-jd.delete('/accounts/:id', async c => c.json(await jdClient.call('/accountsV2/removeAccounts', [[idParam(c)]])));
+jd.delete('/accounts/:id', async c => c.json(await jdClient.call('/accountsV2/removeAccounts', [
+  [
+    idParam(c),
+  ],
+])));
 
 jd.patch('/accounts/:id/credentials', async (c) => {
   const { username, password } = await c.req.json();
-  return c.json(await jdClient.call('/accountsV2/setUserNameAndPassword', [idParam(c), username, password]));
+  return c.json(await jdClient.call('/accountsV2/setUserNameAndPassword', [
+    idParam(c),
+    username,
+    password,
+  ]));
 });
 
 // ─── Config / Settings ────────────────────────────────────────────────────────
 
-const asArray = (x: unknown): unknown[] => Array.isArray(x) ? x : [];
+function asArray(x: unknown): unknown[] {
+  return Array.isArray(x)
+    ? x
+    : [];
+}
 
 jd.get('/settings/list', async (c) => {
   const pattern = c.req.query('pattern') ?? '.*';
   return c.json(asArray(await jdClient.call('/config/list', [pattern, true, true, true, true])));
 });
 
-proxyPost('/settings/set', '/config/set', b => [...configEntry(b), b.value]);
+proxyPost('/settings/set', '/config/set', b => [
+  ...configEntry(b),
+  b.value,
+]);
 proxyPost('/settings/reset', '/config/reset', configEntry);
 
 // ─── Download Config ──────────────────────────────────────────────────────────
 
 const DL_INTERFACE = 'org.jdownloader.settings.GeneralSettings';
-const DL_KEYS = ['MaxChunksPerFile', 'MaxSimultaneDownloads', 'MaxSimultaneDownloadsPerHost', 'MaxDownloadsPerHostEnabled', 'DownloadSpeedLimit', 'DefaultDownloadFolder'] as const;
+const DL_KEYS = [
+  'MaxChunksPerFile',
+  'MaxSimultaneDownloads',
+  'MaxSimultaneDownloadsPerHost',
+  'MaxDownloadsPerHostEnabled',
+  'DownloadSpeedLimit',
+  'DefaultDownloadFolder',
+] as const;
 
 jd.get('/downloads/dlconfig', async (c) => {
   const results = await Promise.all(
@@ -144,7 +190,10 @@ jd.get('/status', (c) => {
 // ─── Connection Settings ──────────────────────────────────────────────────────
 
 jd.get('/connection', (c) => {
-  return c.json({ ...jdClient.getConnection(), configured: jdClient.isConfigured() });
+  return c.json({
+    ...jdClient.getConnection(),
+    configured: jdClient.isConfigured(),
+  });
 });
 
 jd.post('/connection', async (c) => {
@@ -173,7 +222,9 @@ jd.post('/system/run-update-check', async (c) => {
   return c.json({ ok: true, data });
 });
 
-jd.get('/system/auto-update', c => c.json({ enabled: jdClient.isAutoUpdateEnabled() }));
+jd.get('/system/auto-update', c => c.json({
+  enabled: jdClient.isAutoUpdateEnabled(),
+}));
 
 jd.post('/system/auto-update', async (c) => {
   const { enabled } = await c.req.json();
@@ -199,7 +250,9 @@ jd.get('/info', async (c) => {
     jdClient.call('/jd/getCoreRevision'),
     jdClient.call('/system/getSystemInfos'),
   ]);
-  const valueOrNull = (r: PromiseSettledResult<unknown>) => r.status === 'fulfilled' ? r.value : null;
+  const valueOrNull = (r: PromiseSettledResult<unknown>) => r.status === 'fulfilled'
+    ? r.value
+    : null;
   return c.json({
     version: valueOrNull(version),
     uptime: valueOrNull(uptime),

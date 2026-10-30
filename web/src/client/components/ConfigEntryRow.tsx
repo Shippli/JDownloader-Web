@@ -102,7 +102,10 @@ export const ConfigEntryRow: Component<ConfigEntryRowProps> = (props) => {
               <Show when={props.entry.docs}>
                 <p class="text-xs text-muted-foreground mt-0.5">{props.entry.docs}</p>
               </Show>
-              <p class={`text-sm mt-1 font-mono ${isModified(props.entry) ? 'text-warning font-semibold' : 'text-foreground'}`}>
+              <p class={`text-sm mt-1 font-mono ${isModified(props.entry)
+                ? 'text-warning font-semibold'
+                : 'text-foreground'}`}
+              >
                 {String(props.entry.value ?? props.entry.defaultValue ?? '–')}
                 <Show when={isModified(props.entry)}>
                   <span class="ml-2 text-xs font-sans font-normal text-warning opacity-70">
@@ -129,7 +132,9 @@ export const ConfigEntryRow: Component<ConfigEntryRowProps> = (props) => {
                 when={aType() === 'ENUM' && props.entry.enumOptions?.length}
                 fallback={(
                   <TextField
-                    type={NUMERIC_TYPES.has(aType()) ? 'number' : 'text'}
+                    type={NUMERIC_TYPES.has(aType())
+                      ? 'number'
+                      : 'text'}
                     value={editValue()}
                     onChange={setEditValue}
                   />
@@ -151,7 +156,10 @@ export const ConfigEntryRow: Component<ConfigEntryRowProps> = (props) => {
           </Show>
           <FormActions
             saving={saving()}
-            onSave={() => persist(configApi.setSetting({ ...ref(), value: coerceSettingValue(props.entry, editValue()) }))}
+            onSave={() => persist(configApi.setSetting({
+              ...ref(),
+              value: coerceSettingValue(props.entry, editValue()),
+            }))}
             onCancel={props.onCancel}
           >
             <Button variant="secondary" onClick={() => persist(configApi.resetSetting(ref()))} disabled={saving()} title={t('config.settings.reset')} icon="i-tabler-restore">

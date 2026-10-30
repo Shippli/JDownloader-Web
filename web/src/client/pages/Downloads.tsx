@@ -48,7 +48,9 @@ const STATE_LABEL_KEY: Record<string, string> = {
 const isExtracting = (status?: string) => (status ?? '').toLowerCase().includes('extracting');
 
 function getProgress(loaded: number, total: number) {
-  return total > 0 ? Math.round((loaded / total) * 100) : 0;
+  return total > 0
+    ? Math.round((loaded / total) * 100)
+    : 0;
 }
 
 function packageProgressColor(pkg: DownloadPackage): ProgressColor {
@@ -180,7 +182,9 @@ const Downloads: Component = () => {
 
   const extractValue = createExtractionHold();
   const linkExtractValue = (link: DownloadLink): number | null =>
-    isExtracting(link.status) ? sseDownloads()?.exProgress[link.uuid] ?? 0 : null;
+    isExtracting(link.status)
+      ? sseDownloads()?.exProgress[link.uuid] ?? 0
+      : null;
 
   const buildCtxItems = (cm: CtxMenuState): ContextMenuItem[] => {
     const target = list.ctxTarget(cm);
@@ -189,35 +193,62 @@ const Downloads: Component = () => {
     const items: ContextMenuItem[] = [];
 
     if (cm.type === 'pkg' && pkgIds.length === 1 && linkIds.length === 0) {
-      items.push({ label: t('downloads.ctx.rename'), icon: 'i-tabler-pencil', onClick: () => setRenameModal({ uuid: cm.uuid, name: cm.name }) });
+      items.push({
+        label: t('downloads.ctx.rename'),
+        icon: 'i-tabler-pencil',
+        onClick: () => setRenameModal({ uuid: cm.uuid, name: cm.name }),
+      });
     }
     items.push(
-      { label: t('downloads.ctx.delete'), icon: 'i-tabler-trash', danger: true, onClick: () => openDeleteModal(target, t('downloads.confirm.delete')) },
       {
-        label: cm.enabled ? t('common.disable') : t('common.enable'),
+        label: t('downloads.ctx.delete'),
+        icon: 'i-tabler-trash',
+        danger: true,
+        onClick: () => openDeleteModal(target, t('downloads.confirm.delete')),
+      },
+      {
+        label: cm.enabled
+          ? t('common.disable')
+          : t('common.enable'),
         icon: cm.enabled ? 'i-tabler-player-pause' : 'i-tabler-player-play',
         onClick: () => run(jdApi.enableDownloads(!cm.enabled, linkIds, pkgIds)),
       },
       priorityMenuItem(cm.touch, () => setPriorityModal(target), setPriority),
-      { label: t('downloads.ctx.checkStatus'), icon: 'i-tabler-refresh', onClick: () => run(jdApi.checkDownloadLinks(linkIds, pkgIds)) },
       {
-        label: cm.type === 'pkg' ? t('downloads.ctx.resetPkg') : t('downloads.ctx.resetLink'),
+        label: t('downloads.ctx.checkStatus'),
+        icon: 'i-tabler-refresh',
+        onClick: () => run(jdApi.checkDownloadLinks(linkIds, pkgIds)),
+      },
+      {
+        label: cm.type === 'pkg'
+          ? t('downloads.ctx.resetPkg')
+          : t('downloads.ctx.resetLink'),
         icon: 'i-tabler-eraser',
         separator: true,
         onClick: () => run(jdApi.resetDownloads(linkIds, pkgIds)),
       },
-      { label: t('downloads.ctx.force'), icon: 'i-tabler-bolt', onClick: () => run(jdApi.forceDownload(linkIds, pkgIds)) },
+      {
+        label: t('downloads.ctx.force'),
+        icon: 'i-tabler-bolt',
+        onClick: () => run(jdApi.forceDownload(linkIds, pkgIds)),
+      },
     );
     const allFinished
       = pkgIds.every(id => packages().find(p => p.uuid === id)?.finished)
         && linkIds.every(id => links().find(l => l.uuid === id)?.finished);
     if (allFinished && (pkgIds.length > 0 || linkIds.length > 0)) {
-      items.push({ label: t('downloads.ctx.extract'), icon: 'i-tabler-file-zip', onClick: () => run(jdApi.extractArchive(linkIds, pkgIds)) });
+      items.push({
+        label: t('downloads.ctx.extract'),
+        icon: 'i-tabler-file-zip',
+        onClick: () => run(jdApi.extractArchive(linkIds, pkgIds)),
+      });
     }
     return items;
   };
 
-  const handleTogglePlay = () => run(isRunning() ? jdApi.stop() : jdApi.start());
+  const handleTogglePlay = () => run(isRunning()
+    ? jdApi.stop()
+    : jdApi.start());
 
   const handleForce = () => {
     const { linkIds, pkgIds } = list.selection();
@@ -232,7 +263,11 @@ const Downloads: Component = () => {
           <h1 class="text-2xl font-bold tracking-tight text-foreground truncate">{t('downloads.title')}</h1>
           <div class="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground overflow-hidden">
             <span class={`${STATE_ICON[state()] ?? 'i-tabler-circle-dot text-muted-foreground'} inline-block w-4 h-4 flex-shrink-0`} />
-            <span class="hidden sm:inline truncate">{STATE_LABEL_KEY[state()] ? t(STATE_LABEL_KEY[state()]) : state()}</span>
+            <span class="hidden sm:inline truncate">
+              {STATE_LABEL_KEY[state()]
+                ? t(STATE_LABEL_KEY[state()])
+                : state()}
+            </span>
             <Show when={speed() > 0}>
               <span class="hidden sm:inline">·</span>
               <span class="text-muted-foreground font-medium flex-shrink-0">{formatSpeed(speed())}</span>
@@ -242,9 +277,17 @@ const Downloads: Component = () => {
 
         {/* Controller buttons */}
         <div class="flex items-center gap-2 flex-shrink-0">
-          <Button variant="default" onClick={handleTogglePlay} icon={isRunning() ? 'i-tabler-player-stop' : 'i-tabler-player-play'}>
+          <Button
+            variant="default"
+            onClick={handleTogglePlay}
+            icon={isRunning()
+              ? 'i-tabler-player-stop'
+              : 'i-tabler-player-play'}
+          >
             <span class="hidden sm:inline">
-              {isRunning() ? t('downloads.toolbar.stop') : t('downloads.toolbar.start')}
+              {isRunning()
+                ? t('downloads.toolbar.stop')
+                : t('downloads.toolbar.start')}
             </span>
           </Button>
           <Show when={!list.hasSelection()}>
@@ -343,7 +386,13 @@ const Downloads: Component = () => {
                             </Show>
                           </div>
 
-                          <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : packageProgressColor(pkg)} class="mt-2.5" />
+                          <ProgressBar
+                            value={pkgExProgress() ?? progress()}
+                            color={pkgExProgress() !== null
+                              ? 'yellow'
+                              : packageProgressColor(pkg)}
+                            class="mt-2.5"
+                          />
                           <div class="flex justify-between mt-1">
                             <span class="text-xs text-muted-foreground">
                               {progress()}
@@ -352,7 +401,9 @@ const Downloads: Component = () => {
                             <span class="text-xs text-muted-foreground">
                               {pkg.childCount}
                               {' '}
-                              {t(pkg.childCount !== 1 ? 'downloads.files' : 'downloads.file')}
+                              {t(pkg.childCount !== 1
+                                ? 'downloads.files'
+                                : 'downloads.file')}
                             </span>
                           </div>
                         </div>
@@ -370,7 +421,9 @@ const Downloads: Component = () => {
                             return (
                               <div
                                 class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
-                                  isLinkSelected() ? 'bg-info/5' : 'hover:bg-muted/50'
+                                  isLinkSelected()
+                                    ? 'bg-info/5'
+                                    : 'hover:bg-muted/50'
                                 }`}
                                 onClick={e => list.toggleLinkSelect(link.uuid, e.shiftKey)}
                                 {...list.itemHandlers('link', link)}
@@ -409,7 +462,9 @@ const Downloads: Component = () => {
                                     </div>
                                     <ProgressBar
                                       value={exProg() ?? getProgress(link.bytesLoaded, link.bytesTotal)}
-                                      color={exProg() !== null ? 'yellow' : linkProgressColor(link)}
+                                      color={exProg() !== null
+                                        ? 'yellow'
+                                        : linkProgressColor(link)}
                                       class="mt-1.5"
                                     />
                                   </div>
@@ -437,13 +492,19 @@ const Downloads: Component = () => {
               const pkgStatus = () => packageStatus(pkg, pkgLinks(), pkgExProgress() !== null);
               const isSelected = () => list.isPkgSelected(pkg.uuid);
               const isExpanded = () => list.isExpanded(pkg.uuid);
-              const expandBg = () => index() % 2 === 0 ? 'bg-info/5' : 'bg-background';
+              const expandBg = () => index() % 2 === 0
+                ? 'bg-info/5'
+                : 'bg-background';
 
               return (
                 <>
                   {/* Package row */}
                   <div
-                    class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected() ? 'bg-info/5' : isExpanded() ? expandBg() : 'bg-muted/40 hover:bg-muted/70'}`}
+                    class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${isSelected()
+                      ? 'bg-info/5'
+                      : isExpanded()
+                        ? expandBg()
+                        : 'bg-muted/40 hover:bg-muted/70'}`}
                     data-list-card
                     onClick={e => list.togglePkgSelect(pkg.uuid, e.shiftKey)}
                     {...list.itemHandlers('pkg', pkg)}
@@ -455,7 +516,13 @@ const Downloads: Component = () => {
                     <Show when={pkg.speed > 0}>
                       <span class="text-xs text-muted-foreground font-medium flex-shrink-0">{formatSpeed(pkg.speed)}</span>
                     </Show>
-                    <ProgressBar value={pkgExProgress() ?? progress()} color={pkgExProgress() !== null ? 'yellow' : packageProgressColor(pkg)} class="w-16 flex-shrink-0" />
+                    <ProgressBar
+                      value={pkgExProgress() ?? progress()}
+                      color={pkgExProgress() !== null
+                        ? 'yellow'
+                        : packageProgressColor(pkg)}
+                      class="w-16 flex-shrink-0"
+                    />
                     <Show when={pkg.childCount > 0}>
                       <ExpandButton expanded={isExpanded()} onToggle={() => list.toggleExpand(pkg.uuid)} class="shrink-0 -mr-1" />
                     </Show>
@@ -494,7 +561,9 @@ const Downloads: Component = () => {
 
                         return (
                           <div
-                            class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected() ? 'bg-info/5' : expandBg()}`}
+                            class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${isLinkSelected()
+                              ? 'bg-info/5'
+                              : expandBg()}`}
                             data-list-card
                             onClick={e => list.toggleLinkSelect(link.uuid, e.shiftKey)}
                             {...list.itemHandlers('link', link)}
@@ -506,7 +575,9 @@ const Downloads: Component = () => {
                             <span class="text-xs text-muted-foreground flex-shrink-0">{link.host}</span>
                             <ProgressBar
                               value={exProg() ?? getProgress(link.bytesLoaded, link.bytesTotal)}
-                              color={exProg() !== null ? 'yellow' : linkProgressColor(link)}
+                              color={exProg() !== null
+                                ? 'yellow'
+                                : linkProgressColor(link)}
                               class="w-16 flex-shrink-0"
                             />
                           </div>

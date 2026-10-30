@@ -17,7 +17,13 @@ export type CtxMenuState = { x: number; y: number; type: ItemType; uuid: number;
 
 export type Selection = { linkIds: number[]; pkgIds: number[] };
 
-const STATUS_RANK: Record<string, number> = { RUNNING: 0, WAITING: 1, QUEUED: 2, STOPPED: 3, FINISHED: 4 };
+const STATUS_RANK: Record<string, number> = {
+  RUNNING: 0,
+  WAITING: 1,
+  QUEUED: 2,
+  STOPPED: 3,
+  FINISHED: 4,
+};
 const STATUS_RANK_MAX = 5;
 const LONG_PRESS_MS = 500;
 
@@ -30,7 +36,10 @@ function toggled(set: Set<number>, id: number): Set<number> {
 }
 
 function withAll(set: Set<number>, ids: number[]): Set<number> {
-  return new Set([...set, ...ids]);
+  return new Set([
+    ...set,
+    ...ids,
+  ]);
 }
 
 // Range of uuids between two items (inclusive) in list order, or null if either is missing.
@@ -58,7 +67,9 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
   const [sortState, setSortState] = createPersistedSignal<SortState>(opts.sortKey, { field: 'date', dir: 'desc' });
   // Memoized: sorting runs once per data/sort change instead of once per consumer.
   const sortedPackages = createMemo(() => {
-    const pkgs = [...opts.packages()];
+    const pkgs = [
+      ...opts.packages(),
+    ];
     const { field, dir } = sortState();
     if (field === 'name') {
       pkgs.sort((a, b) => a.name.localeCompare(b.name));
@@ -66,7 +77,9 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
       const rank = (p: P) => STATUS_RANK[p.status ?? ''] ?? STATUS_RANK_MAX;
       pkgs.sort((a, b) => rank(a) - rank(b));
     }
-    return dir === 'desc' ? pkgs.reverse() : pkgs;
+    return dir === 'desc'
+      ? pkgs.reverse()
+      : pkgs;
   });
 
   // Group links by package once per store update (O(L)) instead of filtering the
@@ -100,7 +113,14 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
   const isLinkSelected = (uuid: number) => selectedLinks().has(uuid);
   const hasSelection = () => selectedPkgs().size > 0 || selectedLinks().size > 0;
   const selectionCount = () => selectedPkgs().size + selectedLinks().size;
-  const selection = (): Selection => ({ linkIds: [...selectedLinks()], pkgIds: [...selectedPkgs()] });
+  const selection = (): Selection => ({
+    linkIds: [
+      ...selectedLinks(),
+    ],
+    pkgIds: [
+      ...selectedPkgs(),
+    ],
+  });
 
   const selectAll = () => setSelectedPkgs(new Set(opts.packages().map(p => p.uuid)));
   const clearSelection = () => {
@@ -111,7 +131,9 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
   };
 
   const togglePkgSelect = (uuid: number, shiftKey: boolean) => {
-    const range = shiftKey && lastPkgClicked !== null ? uuidRange(sortedPackages(), lastPkgClicked, uuid) : null;
+    const range = shiftKey && lastPkgClicked !== null
+      ? uuidRange(sortedPackages(), lastPkgClicked, uuid)
+      : null;
     if (range) {
       setSelectedPkgs(prev => withAll(prev, range));
       return;
@@ -126,7 +148,9 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
   };
 
   const toggleLinkSelect = (uuid: number, shiftKey: boolean) => {
-    const range = shiftKey && lastLinkClicked !== null ? uuidRange(opts.links(), lastLinkClicked, uuid) : null;
+    const range = shiftKey && lastLinkClicked !== null
+      ? uuidRange(opts.links(), lastLinkClicked, uuid)
+      : null;
     if (range) {
       setSelectedLinks(prev => withAll(prev, range));
       return;
@@ -139,14 +163,26 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
   const [ctxMenu, setCtxMenu] = createSignal<CtxMenuState | null>(null);
   // The menu acts on the whole selection when opened on a selected item.
   const ctxActsOnSelection = (cm: CtxMenuState) =>
-    hasSelection() && (cm.type === 'pkg' ? isPkgSelected(cm.uuid) : isLinkSelected(cm.uuid));
+    hasSelection() && (cm.type === 'pkg'
+      ? isPkgSelected(cm.uuid)
+      : isLinkSelected(cm.uuid));
   const ctxTarget = (cm: CtxMenuState): Selection => {
     if (ctxActsOnSelection(cm)) {
       return selection();
     }
-    return cm.type === 'pkg' ? { linkIds: [], pkgIds: [cm.uuid] } : { linkIds: [cm.uuid], pkgIds: [] };
+    return cm.type === 'pkg'
+      ? {
+          linkIds: [],
+          pkgIds: [cm.uuid],
+        }
+      : {
+          linkIds: [cm.uuid],
+          pkgIds: [],
+        };
   };
-  const ctxTitle = (cm: CtxMenuState) => ctxActsOnSelection(cm) ? `${selectionCount()} ${t('common.selected')}` : cm.name;
+  const ctxTitle = (cm: CtxMenuState) => ctxActsOnSelection(cm)
+    ? `${selectionCount()} ${t('common.selected')}`
+    : cm.name;
 
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;
   let longPressMoved = false;
@@ -169,7 +205,15 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
         if (!longPressMoved) {
           longPressTriggered = true;
           navigator.vibrate?.(50);
-          setCtxMenu({ x: 0, y: 0, type, uuid: item.uuid, name: item.name, enabled: item.enabled ?? false, touch: true });
+          setCtxMenu({
+            x: 0,
+            y: 0,
+            type,
+            uuid: item.uuid,
+            name: item.name,
+            enabled: item.enabled ?? false,
+            touch: true,
+          });
         }
       }, LONG_PRESS_MS);
     },
@@ -190,7 +234,14 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
       if (navigator.maxTouchPoints > 0) {
         return;
       }
-      setCtxMenu({ x: e.clientX, y: e.clientY, type, uuid: item.uuid, name: item.name, enabled: item.enabled ?? false });
+      setCtxMenu({
+        x: e.clientX,
+        y: e.clientY,
+        type,
+        uuid: item.uuid,
+        name: item.name,
+        enabled: item.enabled ?? false,
+      });
     },
   });
 
@@ -212,7 +263,9 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
       selectAll();
     } else if (e.key === 'ArrowRight' && selectedPkgs().size > 0) {
       e.preventDefault();
-      setExpandedPkgs(prev => withAll(prev, [...selectedPkgs()]));
+      setExpandedPkgs(prev => withAll(prev, [
+        ...selectedPkgs(),
+      ]));
     } else if (e.key === 'ArrowLeft' && selectedPkgs().size > 0) {
       e.preventDefault();
       setExpandedPkgs(prev => new Set([...prev].filter(id => !selectedPkgs().has(id))));

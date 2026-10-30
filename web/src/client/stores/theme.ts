@@ -3,7 +3,9 @@ import { createEffect, createSignal } from 'solid-js';
 type Theme = 'light' | 'dark' | 'system';
 
 function getSystemTheme(): 'light' | 'dark' {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
 }
 
 function getInitialTheme(): Theme {
@@ -46,7 +48,9 @@ if (typeof window !== 'undefined') {
 }
 
 function toggleTheme() {
-  setTheme(effectiveTheme() === 'dark' ? 'light' : 'dark');
+  setTheme(effectiveTheme() === 'dark'
+    ? 'light'
+    : 'dark');
 }
 
 export const themeStore = {

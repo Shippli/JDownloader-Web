@@ -32,7 +32,14 @@ type BadgeProps = JSX.HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badg
 };
 
 export const Badge: Component<BadgeProps> = (props) => {
-  const [local, rest] = splitProps(props, ['variant', 'shape', 'class', 'icon', 'iconOnly', 'children']);
+  const [local, rest] = splitProps(props, [
+    'variant',
+    'shape',
+    'class',
+    'icon',
+    'iconOnly',
+    'children',
+  ]);
   return (
     <span class={cx(badgeVariants({ variant: local.variant, shape: local.shape }), local.class)} {...rest}>
       <Show when={local.icon}>

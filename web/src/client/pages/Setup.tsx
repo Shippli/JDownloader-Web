@@ -265,7 +265,11 @@ const Stepper: Component<{ current: number }> = props => (
               </div>
               <span
                 class={`text-xs font-medium whitespace-nowrap transition-colors ${
-                  active() ? 'text-foreground' : done() ? 'text-foreground/70' : 'text-muted-foreground'
+                  active()
+                    ? 'text-foreground'
+                    : done()
+                      ? 'text-foreground/70'
+                      : 'text-muted-foreground'
                 }`}
               >
                 {t(s.labelKey)}
@@ -274,7 +278,9 @@ const Stepper: Component<{ current: number }> = props => (
             <Show when={i() < STEPS.length - 1}>
               <div
                 class={`flex-1 h-0.5 mx-2 mb-5 transition-colors ${
-                  idx() < props.current ? 'bg-primary' : 'bg-muted'
+                  idx() < props.current
+                    ? 'bg-primary'
+                    : 'bg-muted'
                 }`}
               />
             </Show>

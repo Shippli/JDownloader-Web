@@ -23,14 +23,20 @@ function get(obj: Dict, keys: string[]): string | undefined {
     }
     cur = (cur as Dict)[k];
   }
-  return typeof cur === 'string' ? cur : undefined;
+  return typeof cur === 'string'
+    ? cur
+    : undefined;
 }
 
 // createRoot gives the signal proper SolidJS ownership so reactive
 // text nodes in all components (including Navbar) update when the language changes.
 const { language: lang, setLanguage: setLang } = createRoot(() => {
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('language') : null;
-  const initial: Language = stored === 'en' || stored === 'de' ? stored : 'en';
+  const stored = typeof localStorage !== 'undefined'
+    ? localStorage.getItem('language')
+    : null;
+  const initial: Language = stored === 'en' || stored === 'de'
+    ? stored
+    : 'en';
   const [language, setLanguage] = createSignal<Language>(initial);
   return { language, setLanguage };
 });

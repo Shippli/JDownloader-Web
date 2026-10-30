@@ -39,7 +39,11 @@ export const ListSortDropdown: Component<{ value: SortState; onChange: (s: SortS
   <SortDropdown
     value={props.value}
     onChange={props.onChange}
-    labels={{ date: t('common.sortByDate'), name: t('common.sortByName'), status: t('common.sortByStatus') }}
+    labels={{
+      date: t('common.sortByDate'),
+      name: t('common.sortByName'),
+      status: t('common.sortByStatus'),
+    }}
   />
 );
 

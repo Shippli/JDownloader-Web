@@ -59,7 +59,10 @@ export function applyNotificationsMessage(data: {
         const dialog = d;
         toast.info(dialogTitle(d), {
           duration: 5000,
-          action: { label: t('common.open'), onClick: () => setPendingOpen({ kind: 'dialog', dialog }) },
+          action: {
+            label: t('common.open'),
+            onClick: () => setPendingOpen({ kind: 'dialog', dialog }),
+          },
         });
       }
     }
@@ -68,7 +71,9 @@ export function applyNotificationsMessage(data: {
   setDialogs(dialogList);
 
   // Captchas
-  const captchaList = (Array.isArray(data.captchas) ? data.captchas : []).map(c => ({
+  const captchaList = (Array.isArray(data.captchas)
+    ? data.captchas
+    : []).map(c => ({
     kind: 'captcha' as const,
     id: c.id,
     hoster: c.hoster,
@@ -77,9 +82,14 @@ export function applyNotificationsMessage(data: {
     for (const c of captchaList) {
       if (!knownCaptchaIds.has(c.id)) {
         const entry = c;
-        toast.warning(`${t('captcha.label')}${c.hoster ? ` — ${c.hoster}` : ''}`, {
+        toast.warning(`${t('captcha.label')}${c.hoster
+          ? ` — ${c.hoster}`
+          : ''}`, {
           duration: 5000,
-          action: { label: t('common.open'), onClick: () => setPendingOpen({ kind: 'captcha', entry }) },
+          action: {
+            label: t('common.open'),
+            onClick: () => setPendingOpen({ kind: 'captcha', entry }),
+          },
         });
       }
     }
@@ -92,7 +102,10 @@ export function applyNotificationsMessage(data: {
   if (available && !updateToastShown) {
     toast.info(t('dialogs.updateEntry'), {
       duration: 8000,
-      action: { label: t('common.open'), onClick: () => setPendingOpen({ kind: 'update' }) },
+      action: {
+        label: t('common.open'),
+        onClick: () => setPendingOpen({ kind: 'update' }),
+      },
     });
     updateToastShown = true;
   }

@@ -8,9 +8,24 @@ import { t } from '../../../i18n';
 import { configApi } from '../../../lib/api';
 
 const ACTIONS = [
-  { key: 'updateCheck', labelKey: 'config.system.runUpdateCheck', icon: 'i-tabler-refresh', run: () => configApi.runUpdateCheck() },
-  { key: 'restart', labelKey: 'config.system.restart', icon: 'i-tabler-rotate-clockwise', run: () => configApi.restartJD() },
-  { key: 'restartUpdate', labelKey: 'config.system.restartAndUpdate', icon: 'i-tabler-refresh-dot', run: () => configApi.restartAndUpdate() },
+  {
+    key: 'updateCheck',
+    labelKey: 'config.system.runUpdateCheck',
+    icon: 'i-tabler-refresh',
+    run: () => configApi.runUpdateCheck(),
+  },
+  {
+    key: 'restart',
+    labelKey: 'config.system.restart',
+    icon: 'i-tabler-rotate-clockwise',
+    run: () => configApi.restartJD(),
+  },
+  {
+    key: 'restartUpdate',
+    labelKey: 'config.system.restartAndUpdate',
+    icon: 'i-tabler-refresh-dot',
+    run: () => configApi.restartAndUpdate(),
+  },
 ] as const;
 
 export const SystemCard: Component = () => {

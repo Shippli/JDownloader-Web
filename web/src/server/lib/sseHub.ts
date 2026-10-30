@@ -50,5 +50,9 @@ export function broadcast(msg: SseServerMessage) {
 // absence lets the client watchdog spot a dead/half-open connection (common on
 // mobile). EventSource cannot observe SSE comments, so use a real event.
 export function startHeartbeat(currentSeq: () => number) {
-  setInterval(() => broadcast({ type: 'heartbeat', epoch: EPOCH, seq: currentSeq() }), HEARTBEAT_MS);
+  setInterval(() => broadcast({
+    type: 'heartbeat',
+    epoch: EPOCH,
+    seq: currentSeq(),
+  }), HEARTBEAT_MS);
 }

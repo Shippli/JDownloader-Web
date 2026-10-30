@@ -75,9 +75,18 @@ export const JdDialogModal: Component<{ dialog: JdDialogDetail; onClose: () => v
               value={fileExistsAction()}
               onChange={v => setFileExistsAction(v as 'SKIP' | 'AUTO_RENAME' | 'OVERWRITE')}
               options={[
-                { value: 'SKIP', label: t('dialogs.actionSkip') },
-                { value: 'AUTO_RENAME', label: t('dialogs.actionAutoRename') },
-                { value: 'OVERWRITE', label: t('dialogs.actionOverwrite') },
+                {
+                  value: 'SKIP',
+                  label: t('dialogs.actionSkip'),
+                },
+                {
+                  value: 'AUTO_RENAME',
+                  label: t('dialogs.actionAutoRename'),
+                },
+                {
+                  value: 'OVERWRITE',
+                  label: t('dialogs.actionOverwrite'),
+                },
               ]}
             />
             <div class="border-t pt-3 mt-1">
@@ -111,7 +120,9 @@ export const JdDialogModal: Component<{ dialog: JdDialogDetail; onClose: () => v
                 'data-autofocus': '',
                 'onKeyDown': (e: KeyboardEvent) => {
                   if (e.key === 'Enter') {
-                    answerDialog('OK', { text: archivePassword() });
+                    answerDialog('OK', {
+                      text: archivePassword(),
+                    });
                   }
                 },
               }}
@@ -130,7 +141,9 @@ export const JdDialogModal: Component<{ dialog: JdDialogDetail; onClose: () => v
           variant="default"
           onClick={() => {
             if (isExtractPassword()) {
-              answerDialog('OK', { text: archivePassword() });
+              answerDialog('OK', {
+                text: archivePassword(),
+              });
               return;
             }
             if (isFileExists()) {
@@ -140,7 +153,9 @@ export const JdDialogModal: Component<{ dialog: JdDialogDetail; onClose: () => v
               }
               answerDialog('OK', {
                 action: fileExistsAction(),
-                ...(fileExistsApplyAll() && packageid ? { packageid } : {}),
+                ...(fileExistsApplyAll() && packageid
+                  ? { packageid }
+                  : {}),
               });
               return;
             }

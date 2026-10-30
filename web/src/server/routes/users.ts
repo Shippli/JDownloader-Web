@@ -15,7 +15,12 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase();
 // GET /api/users – list all users
 usersRouter.get('/', async (c) => {
   const users = await db
-    .select({ id: user.id, name: user.name, email: user.email, createdAt: user.createdAt })
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+    })
     .from(user)
     .orderBy(user.createdAt);
   return c.json(users);
@@ -33,7 +38,11 @@ usersRouter.post('/', async (c) => {
   }
 
   const result = await auth.api.signUpEmail({
-    body: { name: name.trim(), email: normalizeEmail(email), password },
+    body: {
+      name: name.trim(),
+      email: normalizeEmail(email),
+      password,
+    },
   });
 
   if (!result?.user) {
@@ -54,7 +63,11 @@ usersRouter.patch('/:id', async (c) => {
 
   await db
     .update(user)
-    .set({ name: name.trim(), email: normalizeEmail(email), updatedAt: new Date() })
+    .set({
+      name: name.trim(),
+      email: normalizeEmail(email),
+      updatedAt: new Date(),
+    })
     .where(eq(user.id, id));
 
   return c.json({ ok: true });
@@ -73,7 +86,10 @@ usersRouter.patch('/:id/password', async (c) => {
 
   await db
     .update(account)
-    .set({ password: hash, updatedAt: new Date() })
+    .set({
+      password: hash,
+      updatedAt: new Date(),
+    })
     .where(eq(account.userId, id));
 
   return c.json({ ok: true });
@@ -89,7 +105,9 @@ usersRouter.delete('/:id', async (c) => {
     return c.json({ error: 'Du kannst deinen eigenen Account nicht löschen' }, 400);
   }
 
-  const [{ total }] = await db.select({ total: count() }).from(user);
+  const [{ total }] = await db.select({
+    total: count(),
+  }).from(user);
   if (total <= 1) {
     return c.json({ error: 'Der letzte Benutzer kann nicht gelöscht werden' }, 400);
   }

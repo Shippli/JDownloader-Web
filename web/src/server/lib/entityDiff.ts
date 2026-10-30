@@ -116,18 +116,32 @@ export function diffSnapshot(cache: EntityCache, packages: unknown[], links: unk
   const linkDiff = diffArrays(cache.linkMap, links);
   const delta = buildEntityDelta(pkgDiff.changed, pkgDiff.removedUuids, linkDiff.changed, linkDiff.removedUuids);
   return {
-    cache: { pkgMap: pkgDiff.newMap, linkMap: linkDiff.newMap, pkgIdx: toIndexMap(packages), linkIdx: toIndexMap(links), packages, links },
-    delta: Object.keys(delta).length > 0 ? delta : null,
+    cache: {
+      pkgMap: pkgDiff.newMap,
+      linkMap: linkDiff.newMap,
+      pkgIdx: toIndexMap(packages),
+      linkIdx: toIndexMap(links),
+      packages,
+      links,
+    },
+    delta: Object.keys(delta).length > 0
+      ? delta
+      : null,
   };
 }
 
 // Applies patches to the cache in place. Changed entities are replaced by new
 // objects so already-sent snapshots are never mutated.
 export function applyPatchesToCache(cache: EntityCache, patches: EntityPatch[]) {
-  const merged = { link: new Map<number, Entity>(), package: new Map<number, Entity>() };
+  const merged = {
+    link: new Map<number, Entity>(),
+    package: new Map<number, Entity>(),
+  };
   let unknownUuids = false;
   for (const p of patches) {
-    const cacheMap = p.kind === 'link' ? cache.linkMap : cache.pkgMap;
+    const cacheMap = p.kind === 'link'
+      ? cache.linkMap
+      : cache.pkgMap;
     if (!cacheMap.has(p.uuid)) {
       unknownUuids = true;
       continue;
@@ -140,7 +154,10 @@ export function applyPatchesToCache(cache: EntityCache, patches: EntityPatch[]) 
     const changed: unknown[] = [];
     for (const [uuid, f] of fields) {
       const prev = map.get(uuid)!;
-      const next = { ...prev, ...f };
+      const next = {
+        ...prev,
+        ...f,
+      };
       if (shallowEntityEqual(prev, next)) {
         continue;
       }

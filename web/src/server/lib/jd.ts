@@ -20,7 +20,12 @@ async function postJd(baseUrl: string, path: string, params: unknown[], rid: num
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ apiVer: 1, url: path, params: adaptParams(params), rid }),
+    body: JSON.stringify({
+      apiVer: 1,
+      url: path,
+      params: adaptParams(params),
+      rid,
+    }),
     signal,
   });
 
@@ -189,7 +194,9 @@ class JDownloaderClient {
 
   setAvailable(v: boolean) {
     this.available = v;
-    this.unavailableSince = v ? null : (this.unavailableSince ?? Date.now());
+    this.unavailableSince = v
+      ? null
+      : (this.unavailableSince ?? Date.now());
   }
 
   isAvailable() {
@@ -199,7 +206,9 @@ class JDownloaderClient {
 
 // Probes an arbitrary JD instance; throws on failure.
 export async function probeJdOrThrow(host: string, port: string, timeoutMs?: number): Promise<void> {
-  await postJd(`http://${host}:${port}`, '/jd/version', [], Date.now(), timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined);
+  await postJd(`http://${host}:${port}`, '/jd/version', [], Date.now(), timeoutMs
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined);
 }
 
 async function probeJd(host: string, port: string): Promise<boolean> {
@@ -214,18 +223,52 @@ export const jd = new JDownloaderClient(
 // ─── Default Query Objects ────────────────────────────────────────────────────
 
 const PAGE_ALL = { maxResults: -1, startAt: 0 };
-const COMMON_FIELDS = { bytesTotal: true, status: true, comment: true, enabled: true, priority: true };
-const DOWNLOAD_FIELDS = { ...COMMON_FIELDS, bytesLoaded: true, speed: true, eta: true, finished: true };
+const COMMON_FIELDS = {
+  bytesTotal: true,
+  status: true,
+  comment: true,
+  enabled: true,
+  priority: true,
+};
+const DOWNLOAD_FIELDS = {
+  ...COMMON_FIELDS,
+  bytesLoaded: true,
+  speed: true,
+  eta: true,
+  finished: true,
+};
 
-export const DEFAULT_PACKAGE_QUERY = { ...PAGE_ALL, ...DOWNLOAD_FIELDS, hosts: true, childCount: true };
+export const DEFAULT_PACKAGE_QUERY = {
+  ...PAGE_ALL,
+  ...DOWNLOAD_FIELDS,
+  hosts: true,
+  childCount: true,
+};
 
-export const DEFAULT_LINK_QUERY = { ...PAGE_ALL, ...DOWNLOAD_FIELDS, host: true, url: true };
+export const DEFAULT_LINK_QUERY = {
+  ...PAGE_ALL,
+  ...DOWNLOAD_FIELDS,
+  host: true,
+  url: true,
+};
 
 export const EXTRACTION_STATUS_QUERY = { ...PAGE_ALL, status: true };
 
-export const DEFAULT_GRABBER_PACKAGE_QUERY = { ...PAGE_ALL, ...COMMON_FIELDS, hosts: true, childCount: true };
+export const DEFAULT_GRABBER_PACKAGE_QUERY = {
+  ...PAGE_ALL,
+  ...COMMON_FIELDS,
+  hosts: true,
+  childCount: true,
+};
 
-export const DEFAULT_GRABBER_LINK_QUERY = { ...PAGE_ALL, ...COMMON_FIELDS, host: true, url: true, availability: true, name: true };
+export const DEFAULT_GRABBER_LINK_QUERY = {
+  ...PAGE_ALL,
+  ...COMMON_FIELDS,
+  host: true,
+  url: true,
+  availability: true,
+  name: true,
+};
 
 export const DEFAULT_ACCOUNTS_QUERY = {
   ...PAGE_ALL,

@@ -20,7 +20,12 @@ export function updateExtractionProgress(links: unknown[]): Record<number, numbe
     etaByUuid.set(l.uuid, eta);
     const entry = extractStartMap.get(l.uuid);
     if (!entry) {
-      extractStartMap.set(l.uuid, { startMs: Date.now(), smoothedEtaMs: eta > 0 ? eta : 0 });
+      extractStartMap.set(l.uuid, {
+        startMs: Date.now(),
+        smoothedEtaMs: eta > 0
+          ? eta
+          : 0,
+      });
     } else if (eta > 0) {
       entry.smoothedEtaMs = entry.smoothedEtaMs === 0
         ? eta

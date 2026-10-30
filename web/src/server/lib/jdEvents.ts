@@ -61,8 +61,31 @@ const MAX_LISTEN_FAILURES = 3;
 const STATUS_EVENT_INTERVAL_MS = 2_000;
 
 // Allowlisted payload fields per kind (must be fields our queries return).
-const LINK_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment', 'url']);
-const PACKAGE_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed', 'status', 'statusIconKey', 'name', 'enabled', 'priority', 'comment']);
+const LINK_DIFF_FIELDS = new Set([
+  'bytesLoaded',
+  'bytesTotal',
+  'eta',
+  'speed',
+  'status',
+  'statusIconKey',
+  'name',
+  'enabled',
+  'priority',
+  'comment',
+  'url',
+]);
+const PACKAGE_DIFF_FIELDS = new Set([
+  'bytesLoaded',
+  'bytesTotal',
+  'eta',
+  'speed',
+  'status',
+  'statusIconKey',
+  'name',
+  'enabled',
+  'priority',
+  'comment',
+]);
 const PACKAGE_FIELD_EVENTS = [...PACKAGE_DIFF_FIELDS].filter(f => f !== 'comment');
 
 // Anchored (JD matches with find()). REFRESH_CONTENT is deliberately not
@@ -84,7 +107,12 @@ const SUBSCRIPTIONS = [
   '^downloads\\.PACKAGE_UPDATE(\\.COMMENT)?$',
 ];
 
-const NUMBER_DIFF_FIELDS = new Set(['bytesLoaded', 'bytesTotal', 'eta', 'speed']);
+const NUMBER_DIFF_FIELDS = new Set([
+  'bytesLoaded',
+  'bytesTotal',
+  'eta',
+  'speed',
+]);
 const BOOLEAN_DIFF_FIELDS = new Set(['enabled']);
 const STRING_DIFF_FIELDS = new Set(['name', 'priority']);
 // Events whose payload is redundant (status follows as LINK_UPDATE.status).
@@ -329,14 +357,20 @@ export class JdEventListener {
     if (kind === 'LINK_UPDATE') {
       return LINK_DIFF_FIELDS.has(field);
     }
-    return kind === 'PACKAGE_UPDATE' && PACKAGE_DIFF_FIELDS.has(field === 'COMMENT' ? 'comment' : field);
+    return kind === 'PACKAGE_UPDATE' && PACKAGE_DIFF_FIELDS.has(field === 'COMMENT'
+      ? 'comment'
+      : field);
   }
 
   // Returns a patch with every allowlisted payload field (JD's status event also
   // carries statusIconKey). undefined = drop silently, null = payload unusable.
   private parseDiffEvent(ev: JdEvent): EntityPatch | null | undefined {
-    const kind: EntityPatch['kind'] = ev.eventid.startsWith('LINK_UPDATE.') ? 'link' : 'package';
-    const allow = kind === 'link' ? LINK_DIFF_FIELDS : PACKAGE_DIFF_FIELDS;
+    const kind: EntityPatch['kind'] = ev.eventid.startsWith('LINK_UPDATE.')
+      ? 'link'
+      : 'package';
+    const allow = kind === 'link'
+      ? LINK_DIFF_FIELDS
+      : PACKAGE_DIFF_FIELDS;
     const data = ev.eventdata as Record<string, unknown> | undefined;
     if (!data || typeof data.uuid !== 'number') {
       this.warnDroppedDiff(`diff event ${ev.eventid} missing numeric uuid`);

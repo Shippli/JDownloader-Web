@@ -34,7 +34,15 @@ type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<ty
 };
 
 export const Button: Component<ButtonProps> = (props) => {
-  const [local, rest] = splitProps(props, ['variant', 'size', 'class', 'loading', 'icon', 'disabled', 'children']);
+  const [local, rest] = splitProps(props, [
+    'variant',
+    'size',
+    'class',
+    'loading',
+    'icon',
+    'disabled',
+    'children',
+  ]);
   return (
     <button
       class={cx(buttonVariants({ variant: local.variant, size: local.size }), local.class)}

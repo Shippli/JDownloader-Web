@@ -33,16 +33,24 @@ const NavMenuContext = createContext<{ mobile: boolean; close: () => void }>();
 
 // Sidebar (desktop: dropdown menu) / bottom-nav (mobile: drawer) menu.
 export const NavMenu: Component<NavMenuProps> = (props) => {
-  const id = `${untrack(() => props.id)}-${untrack(() => props.mobile) ? 'mobile' : 'desktop'}`;
+  const id = `${untrack(() => props.id)}-${untrack(() => props.mobile)
+    ? 'mobile'
+    : 'desktop'}`;
   const isOpen = () => activeMenuStore.active() === id;
-  const setOpen = (open: boolean) => open ? activeMenuStore.open(id) : activeMenuStore.close(id);
+  const setOpen = (open: boolean) => open
+    ? activeMenuStore.open(id)
+    : activeMenuStore.close(id);
   let buttonRef: HTMLButtonElement | undefined;
 
   const location = useLocation();
   createEffect(on(() => location.pathname, () => activeMenuStore.close(id), { defer: true }));
 
   return (
-    <NavMenuContext.Provider value={{ mobile: !!untrack(() => props.mobile), close: () => setOpen(false) }}>
+    <NavMenuContext.Provider value={{
+      mobile: !!untrack(() => props.mobile),
+      close: () => setOpen(false),
+    }}
+    >
       <Show
         when={props.mobile}
         fallback={(

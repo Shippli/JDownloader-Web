@@ -76,7 +76,9 @@ const AddLinksDialog: Component<Props> = (props) => {
     reader.onload = () => {
       const content = reader.result as string;
       // Extract base64 if data URL, otherwise use raw
-      const base64 = content.includes(',') ? content.split(',')[1] : content;
+      const base64 = content.includes(',')
+        ? content.split(',')[1]
+        : content;
       setDlcContent(base64);
     };
     reader.readAsDataURL(file);
@@ -171,7 +173,9 @@ const AddLinksDialog: Component<Props> = (props) => {
         </Button>
         <Button
           variant="default"
-          onClick={tab() === 'links' ? handleAddLinks : handleAddDlc}
+          onClick={tab() === 'links'
+            ? handleAddLinks
+            : handleAddDlc}
           disabled={loading()}
         >
           {t('common.add')}

@@ -18,5 +18,8 @@ export function createPersistedSignal<T>(key: string, fallback: T) {
 
 export function createPersistedToggle(key: string) {
   const [enabled, set] = createPersistedSignal(key, false);
-  return { enabled, toggle: () => set(!enabled()) };
+  return {
+    enabled,
+    toggle: () => set(!enabled()),
+  };
 }

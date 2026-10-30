@@ -50,7 +50,11 @@ let lastNotifications: { str: string; msg: SseServerMessage } | null = null;
 // dropped message (gap) and force a resync. Full snapshots re-baseline the client.
 let seq = 0;
 
-const asArray = (x: unknown): unknown[] => Array.isArray(x) ? x : [];
+function asArray(x: unknown): unknown[] {
+  return Array.isArray(x)
+    ? x
+    : [];
+}
 
 // Total speed = Σ link speeds (same source for syncs and diff patches).
 function sumSpeed(links: Iterable<unknown>): number {
@@ -66,7 +70,12 @@ function sumSpeed(links: Iterable<unknown>): number {
 
 function downloadsMeta(state: string, speed: number, links: unknown[]): DownloadsMeta {
   const exProgress = updateExtractionProgress(links);
-  return { state, speed, exProgress, exProgressStr: JSON.stringify(exProgress) };
+  return {
+    state,
+    speed,
+    exProgress,
+    exProgressStr: JSON.stringify(exProgress),
+  };
 }
 
 function metaDelta(prev: DownloadsMeta, next: DownloadsMeta): Partial<DownloadsDelta> {
@@ -84,11 +93,26 @@ function metaDelta(prev: DownloadsMeta, next: DownloadsMeta): Partial<DownloadsD
 }
 
 function fullDownloadsMsg(c: DownloadsCache): SseServerMessage {
-  return { type: 'downloads', full: true, seq, packages: c.packages, links: c.links, state: c.state, speed: c.speed, exProgress: c.exProgress };
+  return {
+    type: 'downloads',
+    full: true,
+    seq,
+    packages: c.packages,
+    links: c.links,
+    state: c.state,
+    speed: c.speed,
+    exProgress: c.exProgress,
+  };
 }
 
 function fullGrabberMsg(c: EntityCache): SseServerMessage {
-  return { type: 'grabber', full: true, seq, packages: c.packages, links: c.links };
+  return {
+    type: 'grabber',
+    full: true,
+    seq,
+    packages: c.packages,
+    links: c.links,
+  };
 }
 
 // Collapses concurrent calls: while a run is in flight, further calls mark it
@@ -139,14 +163,26 @@ const syncDownloads = singleFlight(async () => {
 
   if (!cachedDownloads) {
     seq++;
-    cachedDownloads = { ...toEntityCache(pkgArr, linkArr), ...meta };
+    cachedDownloads = {
+      ...toEntityCache(pkgArr, linkArr),
+      ...meta,
+    };
     broadcast(fullDownloadsMsg(cachedDownloads));
   } else {
     const { cache, delta } = diffSnapshot(cachedDownloads, pkgArr, linkArr);
     const changedMeta = metaDelta(cachedDownloads, meta);
     if (delta || Object.keys(changedMeta).length > 0) {
-      cachedDownloads = { ...cache, ...meta };
-      broadcast({ ...delta, ...changedMeta, type: 'downloads', full: false, seq: ++seq });
+      cachedDownloads = {
+        ...cache,
+        ...meta,
+      };
+      broadcast({
+        ...delta,
+        ...changedMeta,
+        type: 'downloads',
+        full: false,
+        seq: ++seq,
+      });
     }
   }
   updateExtractionTicker();
@@ -170,7 +206,12 @@ const syncGrabber = singleFlight(async () => {
   const { cache, delta } = diffSnapshot(cachedGrabber, pkgArr, linkArr);
   if (delta) {
     cachedGrabber = cache;
-    broadcast({ ...delta, type: 'grabber', full: false, seq: ++seq });
+    broadcast({
+      ...delta,
+      type: 'grabber',
+      full: false,
+      seq: ++seq,
+    });
   }
 });
 
@@ -185,7 +226,15 @@ const syncNotifications = singleFlight(async () => {
 
   const str = JSON.stringify({ dialogs, captchas, updateAvailable });
   if (str !== lastNotifications?.str) {
-    lastNotifications = { str, msg: { type: 'notifications', dialogs, captchas, updateAvailable } };
+    lastNotifications = {
+      str,
+      msg: {
+        type: 'notifications',
+        dialogs,
+        captchas,
+        updateAvailable,
+      },
+    };
     broadcast(lastNotifications.msg);
   }
 });
@@ -271,7 +320,12 @@ function recomputeExProgress() {
     return;
   }
   Object.assign(cachedDownloads, meta);
-  broadcast({ type: 'downloads', full: false, seq: ++seq, exProgress: meta.exProgress });
+  broadcast({
+    type: 'downloads',
+    full: false,
+    seq: ++seq,
+    exProgress: meta.exProgress,
+  });
 }
 
 // Apply a batch of validated per-field diffs into the cache and emit one
@@ -289,11 +343,19 @@ function applyFieldPatches(patches: EntityPatch[]) {
     return;
   }
 
-  const speed = r.changedLinks.length > 0 ? sumSpeed(cache.links) : cache.speed;
+  const speed = r.changedLinks.length > 0
+    ? sumSpeed(cache.links)
+    : cache.speed;
   const meta = downloadsMeta(cache.state, speed, cache.links);
   const changedMeta = metaDelta(cache, meta);
   Object.assign(cache, meta);
-  broadcast({ ...r.delta, ...changedMeta, type: 'downloads', full: false, seq: ++seq });
+  broadcast({
+    ...r.delta,
+    ...changedMeta,
+    type: 'downloads',
+    full: false,
+    seq: ++seq,
+  });
   updateExtractionTicker();
 }
 

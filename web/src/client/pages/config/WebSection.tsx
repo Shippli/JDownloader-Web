@@ -27,7 +27,9 @@ const WebSection: Component = () => {
             <For each={Object.entries(languages)}>
               {([code, name]) => (
                 <Button
-                  variant={language() === code ? 'default' : 'outline'}
+                  variant={language() === code
+                    ? 'default'
+                    : 'outline'}
                   onClick={() => setLanguage(code as Language)}
                 >
                   {name}

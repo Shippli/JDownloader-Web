@@ -27,11 +27,16 @@ export default defineConfig({
           scale: 1.2,
           warn: true,
           collections: {
-            tabler: () => import('@iconify-json/tabler/icons.json', { with: { type: 'json' } }).then(i => i.default),
+            tabler: () => import('@iconify-json/tabler/icons.json', {
+              with: { type: 'json' },
+            }).then(i => i.default),
           },
         }),
       ],
-      transformers: [transformerVariantGroup(), transformerDirectives()],
+      transformers: [
+        transformerVariantGroup(),
+        transformerDirectives(),
+      ],
     }),
     solid(),
   ],

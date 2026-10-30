@@ -102,7 +102,9 @@ function createRotateRule(prop: string, def: string) {
       yield { [prop]: `calc(${val} * 360deg)` };
       return;
     }
-    yield { [prop]: h.cssvar.degree(val) };
+    yield {
+      [prop]: h.cssvar.degree(val),
+    };
   };
 }
 
@@ -151,7 +153,9 @@ export const animationDelayRules: Rule<Theme>[] = [
             ?? h.bracket.cssvar.time(val)),
       { syntax: '*', inherits: false, initialValue: '0s' },
     ),
-    { autocomplete: ['delay-<num>', 'delay-initial'] },
+    {
+      autocomplete: ['delay-<num>', 'delay-initial'],
+    },
   ],
 ];
 
@@ -167,7 +171,9 @@ export const animationRepeatRules: Rule<Theme>[] = [
           : (h.bracket.cssvar.number(val) ?? val.replaceAll('-', ',')),
       { syntax: '*', inherits: false, initialValue: 1 },
     ),
-    { autocomplete: ['repeat-<num>', 'repeat-(initial|infinite)'] },
+    {
+      autocomplete: ['repeat-<num>', 'repeat-(initial|infinite)'],
+    },
   ],
 ];
 
@@ -203,7 +209,13 @@ export const animationFillModeRules: Rule<Theme>[] = [
       '--un-animation-fill-mode',
       'animation-fill-mode',
       val =>
-        ['none', 'forwards', 'backwards', 'both', 'initial'].includes(val)
+        [
+          'none',
+          'forwards',
+          'backwards',
+          'both',
+          'initial',
+        ].includes(val)
           ? val
           : undefined,
       { syntax: '*', inherits: false, initialValue: 'none' },
@@ -218,7 +230,10 @@ export const blurRules: Rule<Theme>[] = [
     createBlurRule('--un-in-blur', '20px'),
     { autocomplete: 'blur-(in|out)-<percent>' },
   ],
-  [/^blur-out(?:-(.+))?$/, createBlurRule('--un-out-blur', '20px')],
+  [
+    /^blur-out(?:-(.+))?$/,
+    createBlurRule('--un-out-blur', '20px'),
+  ],
 ];
 
 export const fadeRules: Rule<Theme>[] = [
@@ -227,7 +242,10 @@ export const fadeRules: Rule<Theme>[] = [
     createOpacityRule('--un-in-opacity', 0),
     { autocomplete: 'fade-(in|out)-<percent>' },
   ],
-  [/^fade-out(?:-(.+))?$/, createOpacityRule('--un-out-opacity', 0)],
+  [
+    /^fade-out(?:-(.+))?$/,
+    createOpacityRule('--un-out-opacity', 0),
+  ],
 ];
 
 export const zoomRules: Rule<Theme>[] = [
@@ -236,7 +254,10 @@ export const zoomRules: Rule<Theme>[] = [
     createScaleRule('--un-in-scale', 0),
     { autocomplete: 'zoom-(in|out)-<percent>' },
   ],
-  [/^zoom-out(?:-(.+))?$/, createScaleRule('--un-out-scale', 0)],
+  [
+    /^zoom-out(?:-(.+))?$/,
+    createScaleRule('--un-out-scale', 0),
+  ],
 ];
 
 export const spinRules: Rule<Theme>[] = [
@@ -245,17 +266,24 @@ export const spinRules: Rule<Theme>[] = [
     createRotateRule('--un-in-rotate', '30deg'),
     { autocomplete: 'spin-(in|out)-<percent>' },
   ],
-  [/^spin-out(?:-(.+))?$/, createRotateRule('--un-out-rotate', '30deg')],
+  [
+    /^spin-out(?:-(.+))?$/,
+    createRotateRule('--un-out-rotate', '30deg'),
+  ],
 ];
 
 function createSlideRule(prefix: 'enter' | 'exit') {
   const propBase
-    = prefix === 'enter' ? '--un-in-translate' : '--un-out-translate';
+    = prefix === 'enter'
+      ? '--un-in-translate'
+      : '--un-out-translate';
   return function* (
     [, dir, val]: RegExpMatchArray,
     { theme, symbols }: { theme: Theme; symbols: ControlSymbols },
   ) {
-    const axis = ['top', 'bottom'].includes(dir) ? 'y' : 'x';
+    const axis = ['top', 'bottom'].includes(dir)
+      ? 'y'
+      : 'x';
     const prop = `${propBase}-${axis}`;
     const define = defineOnce(prop, {
       syntax: '*',
@@ -268,11 +296,15 @@ function createSlideRule(prefix: 'enter' | 'exit') {
         yield define();
         yield {
           [symbols.selector]: (s: string) => `${s}:dir(ltr)`,
-          [prop]: dir === 'start' ? '-100%' : '100%',
+          [prop]: dir === 'start'
+            ? '-100%'
+            : '100%',
         };
         yield {
           [symbols.selector]: (s: string) => `${s}:dir(rtl)`,
-          [prop]: dir === 'start' ? '100%' : '-100%',
+          [prop]: dir === 'start'
+            ? '100%'
+            : '-100%',
         };
         return;
       }
@@ -290,8 +322,12 @@ function createSlideRule(prefix: 'enter' | 'exit') {
       if (vBracket) {
         yield define();
         const resolved = h.bracket.percent.px.rem(val);
-        const ltrVal = `calc(${resolved}${dir === 'start' ? ' * -1' : ''})`;
-        const rtlVal = `calc(${resolved}${dir === 'start' ? '' : ' * -1'})`;
+        const ltrVal = `calc(${resolved}${dir === 'start'
+          ? ' * -1'
+          : ''})`;
+        const rtlVal = `calc(${resolved}${dir === 'start'
+          ? ''
+          : ' * -1'})`;
         yield {
           [symbols.selector]: (s: string) =>
             `${s}:where(:dir(ltr), [dir="ltr"], [dir="ltr"] *)`,
@@ -310,10 +346,14 @@ function createSlideRule(prefix: 'enter' | 'exit') {
         yield define();
         const spacing = theme.spacing?.DEFAULT;
         const ltrVal = `calc(${vNumber} * ${spacing}${
-          dir === 'start' ? ' * -1' : ''
+          dir === 'start'
+            ? ' * -1'
+            : ''
         })`;
         const rtlVal = `calc(${vNumber} * ${spacing}${
-          dir === 'start' ? '' : ' * -1'
+          dir === 'start'
+            ? ''
+            : ' * -1'
         })`;
         yield {
           [symbols.selector]: (s: string) =>
@@ -332,10 +372,14 @@ function createSlideRule(prefix: 'enter' | 'exit') {
       if (vFraction) {
         yield define();
         const ltrVal = `calc(${vFraction}${
-          dir === 'start' ? ' * -100%' : ' * 100%'
+          dir === 'start'
+            ? ' * -100%'
+            : ' * 100%'
         })`;
         const rtlVal = `calc(${vFraction}${
-          dir === 'start' ? ' * 100%' : ' * -100%'
+          dir === 'start'
+            ? ' * 100%'
+            : ' * -100%'
         })`;
         yield {
           [symbols.selector]: (s: string) =>
@@ -354,7 +398,11 @@ function createSlideRule(prefix: 'enter' | 'exit') {
 
     if (!val) {
       yield define();
-      yield { [prop]: ['top', 'left'].includes(dir) ? '-100%' : '100%' };
+      yield {
+        [prop]: ['top', 'left'].includes(dir)
+          ? '-100%'
+          : '100%',
+      };
       return;
     }
 
@@ -372,7 +420,9 @@ function createSlideRule(prefix: 'enter' | 'exit') {
       yield define();
       yield {
         [prop]: `calc(${h.bracket.percent.px.rem(val)}${
-          ['top', 'left'].includes(dir) ? ' * -1' : ''
+          ['top', 'left'].includes(dir)
+            ? ' * -1'
+            : ''
         })`,
       };
       return;
@@ -383,7 +433,9 @@ function createSlideRule(prefix: 'enter' | 'exit') {
       yield define();
       yield {
         [prop]: `calc(${vNumber} * ${theme.spacing?.DEFAULT}${
-          ['top', 'left'].includes(dir) ? ' * -1' : ''
+          ['top', 'left'].includes(dir)
+            ? ' * -1'
+            : ''
         })`,
       };
       return;
@@ -394,7 +446,9 @@ function createSlideRule(prefix: 'enter' | 'exit') {
       yield define();
       yield {
         [prop]: `calc(${vFraction}${
-          ['top', 'left'].includes(dir) ? ' * -100%' : ' * 100%'
+          ['top', 'left'].includes(dir)
+            ? ' * -100%'
+            : ' * 100%'
         })`,
       };
     }

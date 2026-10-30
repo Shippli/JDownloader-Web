@@ -25,7 +25,9 @@ export const CaptchaModal: Component<{ captcha: JdCaptchaDetail; onClose: () => 
       ? `${t('captcha.label')} — ${props.captcha.hoster}`
       : t('captcha.label');
 
-  const imgSrc = () => props.captcha.imageData ? `data:${props.captcha.imageData}` : null;
+  const imgSrc = () => props.captcha.imageData
+    ? `data:${props.captcha.imageData}`
+    : null;
 
   return (
     <Dialog open={true} onClose={props.onClose} title={title()}>

@@ -90,7 +90,9 @@ const SettingsSection: Component = () => {
       <Show when={!loading() && filteredEntries().length === 0}>
         <EmptyState
           icon="i-tabler-settings-off"
-          text={allEntries().length > 0 ? t('config.settings.noResults') : t('config.settings.noSettings')}
+          text={allEntries().length > 0
+            ? t('config.settings.noResults')
+            : t('config.settings.noSettings')}
           class="py-16"
         />
       </Show>

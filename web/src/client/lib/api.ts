@@ -46,7 +46,9 @@ async function request<T>(
   }
 
   const text = await res.text();
-  const data = (text ? JSON.parse(text) : null) as T;
+  const data = (text
+    ? JSON.parse(text)
+    : null) as T;
 
   if (debugStore.enabled()) {
     const ms = (performance.now() - startMs).toFixed(1);
@@ -64,14 +66,18 @@ function get<T>(path: string) {
 function post<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: 'POST',
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined
+      ? JSON.stringify(body)
+      : undefined,
   });
 }
 
 function patch<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: 'PATCH',
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined
+      ? JSON.stringify(body)
+      : undefined,
   });
 }
 
@@ -125,7 +131,12 @@ export const jdApi = {
   moveToDownloads: (linkIds: number[], packageIds: number[]) =>
     post('/jd/grabber/move', { linkIds, packageIds }),
   moveToNewPackage: (linkIds: number[], packageIds: number[], name: string) =>
-    post('/jd/grabber/new-package', { linkIds, packageIds, name, downloadPath: '' }),
+    post('/jd/grabber/new-package', {
+      linkIds,
+      packageIds,
+      name,
+      downloadPath: '',
+    }),
   removeGrabber: (linkIds: number[], packageIds: number[]) =>
     post('/jd/grabber/remove', { linkIds, packageIds }),
   renameGrabberPackage: (uuid: number, name: string) =>
@@ -165,7 +176,9 @@ export const configApi = {
 
   // Settings (/config namespace)
   listSettings: (pattern?: string) =>
-    get<ConfigEntry[]>(`/jd/settings/list${pattern ? `?pattern=${encodeURIComponent(pattern)}` : ''}`),
+    get<ConfigEntry[]>(`/jd/settings/list${pattern
+      ? `?pattern=${encodeURIComponent(pattern)}`
+      : ''}`),
   setSetting: (entry: { interfaceName: string; storage?: string; key: string; value: unknown }) =>
     post('/jd/settings/set', entry),
   resetSetting: (entry: { interfaceName: string; storage?: string; key: string }) =>
@@ -427,7 +440,9 @@ export function formatBytes(bytes: number): string {
     val /= 1024;
     i++;
   }
-  return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  return `${val.toFixed(i === 0
+    ? 0
+    : 1)} ${units[i]}`;
 }
 
 export function formatSpeed(bps: number): string {
@@ -465,9 +480,18 @@ export function formatDuration(ms: number): string {
   }
   const s = Math.floor(ms / 1000);
   const parts = [
-    [Math.floor(s / 86400), 'd'],
-    [Math.floor((s % 86400) / 3600), 'h'],
-    [Math.floor((s % 3600) / 60), 'm'],
+    [
+      Math.floor(s / 86400),
+      'd',
+    ],
+    [
+      Math.floor((s % 86400) / 3600),
+      'h',
+    ],
+    [
+      Math.floor((s % 3600) / 60),
+      'm',
+    ],
   ] as const;
   return parts.filter(([n]) => n > 0).map(([n, u]) => `${n}${u}`).join(' ') || '<1m';
 }

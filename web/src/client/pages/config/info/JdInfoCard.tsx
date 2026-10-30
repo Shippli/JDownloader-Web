@@ -16,16 +16,41 @@ function infoRows(i: JdInfo | undefined): InfoRow[] {
   }
   const s = i.systemInfos;
   const rows: InfoRow[] = [
-    { label: t('config.info.status'), value: i.version != null ? t('config.info.connected') : t('config.info.unavailable'), ok: i.version != null },
-    { label: t('config.info.version'), value: i.version ?? '–' },
-    { label: t('config.info.revision'), value: i.revision != null ? String(i.revision) : '–' },
-    { label: t('config.info.uptime'), value: i.uptime != null ? formatDuration(i.uptime) : '–' },
+    {
+      label: t('config.info.status'),
+      value: i.version != null
+        ? t('config.info.connected')
+        : t('config.info.unavailable'),
+      ok: i.version != null,
+    },
+    {
+      label: t('config.info.version'),
+      value: i.version ?? '–',
+    },
+    {
+      label: t('config.info.revision'),
+      value: i.revision != null
+        ? String(i.revision)
+        : '–',
+    },
+    {
+      label: t('config.info.uptime'),
+      value: i.uptime != null
+        ? formatDuration(i.uptime)
+        : '–',
+    },
   ];
   if (s?.hardware) {
-    rows.push({ label: t('config.info.hardware'), value: s.hardware });
+    rows.push({
+      label: t('config.info.hardware'),
+      value: s.hardware,
+    });
   }
   if (s?.operatingSystem) {
-    rows.push({ label: t('config.info.os'), value: s.operatingSystem });
+    rows.push({
+      label: t('config.info.os'),
+      value: s.operatingSystem,
+    });
   }
   return rows;
 }

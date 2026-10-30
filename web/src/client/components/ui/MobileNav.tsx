@@ -19,7 +19,9 @@ export const MobileNav: Component = () => {
             href={item.href}
             title={item.label()}
             class={`flex-1 flex items-center justify-center py-5 transition-colors ${
-              isActive(item.href) ? 'text-foreground' : 'text-muted-foreground'
+              isActive(item.href)
+                ? 'text-foreground'
+                : 'text-muted-foreground'
             }`}
           >
             <span class={`${item.icon} w-5 h-5`} />

@@ -13,13 +13,17 @@ export const SideNav: Component = () => {
 
   return (
     <aside
-      class={`hidden md:flex border-r bg-card flex-col shrink-0 h-screen sticky top-0 transition-all duration-200 overflow-hidden ${collapsed() ? 'w-16' : 'w-64'}`}
+      class={`hidden md:flex border-r bg-card flex-col shrink-0 h-screen sticky top-0 transition-all duration-200 overflow-hidden ${collapsed()
+        ? 'w-16'
+        : 'w-64'}`}
     >
       <div class="border-b flex items-center shrink-0 px-4 py-4">
         <button
           onClick={toggleSidebar}
           class="group relative h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0 transition-opacity hover:opacity-90"
-          title={collapsed() ? t('nav.expand') : t('nav.collapse')}
+          title={collapsed()
+            ? t('nav.expand')
+            : t('nav.collapse')}
         >
           <span class="i-tabler-ghost-filled w-5 h-5 text-primary-foreground transition-opacity group-hover:opacity-0" />
           <span class="absolute inset-0 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -46,7 +50,9 @@ export const SideNav: Component = () => {
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               }`}
-              title={collapsed() ? item.label() : undefined}
+              title={collapsed()
+                ? item.label()
+                : undefined}
             >
               <span class={`${item.icon} w-5 h-5 shrink-0`} />
               <Show when={!collapsed()}>

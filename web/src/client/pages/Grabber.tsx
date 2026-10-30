@@ -37,7 +37,11 @@ function availabilityClass(avail?: string) {
   return 'text-warning';
 }
 
-const linkCountLabel = (n: number) => `${n} ${t(n !== 1 ? 'grabber.links' : 'grabber.link')}`;
+function linkCountLabel(n: number) {
+  return `${n} ${t(n !== 1
+    ? 'grabber.links'
+    : 'grabber.link')}`;
+}
 
 const Grabber: Component = () => {
   const navigate = useNavigate();
@@ -92,24 +96,43 @@ const Grabber: Component = () => {
     const items: ContextMenuItem[] = [];
 
     if (cm.type === 'pkg' && pkgIds.length === 1 && linkIds.length === 0) {
-      items.push({ label: t('grabber.ctx.rename'), icon: 'i-tabler-pencil', onClick: () => setRenameModal({ uuid: cm.uuid, name: cm.name }) });
+      items.push({
+        label: t('grabber.ctx.rename'),
+        icon: 'i-tabler-pencil',
+        onClick: () => setRenameModal({ uuid: cm.uuid, name: cm.name }),
+      });
     }
     items.push(
-      { label: t('grabber.ctx.delete'), icon: 'i-tabler-trash', danger: true, onClick: () => openDeleteModal(target, t('grabber.confirm.delete')) },
       {
-        label: cm.enabled ? t('common.disable') : t('common.enable'),
+        label: t('grabber.ctx.delete'),
+        icon: 'i-tabler-trash',
+        danger: true,
+        onClick: () => openDeleteModal(target, t('grabber.confirm.delete')),
+      },
+      {
+        label: cm.enabled
+          ? t('common.disable')
+          : t('common.enable'),
         icon: cm.enabled ? 'i-tabler-player-pause' : 'i-tabler-player-play',
         onClick: () => run(jdApi.enableGrabber(!cm.enabled, linkIds, pkgIds)),
       },
       priorityMenuItem(cm.touch, () => setPriorityModal(target), setPriority),
-      { label: t('grabber.ctx.checkStatus'), icon: 'i-tabler-refresh', onClick: () => run(jdApi.checkGrabberLinks(linkIds, pkgIds)) },
+      {
+        label: t('grabber.ctx.checkStatus'),
+        icon: 'i-tabler-refresh',
+        onClick: () => run(jdApi.checkGrabberLinks(linkIds, pkgIds)),
+      },
       {
         label: t('grabber.ctx.newPackage'),
         icon: 'i-tabler-folder-plus',
         separator: true,
         onClick: () => setNewPackageModal({ ...target, name: cm.name }),
       },
-      { label: t('grabber.ctx.startDownload'), icon: 'i-tabler-player-play', onClick: () => startDownloads(target) },
+      {
+        label: t('grabber.ctx.startDownload'),
+        icon: 'i-tabler-player-play',
+        onClick: () => startDownloads(target),
+      },
     );
     return items;
   };
@@ -213,7 +236,9 @@ const Grabber: Component = () => {
                         {link => (
                           <div
                             class={`px-4 py-3 border-b last:border-0 transition-colors cursor-pointer select-none ${
-                              list.isLinkSelected(link.uuid) ? 'bg-info/5' : 'hover:bg-muted/50'
+                              list.isLinkSelected(link.uuid)
+                                ? 'bg-info/5'
+                                : 'hover:bg-muted/50'
                             }`}
                             onClick={e => list.toggleLinkSelect(link.uuid, e.shiftKey)}
                             {...list.itemHandlers('link', link)}
@@ -229,7 +254,10 @@ const Grabber: Component = () => {
                                     size="icon"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      openDeleteModal({ linkIds: [link.uuid], pkgIds: [] }, t('grabber.confirm.delete'));
+                                      openDeleteModal({
+                                        linkIds: [link.uuid],
+                                        pkgIds: [],
+                                      }, t('grabber.confirm.delete'));
                                     }}
                                     class="flex-shrink-0 text-destructive hover:bg-destructive/10"
                                     title={t('common.remove')}
@@ -267,7 +295,9 @@ const Grabber: Component = () => {
               <>
                 {/* Package row */}
                 <div
-                  class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${list.isPkgSelected(pkg.uuid) ? 'bg-info/5' : 'bg-muted/40 hover:bg-muted/70'}`}
+                  class={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer select-none transition-colors ${list.isPkgSelected(pkg.uuid)
+                    ? 'bg-info/5'
+                    : 'bg-muted/40 hover:bg-muted/70'}`}
                   data-list-card
                   onClick={e => list.togglePkgSelect(pkg.uuid, e.shiftKey)}
                   {...list.itemHandlers('pkg', pkg)}
@@ -284,7 +314,9 @@ const Grabber: Component = () => {
                   <For each={list.packageLinks(pkg.uuid)}>
                     {link => (
                       <div
-                        class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${list.isLinkSelected(link.uuid) ? 'bg-info/5' : 'hover:bg-muted/50'}`}
+                        class={`flex items-center gap-2 px-3 py-1.5 pl-8 border-b last:border-b-0 cursor-pointer select-none transition-colors ${list.isLinkSelected(link.uuid)
+                          ? 'bg-info/5'
+                          : 'hover:bg-muted/50'}`}
                         data-list-card
                         onClick={e => list.toggleLinkSelect(link.uuid, e.shiftKey)}
                         {...list.itemHandlers('link', link)}

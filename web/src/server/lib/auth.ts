@@ -35,6 +35,8 @@ export const auth = betterAuth({
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',
-    ...(process.env.TRUSTED_ORIGINS ? process.env.TRUSTED_ORIGINS.split(',') : []),
+    ...(process.env.TRUSTED_ORIGINS
+      ? process.env.TRUSTED_ORIGINS.split(',')
+      : []),
   ],
 });

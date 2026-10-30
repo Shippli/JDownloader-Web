@@ -29,8 +29,14 @@ export const StorageCard: Component = () => {
         <Card class="overflow-hidden">
           <For each={storage()}>
             {(s) => {
-              const pct = s.size > 0 ? Math.round(((s.size - s.free) / s.size) * 100) : 0;
-              const barColor = pct > 90 ? 'red' : pct > 70 ? 'yellow' : 'blue';
+              const pct = s.size > 0
+                ? Math.round(((s.size - s.free) / s.size) * 100)
+                : 0;
+              const barColor = pct > 90
+                ? 'red'
+                : pct > 70
+                  ? 'yellow'
+                  : 'blue';
               return (
                 <div class="px-4 py-3 border-b last:border-0">
                   <div class="flex items-center justify-between mb-1.5">

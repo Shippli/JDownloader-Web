@@ -29,8 +29,16 @@ const [_grabStore, setGrabStore] = createStore<GrabberPayload>({
   links: [],
 });
 
-export const sseDownloads = (): DownloadsPayload | null => _dlLoaded() ? _dlStore : null;
-export const sseGrabber = (): GrabberPayload | null => _grabLoaded() ? _grabStore : null;
+export function sseDownloads(): DownloadsPayload | null {
+  return _dlLoaded()
+    ? _dlStore
+    : null;
+}
+export function sseGrabber(): GrabberPayload | null {
+  return _grabLoaded()
+    ? _grabStore
+    : null;
+}
 
 // ─── Message types ────────────────────────────────────────────────────────────
 
@@ -66,8 +74,14 @@ function indexOf(arr: Keyed[]): Map<number, number> {
   return new Map(arr.map((x, i) => [x.uuid, i]));
 }
 
-const dlIndex: EntityIndex = { packages: new Map(), links: new Map() };
-const grabIndex: EntityIndex = { packages: new Map(), links: new Map() };
+const dlIndex: EntityIndex = {
+  packages: new Map(),
+  links: new Map(),
+};
+const grabIndex: EntityIndex = {
+  packages: new Map(),
+  links: new Map(),
+};
 
 function removeEntities<T extends Keyed>(arr: T[], uuids: number[] | undefined): T[] | null {
   if (!uuids?.length) {
@@ -146,7 +160,13 @@ function dispatch(msg: SseServerMessage) {
       }
       if (msg.full) {
         setDlStore(reconcile(
-          { packages: msg.packages, links: msg.links, state: msg.state, speed: msg.speed, exProgress: msg.exProgress },
+          {
+            packages: msg.packages,
+            links: msg.links,
+            state: msg.state,
+            speed: msg.speed,
+            exProgress: msg.exProgress,
+          },
           { key: 'uuid', merge: true },
         ));
         resetIndex(dlIndex, msg);
@@ -238,7 +258,14 @@ function connect() {
     // EventSource auto-reconnects on clean drops; the watchdog covers half-open ones.
   };
 
-  for (const event of ['hello', 'health', 'downloads', 'grabber', 'notifications', 'heartbeat'] as const) {
+  for (const event of [
+    'hello',
+    'health',
+    'downloads',
+    'grabber',
+    'notifications',
+    'heartbeat',
+  ] as const) {
     es.addEventListener(event, (e: MessageEvent) => {
       petWatchdog();
       try {

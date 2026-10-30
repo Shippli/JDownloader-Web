@@ -11,7 +11,9 @@ export const UserMenu: Component<{ collapsed?: boolean; mobile?: boolean }> = (p
   const isDark = () => themeStore.effectiveTheme() === 'dark';
   const displayName = () => {
     const u = authStore.user();
-    return u ? (u.name || u.email) : undefined;
+    return u
+      ? (u.name || u.email)
+      : undefined;
   };
 
   const handleSignOut = async () => {
@@ -28,13 +30,23 @@ export const UserMenu: Component<{ collapsed?: boolean; mobile?: boolean }> = (p
       label={<span class="whitespace-nowrap truncate">{displayName()}</span>}
       buttonTitle={displayName()}
       heading={displayName() ?? ''}
-      subheading={authStore.user()?.name ? authStore.user()?.email : undefined}
+      subheading={authStore.user()?.name
+        ? authStore.user()?.email
+        : undefined}
     >
       <NavMenuItem icon="i-tabler-settings" onSelect={() => navigate('/config')}>
         {t('nav.settings')}
       </NavMenuItem>
-      <NavMenuItem icon={isDark() ? 'i-tabler-sun' : 'i-tabler-moon'} keepOpen onSelect={() => themeStore.toggleTheme()}>
-        {isDark() ? t('nav.lightMode') : t('nav.darkMode')}
+      <NavMenuItem
+        icon={isDark()
+          ? 'i-tabler-sun'
+          : 'i-tabler-moon'}
+        keepOpen
+        onSelect={() => themeStore.toggleTheme()}
+      >
+        {isDark()
+          ? t('nav.lightMode')
+          : t('nav.darkMode')}
       </NavMenuItem>
       <NavMenuSeparator />
       <NavMenuItem icon="i-tabler-logout" destructive onSelect={handleSignOut}>
