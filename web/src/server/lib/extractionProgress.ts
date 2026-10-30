@@ -4,12 +4,8 @@ const ETA_ALPHA = 0.3;
 const extractStartMap = new Map<number, { startMs: number; smoothedEtaMs: number }>();
 
 // JD's IconKey.ICON_EXTRACT; status text is localized, so it is only a fallback.
-function isExtracting(l: { status?: string; statusIconKey?: string }): boolean {
+export function isExtracting(l: { status?: string; statusIconKey?: string }): boolean {
   return l.statusIconKey === 'extract' || !!l.status?.toLowerCase().includes('extracting');
-}
-
-export function hasTrackedExtractions(): boolean {
-  return extractStartMap.size > 0;
 }
 
 export function updateExtractionProgress(links: unknown[]): Record<number, number> {

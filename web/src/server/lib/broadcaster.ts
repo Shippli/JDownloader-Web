@@ -4,12 +4,13 @@ import type { EntityPatch, EventTopic } from './jdEvents';
 import type { SseWriter } from './sseHub';
 import { fetchDialogs } from './dialogs';
 import { applyPatchesToCache, diffSnapshot, toEntityCache } from './entityDiff';
-import { hasTrackedExtractions, updateExtractionProgress } from './extractionProgress';
+import { isExtracting, updateExtractionProgress } from './extractionProgress';
 import {
   DEFAULT_GRABBER_LINK_QUERY,
   DEFAULT_GRABBER_PACKAGE_QUERY,
   DEFAULT_LINK_QUERY,
   DEFAULT_PACKAGE_QUERY,
+  EXTRACTION_STATUS_QUERY,
   isJdConnError,
   jd as jdClient,
 } from './jd';
@@ -187,10 +188,27 @@ const syncNotifications = singleFlight(async () => {
     lastNotifications = { str, msg: { type: 'notifications', dialogs, captchas, updateAvailable } };
     broadcast(lastNotifications.msg);
   }
-
-  const idle = cachedDownloads?.state === 'IDLE' && !hasTrackedExtractions();
-  void jdClient.checkAutoUpdate(idle, updateAvailable);
 });
+
+// ─── Auto update ──────────────────────────────────────────────────────────────
+
+const IDLE_STATES = new Set(['IDLE', 'STOPPED_STATE']);
+
+// Runs regardless of connected clients.
+async function autoUpdateTick() {
+  if (!jdClient.isAutoUpdateEnabled()) {
+    return;
+  }
+  try {
+    const [updateRaw, state, links] = await Promise.all([
+      jdClient.call('/update/isUpdateAvailable'),
+      jdClient.call('/downloadcontroller/getCurrentState'),
+      jdClient.call('/downloadsV2/queryLinks', [EXTRACTION_STATUS_QUERY]),
+    ]);
+    const idle = IDLE_STATES.has(state as string) && !asArray(links).some(l => isExtracting(l as { status?: string; statusIconKey?: string }));
+    await jdClient.checkAutoUpdate(idle, updateRaw === true);
+  } catch {}
+}
 
 function syncAll() {
   void syncDownloads();
@@ -386,6 +404,7 @@ export function startBroadcaster() {
   // Safety net for missed/dropped events: cheap periodic reconciliation.
   // Also refreshes total speed / update-availability during long idle phases.
   setInterval(syncAll, 60_000);
+  setInterval(() => void autoUpdateTick(), 60_000);
   // The event listener itself starts with the first SSE client (addSseClient)
   // and stops with the last — no clients means no JD traffic beyond health.
 }

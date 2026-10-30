@@ -167,7 +167,7 @@ class JDownloaderClient {
     setAppSetting('auto_update_enabled', String(v));
   }
 
-  // Called on every notifications poll (see broadcaster.ts) with the current
+  // Called by the auto-update tick (see broadcaster.ts) with the current
   // update-availability and idle state.
   // Fires the actual update+restart at most once per update becoming available,
   // and re-arms once it's gone.
@@ -220,6 +220,8 @@ const DOWNLOAD_FIELDS = { ...COMMON_FIELDS, bytesLoaded: true, speed: true, eta:
 export const DEFAULT_PACKAGE_QUERY = { ...PAGE_ALL, ...DOWNLOAD_FIELDS, hosts: true, childCount: true };
 
 export const DEFAULT_LINK_QUERY = { ...PAGE_ALL, ...DOWNLOAD_FIELDS, host: true, url: true };
+
+export const EXTRACTION_STATUS_QUERY = { ...PAGE_ALL, status: true };
 
 export const DEFAULT_GRABBER_PACKAGE_QUERY = { ...PAGE_ALL, ...COMMON_FIELDS, hosts: true, childCount: true };
 
