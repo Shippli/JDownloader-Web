@@ -6,3 +6,26 @@ html {
 .no-transition * {
   transition: none !important;
 }
+
+/* Full-width toasts while mobile nav is visible */
+@media (max-width: 767px) {
+  [data-somoto-toaster] {
+    --mobile-offset: 16px;
+    right: var(--mobile-offset);
+    left: var(--mobile-offset);
+    width: 100%;
+  }
+  [data-somoto-toaster] [data-somoto-toast] {
+    left: 0;
+    right: 0;
+    width: calc(100% - var(--mobile-offset) * 2);
+  }
+  [data-somoto-toaster][data-x-position='center'] {
+    left: var(--mobile-offset);
+    right: var(--mobile-offset);
+    transform: none;
+  }
+  [data-somoto-toaster][data-y-position='top'] {
+    top: 20px;
+  }
+}

@@ -1,6 +1,6 @@
 import type { JdCaptcha, JdDialog } from '../lib/api';
 import { createSignal } from 'solid-js';
-import { toast } from '../components/ui/Toaster';
+import { toast } from 'somoto';
 import { t } from '../i18n';
 
 export function dialogTitle(d: JdDialog) {
@@ -59,7 +59,7 @@ export function applyNotificationsMessage(data: {
         const dialog = d;
         toast.info(dialogTitle(d), {
           duration: 5000,
-          onClick: () => setPendingOpen({ kind: 'dialog', dialog }),
+          action: { label: t('common.open'), onClick: () => setPendingOpen({ kind: 'dialog', dialog }) },
         });
       }
     }
@@ -79,7 +79,7 @@ export function applyNotificationsMessage(data: {
         const entry = c;
         toast.warning(`${t('captcha.label')}${c.hoster ? ` — ${c.hoster}` : ''}`, {
           duration: 5000,
-          onClick: () => setPendingOpen({ kind: 'captcha', entry }),
+          action: { label: t('common.open'), onClick: () => setPendingOpen({ kind: 'captcha', entry }) },
         });
       }
     }
@@ -92,7 +92,7 @@ export function applyNotificationsMessage(data: {
   if (available && !updateToastShown) {
     toast.info(t('dialogs.updateEntry'), {
       duration: 8000,
-      onClick: () => setPendingOpen({ kind: 'update' }),
+      action: { label: t('common.open'), onClick: () => setPendingOpen({ kind: 'update' }) },
     });
     updateToastShown = true;
   }

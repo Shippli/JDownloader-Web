@@ -33,6 +33,7 @@ const en = {
   },
   common: {
     cancel: 'Cancel',
+    open: 'Open',
     save: 'Save',
     add: 'Add',
     delete: 'Remove',
