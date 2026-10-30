@@ -29,3 +29,15 @@ html {
     top: 20px;
   }
 }
+
+/* ScrollText edge fade */
+@property --fade-left {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-right {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
