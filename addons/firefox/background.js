@@ -62,12 +62,6 @@ async function updateBadge() {
   }
 }
 
-// ─── URL Helpers ──────────────────────────────────────────────────────────────
-
-function matchesCnlHost(url, path) {
-  return url.includes('localhost:9666' + path) || url.includes('127.0.0.1:9666' + path);
-}
-
 // ─── Form Data Parser ─────────────────────────────────────────────────────────
 
 function readFormData(requestBody) {
@@ -81,17 +75,14 @@ function readFormData(requestBody) {
   }
 
   if (requestBody.raw && requestBody.raw.length > 0) {
-    let binary = '';
+    const decoder = new TextDecoder();
+    let body = '';
     for (const buf of requestBody.raw) {
-      const bytes = new Uint8Array(buf.bytes);
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      if (buf.bytes) body += decoder.decode(buf.bytes, { stream: true });
     }
-    for (const pair of binary.split('&')) {
-      const eqIdx = pair.indexOf('=');
-      if (eqIdx === -1) continue;
-      const key = decodeURIComponent(pair.slice(0, eqIdx).replace(/\+/g, ' '));
-      const val = decodeURIComponent(pair.slice(eqIdx + 1).replace(/\+/g, ' '));
-      result[key] = val;
+    body += decoder.decode();
+    for (const [key, val] of new URLSearchParams(body)) {
+      if (!(key in result)) result[key] = val;
     }
   }
 
@@ -388,39 +379,34 @@ function processCnl(kind, fd, packageOverride) {
       .catch(err => notifyCnlError(err.message));
     return;
   }
-  const links       = fd.urls || fd.source || '';
-  const packageName = packageOverride || fd.package || fd.refer || '';
+  const links       = fd.urls || '';
+  const packageName = packageOverride || fd.package || '';
   if (links) sendToBackend(links, packageName).catch(err => notifyCnlError(err.message));
 }
 
 // ─── WebRequest Interceptor ───────────────────────────────────────────────────
 
 function handleRequest(details) {
-  const url = details.url;
-
-  if (!url.includes('localhost:9666') && !url.includes('127.0.0.1:9666')) return {};
-
   // Not ready (no token or CNL disabled) → don't intercept; site gets natural connection error
   if (!config.cnlActive || !config.token) return {};
 
-  if (matchesCnlHost(url, '/jdcheck.js')) {
-    // Inject window.jdownloader=true AND a form.submit() interceptor into the page context.
-    // The interceptor captures CNL form data before the browser can block the HTTP→localhost
-    // submission as mixed content (which happens before webRequest fires).
-    if (details.tabId > 0) {
-      browser.tabs.executeScript(details.tabId, { file: 'content/cnl-inject.js' }).catch(() => {});
+  const { pathname, search } = new URL(details.url);
+
+  if (pathname === '/jdcheck.js') {
+    // Activate content/cnl.js in the probing frame (submit hook); the redirect answers the probe.
+    if (details.tabId >= 0) {
+      browser.tabs.sendMessage(details.tabId, { type: 'cnlActivate' }, { frameId: details.frameId }).catch(() => {});
     }
-    // Redirect to the extension's own jdcheck.js — proper JS MIME type, no CSP issues.
     return { redirectUrl: browser.runtime.getURL('content/jdcheck.js') };
   }
-  if (matchesCnlHost(url, '/crossdomain.xml')) return { cancel: true };
-  if (url.includes('?fromExtension'))          return {};
+  if (pathname === '/crossdomain.xml')  return { cancel: true };
+  if (search.includes('fromExtension')) return {};
 
-  if (matchesCnlHost(url, '/flash/addcrypted2')) {
+  if (pathname === '/flash/addcrypted2') {
     processCnl('addcrypted2', readFormData(details.requestBody || {}));
     return { cancel: true };
   }
-  if (matchesCnlHost(url, '/flash/add')) {
+  if (pathname === '/flash/add') {
     processCnl('add', readFormData(details.requestBody || {}));
     return { cancel: true };
   }
@@ -430,7 +416,7 @@ function handleRequest(details) {
 
 browser.webRequest.onBeforeRequest.addListener(
   handleRequest,
-  { urls: ['<all_urls>'] },
+  { urls: ['http://127.0.0.1:9666/*', 'http://localhost:9666/*'] },
   ['blocking', 'requestBody']
 );
 
