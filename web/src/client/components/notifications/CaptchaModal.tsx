@@ -4,7 +4,7 @@ import { createSignal, Show } from 'solid-js';
 import { t } from '../../i18n';
 import { captchaApi } from '../../lib/api';
 import { Button } from '../ui/Button';
-import { Dialog, DialogBody, DialogFooter } from '../ui/Dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogPortal, DialogTitle } from '../ui/Dialog';
 import { TextField } from '../ui/TextField';
 
 export const CaptchaModal: Component<{ captcha: JdCaptchaDetail; onClose: () => void }> = (props) => {
@@ -30,43 +30,50 @@ export const CaptchaModal: Component<{ captcha: JdCaptchaDetail; onClose: () => 
     : null;
 
   return (
-    <Dialog open={true} onClose={props.onClose} title={title()}>
-      <DialogBody>
-        <Show when={imgSrc()}>
-          {src => (
-            <img
-              src={src()}
-              alt="captcha"
-              class="max-w-full rounded border mx-auto block pixelated"
+    <Dialog open={true} onOpenChange={open => !open && props.onClose()}>
+      <DialogPortal>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{title()}</DialogTitle>
+          </DialogHeader>
+          <div class="space-y-4">
+            <Show when={imgSrc()}>
+              {src => (
+                <img
+                  src={src()}
+                  alt="captcha"
+                  class="max-w-full rounded border mx-auto block pixelated"
+                />
+              )}
+            </Show>
+            <Show when={props.captcha.explain}>
+              <p class="text-sm text-muted-foreground">{props.captcha.explain}</p>
+            </Show>
+            <TextField
+              type="text"
+              value={captchaSolution()}
+              onChange={setCaptchaSolution}
+              placeholder={t('captcha.solutionPlaceholder')}
+              inputProps={{
+                'data-autofocus': '',
+                'onKeyDown': (e: KeyboardEvent) => {
+                  if (e.key === 'Enter') {
+                    submitCaptcha();
+                  }
+                },
+              }}
             />
-          )}
-        </Show>
-        <Show when={props.captcha.explain}>
-          <p class="text-sm text-muted-foreground">{props.captcha.explain}</p>
-        </Show>
-        <TextField
-          type="text"
-          value={captchaSolution()}
-          onChange={setCaptchaSolution}
-          placeholder={t('captcha.solutionPlaceholder')}
-          inputProps={{
-            'data-autofocus': '',
-            'onKeyDown': (e: KeyboardEvent) => {
-              if (e.key === 'Enter') {
-                submitCaptcha();
-              }
-            },
-          }}
-        />
-      </DialogBody>
-      <DialogFooter bordered>
-        <Button variant="secondary" onClick={skipCaptcha}>
-          {t('captcha.skip')}
-        </Button>
-        <Button variant="default" onClick={submitCaptcha} disabled={captchaSolution().trim() === ''}>
-          {t('captcha.submit')}
-        </Button>
-      </DialogFooter>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={skipCaptcha}>
+              {t('captcha.skip')}
+            </Button>
+            <Button variant="default" onClick={submitCaptcha} disabled={captchaSolution().trim() === ''}>
+              {t('captcha.submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 };

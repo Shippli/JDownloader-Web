@@ -61,7 +61,7 @@ export default antfu({
     'shadcn/no-arbitrary-values': [
       'error',
       {
-        allow: ['max-h-[*vh]', 'grid-cols-[1fr_auto]'],
+        allow: ['max-h-[*vh]', 'grid-cols-[1fr_auto]', 'max-w-[calc(100%-2rem)]'],
       },
     ],
     'shadcn/no-inline-styles': 'error',

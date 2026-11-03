@@ -2,7 +2,7 @@ import type { Component, JSX } from 'solid-js';
 import { Show } from 'solid-js';
 import { t } from '../../i18n';
 import { Button } from './Button';
-import { Dialog, DialogBody, DialogFooter } from './Dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogPortal, DialogTitle } from './Dialog';
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -21,21 +21,26 @@ type ConfirmDialogProps = {
 };
 
 export const ConfirmDialog: Component<ConfirmDialogProps> = props => (
-  <Dialog open={props.open} onClose={props.onClose} title={props.title}>
-    <DialogBody>
-      <div class="flex items-start gap-3">
-        <Show when={props.icon}>
-          <span class={`${props.icon} w-6 h-6 text-primary shrink-0 mt-0.5`} />
-        </Show>
-        <p class="text-sm text-foreground">{props.message}</p>
-      </div>
-      {props.children}
-      <DialogFooter>
-        <Button variant="secondary" onClick={() => props.onClose()}>{t('common.cancel')}</Button>
-        <Button variant={props.confirmVariant ?? 'danger'} onClick={() => props.onConfirm()} loading={props.loading} icon={props.confirmIcon}>
-          {props.confirmLabel}
-        </Button>
-      </DialogFooter>
-    </DialogBody>
+  <Dialog open={props.open} onOpenChange={open => !open && props.onClose()}>
+    <DialogPortal>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{props.title}</DialogTitle>
+        </DialogHeader>
+        <div class="flex items-start gap-3">
+          <Show when={props.icon}>
+            <span class={`${props.icon} w-6 h-6 text-primary shrink-0 mt-0.5`} />
+          </Show>
+          <p class="text-sm text-foreground">{props.message}</p>
+        </div>
+        {props.children}
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => props.onClose()}>{t('common.cancel')}</Button>
+          <Button variant={props.confirmVariant ?? 'danger'} onClick={() => props.onConfirm()} loading={props.loading} icon={props.confirmIcon}>
+            {props.confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </DialogPortal>
   </Dialog>
 );

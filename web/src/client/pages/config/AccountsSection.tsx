@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Combobox } from '../../components/ui/Combobox';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { Dialog, DialogBody, DialogFooter } from '../../components/ui/Dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogPortal, DialogTitle } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { Switch } from '../../components/ui/Switch';
@@ -71,48 +71,55 @@ const AddAccountDialog: Component<{ open: boolean } & DialogCallbacks> = (props)
   };
 
   return (
-    <Dialog open={props.open} onClose={close} title={t('config.accounts.addModal.title')}>
-      <form onSubmit={submit}>
-        <DialogBody>
-          <div>
-            <Combobox
-              label={t('config.accounts.addModal.hoster')}
-              value={hoster()}
-              onChange={setHoster}
-              options={hosters()}
-              maxOptions={MAX_HOSTER_SUGGESTIONS}
-              placeholder={t('config.accounts.addModal.hosterPlaceholder')}
-              disabled={hostersLoading()}
-              required
-            />
-            <Show when={hostersLoading()}>
-              <p class="text-xs text-muted-foreground mt-1">{t('config.accounts.addModal.hosterLoading')}</p>
-            </Show>
-          </div>
-          <TextField
-            label={t('config.accounts.addModal.username')}
-            type="text"
-            value={user()}
-            onChange={setUser}
-            inputProps={{ required: true }}
-          />
-          <TextField
-            label={t('config.accounts.addModal.password')}
-            type="password"
-            value={pass()}
-            onChange={setPass}
-            inputProps={{ required: true }}
-          />
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={close}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" variant="default" loading={saving()}>
-              {t('config.accounts.addModal.add')}
-            </Button>
-          </DialogFooter>
-        </DialogBody>
-      </form>
+    <Dialog open={props.open} onOpenChange={open => !open && close()}>
+      <DialogPortal>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('config.accounts.addModal.title')}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submit}>
+            <div class="space-y-4">
+              <div>
+                <Combobox
+                  label={t('config.accounts.addModal.hoster')}
+                  value={hoster()}
+                  onChange={setHoster}
+                  options={hosters()}
+                  maxOptions={MAX_HOSTER_SUGGESTIONS}
+                  placeholder={t('config.accounts.addModal.hosterPlaceholder')}
+                  disabled={hostersLoading()}
+                  required
+                />
+                <Show when={hostersLoading()}>
+                  <p class="text-xs text-muted-foreground mt-1">{t('config.accounts.addModal.hosterLoading')}</p>
+                </Show>
+              </div>
+              <TextField
+                label={t('config.accounts.addModal.username')}
+                type="text"
+                value={user()}
+                onChange={setUser}
+                inputProps={{ required: true }}
+              />
+              <TextField
+                label={t('config.accounts.addModal.password')}
+                type="password"
+                value={pass()}
+                onChange={setPass}
+                inputProps={{ required: true }}
+              />
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={close}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" variant="default" loading={saving()}>
+                  {t('config.accounts.addModal.add')}
+                </Button>
+              </DialogFooter>
+            </div>
+          </form>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 };
@@ -147,33 +154,40 @@ const CredentialsDialog: Component<{ account: JdAccount | null } & DialogCallbac
   };
 
   return (
-    <Dialog open={props.account !== null} onClose={props.onClose} title={t('config.accounts.credsModal.title')}>
-      <form onSubmit={submit}>
-        <DialogBody>
-          <TextField
-            label={t('config.accounts.credsModal.username')}
-            type="text"
-            value={user()}
-            onChange={setUser}
-            inputProps={{ required: true }}
-          />
-          <TextField
-            label={t('config.accounts.credsModal.password')}
-            type="password"
-            value={pass()}
-            onChange={setPass}
-            inputProps={{ required: true }}
-          />
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => props.onClose()}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" variant="default" loading={saving()} icon="i-tabler-check">
-              {t('common.save')}
-            </Button>
-          </DialogFooter>
-        </DialogBody>
-      </form>
+    <Dialog open={props.account !== null} onOpenChange={open => !open && props.onClose()}>
+      <DialogPortal>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('config.accounts.credsModal.title')}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submit}>
+            <div class="space-y-4">
+              <TextField
+                label={t('config.accounts.credsModal.username')}
+                type="text"
+                value={user()}
+                onChange={setUser}
+                inputProps={{ required: true }}
+              />
+              <TextField
+                label={t('config.accounts.credsModal.password')}
+                type="password"
+                value={pass()}
+                onChange={setPass}
+                inputProps={{ required: true }}
+              />
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={() => props.onClose()}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" variant="default" loading={saving()} icon="i-tabler-check">
+                  {t('common.save')}
+                </Button>
+              </DialogFooter>
+            </div>
+          </form>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 };

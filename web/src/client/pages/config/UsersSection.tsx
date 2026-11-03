@@ -14,7 +14,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { Dialog, DialogBody, DialogFooter } from '../../components/ui/Dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogPortal, DialogTitle } from '../../components/ui/Dialog';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { TextField } from '../../components/ui/TextField';
 import { t, tf } from '../../i18n';
@@ -55,42 +55,49 @@ const AddUserDialog: Component<{ open: boolean; onClose: () => void; onAdded: ()
   };
 
   return (
-    <Dialog open={props.open} onClose={close} title={t('config.users.addModal.title')}>
-      <DialogBody>
-        <Show when={error()}>
-          <Alert>{error()}</Alert>
-        </Show>
-        <TextField
-          label={t('config.users.addModal.name')}
-          type="text"
-          value={name()}
-          onChange={setName}
-          placeholder={t('config.users.addModal.namePlaceholder')}
-        />
-        <TextField
-          label={t('config.users.addModal.email')}
-          type="email"
-          value={email()}
-          onChange={setEmail}
-          placeholder={t('config.users.addModal.emailPlaceholder')}
-        />
-        <TextField
-          label={t('config.users.addModal.password')}
-          type="password"
-          value={password()}
-          onChange={setPassword}
-          placeholder={t('config.users.addModal.passwordPlaceholder')}
-          inputProps={{ minLength: 8, autocomplete: 'new-password' }}
-        />
-        <DialogFooter>
-          <Button variant="secondary" onClick={close}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="default" onClick={add} loading={adding()}>
-            {t('config.users.addModal.add')}
-          </Button>
-        </DialogFooter>
-      </DialogBody>
+    <Dialog open={props.open} onOpenChange={open => !open && close()}>
+      <DialogPortal>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('config.users.addModal.title')}</DialogTitle>
+          </DialogHeader>
+          <div class="space-y-4">
+            <Show when={error()}>
+              <Alert>{error()}</Alert>
+            </Show>
+            <TextField
+              label={t('config.users.addModal.name')}
+              type="text"
+              value={name()}
+              onChange={setName}
+              placeholder={t('config.users.addModal.namePlaceholder')}
+            />
+            <TextField
+              label={t('config.users.addModal.email')}
+              type="email"
+              value={email()}
+              onChange={setEmail}
+              placeholder={t('config.users.addModal.emailPlaceholder')}
+            />
+            <TextField
+              label={t('config.users.addModal.password')}
+              type="password"
+              value={password()}
+              onChange={setPassword}
+              placeholder={t('config.users.addModal.passwordPlaceholder')}
+              inputProps={{ minLength: 8, autocomplete: 'new-password' }}
+            />
+            <DialogFooter>
+              <Button variant="secondary" onClick={close}>
+                {t('common.cancel')}
+              </Button>
+              <Button variant="default" onClick={add} loading={adding()}>
+                {t('config.users.addModal.add')}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 };
