@@ -1,6 +1,7 @@
 import type { SortState } from '../components/ui/SortDropdown';
 import { createMemo, createSignal, onCleanup } from 'solid-js';
 import { t } from '../i18n';
+import { createLongPress, isTouchDevice } from './longPress';
 import { createPersistedSignal } from './persisted';
 
 // Shared state + interaction for the package/link lists (Downloads, Grabber):
@@ -25,7 +26,6 @@ const STATUS_RANK: Record<string, number> = {
   FINISHED: 4,
 };
 const STATUS_RANK_MAX = 5;
-const LONG_PRESS_MS = 500;
 
 function toggled(set: Set<number>, id: number): Set<number> {
   const next = new Set(set);
@@ -184,54 +184,23 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
     ? `${selectionCount()} ${t('common.selected')}`
     : cm.name;
 
-  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-  let longPressMoved = false;
-  let longPressTriggered = false;
-  const cancelLongPress = () => {
-    if (longPressTimer !== null) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  };
+  const longPress = createLongPress<{ type: ItemType; item: ListItem }>(({ type, item }) => setCtxMenu({
+    x: 0,
+    y: 0,
+    type,
+    uuid: item.uuid,
+    name: item.name,
+    enabled: item.enabled ?? false,
+    touch: true,
+  }));
 
   // Right-click (desktop) and long-press (touch) handlers for a row.
   const itemHandlers = (type: ItemType, item: ListItem) => ({
-    onTouchStart: (e: TouchEvent) => {
-      e.stopPropagation();
-      longPressMoved = false;
-      longPressTriggered = false;
-      longPressTimer = setTimeout(() => {
-        longPressTimer = null;
-        if (!longPressMoved) {
-          longPressTriggered = true;
-          navigator.vibrate?.(50);
-          setCtxMenu({
-            x: 0,
-            y: 0,
-            type,
-            uuid: item.uuid,
-            name: item.name,
-            enabled: item.enabled ?? false,
-            touch: true,
-          });
-        }
-      }, LONG_PRESS_MS);
-    },
-    onTouchEnd: (e: TouchEvent) => {
-      cancelLongPress();
-      if (longPressTriggered) {
-        e.preventDefault();
-        longPressTriggered = false;
-      }
-    },
-    onTouchMove: () => {
-      longPressMoved = true;
-      cancelLongPress();
-    },
+    ...longPress({ type, item }),
     onContextMenu: (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (navigator.maxTouchPoints > 0) {
+      if (isTouchDevice()) {
         return;
       }
       setCtxMenu({
@@ -285,7 +254,7 @@ export function createPackageList<P extends ListPackage, L extends ListLink>(opt
   onCleanup(() => {
     document.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('click', onDocClick);
-    cancelLongPress();
+    longPress.cancel();
   });
 
   return {
