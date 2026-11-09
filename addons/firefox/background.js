@@ -362,14 +362,16 @@ function notifyCnlError(message) {
   showNotification(browser.i18n.getMessage('notifCnlError'), message);
 }
 
-// kind: 'add' (plain links) or 'addcrypted2' (encrypted). packageOverride is the
-// name captured on the page, if any.
-function processCnl(kind, fd, packageOverride) {
+const CNL_KINDS = { '/flash/add': 'add', '/flash/addcrypted2': 'addcrypted2' };
+
+// kind: 'add' (plain links) or 'addcrypted2' (encrypted). Package name comes from
+// the `package` field, never `source` (the referer URL); fallbackPackage is used
+// when the form has none.
+function processCnl(kind, fd, fallbackPackage = '') {
+  const packageName = fd.package || fallbackPackage;
   if (kind === 'addcrypted2') {
     const crypted = fd.crypted || '';
     const jk      = fd.jk      || '';
-    // Package name comes from the `package` field, never `source` (the referer URL).
-    const packageName = packageOverride || fd.package || '';
     if (!crypted || !jk) {
       notifyCnlError(browser.i18n.getMessage('errorCnlMissingData', [String(!!crypted), String(!!jk)]));
       return;
@@ -379,9 +381,7 @@ function processCnl(kind, fd, packageOverride) {
       .catch(err => notifyCnlError(err.message));
     return;
   }
-  const links       = fd.urls || '';
-  const packageName = packageOverride || fd.package || '';
-  if (links) sendToBackend(links, packageName).catch(err => notifyCnlError(err.message));
+  if (fd.urls) sendToBackend(fd.urls, packageName).catch(err => notifyCnlError(err.message));
 }
 
 // ─── WebRequest Interceptor ───────────────────────────────────────────────────
@@ -390,28 +390,21 @@ function handleRequest(details) {
   // Not ready (no token or CNL disabled) → don't intercept; site gets natural connection error
   if (!config.cnlActive || !config.token) return {};
 
-  const { pathname, search } = new URL(details.url);
+  const { pathname } = new URL(details.url);
 
   if (pathname === '/jdcheck.js') {
-    // Activate content/cnl.js in the probing frame (submit hook); the redirect answers the probe.
+    // Activates content/cnl.js in the probing frame; the redirect answers the probe.
     if (details.tabId >= 0) {
       browser.tabs.sendMessage(details.tabId, { type: 'cnlActivate' }, { frameId: details.frameId }).catch(() => {});
     }
     return { redirectUrl: browser.runtime.getURL('content/jdcheck.js') };
   }
-  if (pathname === '/crossdomain.xml')  return { cancel: true };
-  if (search.includes('fromExtension')) return {};
+  if (pathname === '/crossdomain.xml') return { cancel: true };
 
-  if (pathname === '/flash/addcrypted2') {
-    processCnl('addcrypted2', readFormData(details.requestBody || {}));
-    return { cancel: true };
-  }
-  if (pathname === '/flash/add') {
-    processCnl('add', readFormData(details.requestBody || {}));
-    return { cancel: true };
-  }
-
-  return {};
+  const kind = CNL_KINDS[pathname];
+  if (!kind) return {};
+  processCnl(kind, readFormData(details.requestBody || {}));
+  return { cancel: true };
 }
 
 browser.webRequest.onBeforeRequest.addListener(
@@ -420,7 +413,7 @@ browser.webRequest.onBeforeRequest.addListener(
   ['blocking', 'requestBody']
 );
 
-// ─── Message Handler (from popup) ────────────────────────────────────────────
+// ─── Message Handler (popup, content script) ──────────────────────────────────
 
 browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'flushQueue') {
@@ -430,13 +423,13 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  // CNL form data captured by the injected page-context script (bypasses mixed-content blocking)
+  // CNL form fields forwarded by content/cnl.js instead of posting to the CNL port
   if (message.type === 'cnlFormIntercept') {
     if (!config.cnlActive) { sendResponse({ ok: false }); return true; }
-    const action = message.action || '';
-    const kind   = action.includes('/flash/addcrypted2') ? 'addcrypted2' : action.includes('/flash/add') ? 'add' : null;
+    let kind = null;
+    try { kind = CNL_KINDS[new URL(message.action).pathname]; } catch {}
     if (kind) processCnl(kind, message.formData || {}, message.packageName);
-    sendResponse({ ok: true });
+    sendResponse({ ok: !!kind });
     return true;
   }
 
