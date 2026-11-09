@@ -60,22 +60,29 @@ const OpenAt: Component<{ x: number; y: number }> = (props) => {
 };
 
 const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; onClose: () => void }> = (props) => {
-  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  // Selected action; runs once the menu has fully closed so the closing menu
+  // can't pull focus away from what the action opens (e.g. a dialog input).
+  let pending: (() => void) | undefined;
   onMount(() => activeMenuStore.closeAll());
-  onCleanup(() => clearTimeout(closeTimer));
 
   return (
-    <ContextMenuRoot
-      onOpenChange={(open) => {
-        if (!open) {
-          closeTimer = setTimeout(props.onClose, 150);
-        }
-      }}
-      modal={false}
-    >
+    <ContextMenuRoot modal={false}>
       <OpenAt x={props.x} y={props.y} />
       <ContextMenuPortal>
-        <ContextMenuContent class="z-70 min-w-52" onContextMenu={(e: MouseEvent) => e.preventDefault()}>
+        <ContextMenuContent
+          class="z-70 min-w-52"
+          onContextMenu={(e: MouseEvent) => e.preventDefault()}
+          // Fires after the close animation, when the menu would restore focus.
+          onCloseAutoFocus={(e: Event) => {
+            const run = pending;
+            pending = undefined;
+            if (run) {
+              e.preventDefault();
+            }
+            props.onClose();
+            run?.();
+          }}
+        >
           <For each={props.items}>
             {(item, i) => (
               <>
@@ -85,7 +92,7 @@ const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; o
                 <Show
                   when={item.submenu?.length}
                   fallback={(
-                    <ContextMenuItemPrimitive variant={item.danger ? 'destructive' : 'default'} onSelect={() => item.onClick?.()}>
+                    <ContextMenuItemPrimitive variant={item.danger ? 'destructive' : 'default'} onSelect={() => (pending = item.onClick)}>
                       <ItemContent item={item} />
                     </ContextMenuItemPrimitive>
                   )}
@@ -98,7 +105,7 @@ const DesktopMenu: Component<{ x: number; y: number; items: ContextMenuItem[]; o
                       <ContextMenuSubContent class="z-70 min-w-40">
                         <For each={item.submenu}>
                           {sub => (
-                            <ContextMenuItemPrimitive variant={sub.danger ? 'destructive' : 'default'} onSelect={() => sub.onClick?.()}>
+                            <ContextMenuItemPrimitive variant={sub.danger ? 'destructive' : 'default'} onSelect={() => (pending = sub.onClick)}>
                               <ItemContent item={sub} />
                             </ContextMenuItemPrimitive>
                           )}
