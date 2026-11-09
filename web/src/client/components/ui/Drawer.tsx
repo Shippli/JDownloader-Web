@@ -44,7 +44,18 @@ export function DrawerLabel(props: ComponentProps<typeof DrawerPrimitive.Label>)
   return <DrawerPrimitive.Label class={cx('text-sm font-semibold text-foreground', local.class)} {...rest} />;
 }
 
-// Full-width, centered action row inside a drawer.
+// Menu list inside a drawer; context-menu styling with centered, touch-sized rows.
+export const drawerListClass = 'flex flex-col p-2';
+
 export function drawerItemClass(destructive?: boolean) {
-  return cx('flex items-center justify-center gap-3 w-full px-4 py-3 text-sm transition-colors hover:bg-accent', destructive ? 'text-destructive' : 'text-foreground');
+  return cx(
+    'flex items-center justify-center gap-2 w-full rounded-sm px-3 py-2.5 text-sm outline-none select-none transition-colors',
+    destructive
+      ? 'text-destructive hover:bg-destructive/10 active:bg-destructive/10 focus-visible:bg-destructive/10 dark:hover:bg-destructive/20 dark:active:bg-destructive/20'
+      : 'text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent focus-visible:bg-accent',
+  );
 }
+
+export const drawerSeparatorClass = 'bg-border -mx-2 my-1 h-px';
+
+export const drawerGroupLabelClass = 'px-3 pt-2 pb-1 text-center text-xs font-medium text-muted-foreground';

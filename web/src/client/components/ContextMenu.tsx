@@ -15,7 +15,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from './ui/ContextMenu';
-import { Drawer, DrawerContent, drawerItemClass, DrawerLabel } from './ui/Drawer';
+import { Drawer, DrawerContent, drawerGroupLabelClass, drawerItemClass, DrawerLabel, drawerListClass, drawerSeparatorClass } from './ui/Drawer';
 
 export type ContextMenuItem = {
   label: string;
@@ -149,12 +149,12 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
         <div class="px-4 py-3 border-b text-center">
           <DrawerLabel class="break-all">{props.title}</DrawerLabel>
         </div>
-        <div class="py-1 overflow-y-auto">
+        <div class={cx(drawerListClass, 'overflow-y-auto')}>
           <For each={props.items}>
             {item => (
               <>
                 <Show when={item.separator}>
-                  <div class="my-1 border-t" />
+                  <div class={drawerSeparatorClass} />
                 </Show>
                 <Show
                   when={item.submenu?.length}
@@ -166,27 +166,21 @@ const TouchSheet: Component<{ title: string; items: ContextMenuItem[]; onClose: 
                         close();
                       }}
                     >
-                      <Show when={item.icon}>
-                        <span class={`${item.icon} w-4 h-4 flex-shrink-0 ${item.danger ? 'text-destructive' : 'text-muted-foreground'}`} />
-                      </Show>
-                      <span>{item.label}</span>
+                      <ItemContent item={item} />
                     </button>
                   )}
                 >
-                  <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-4 pt-3 pb-1 text-center">{item.label}</p>
+                  <p class={drawerGroupLabelClass}>{item.label}</p>
                   <For each={item.submenu}>
                     {sub => (
                       <button
-                        class={drawerItemClass()}
+                        class={drawerItemClass(sub.danger)}
                         onClick={() => {
                           sub.onClick?.();
                           close();
                         }}
                       >
-                        <Show when={sub.icon}>
-                          <span class={`${sub.icon} w-4 h-4 flex-shrink-0 text-muted-foreground`} />
-                        </Show>
-                        <span>{sub.label}</span>
+                        <ItemContent item={sub} />
                       </button>
                     )}
                   </For>

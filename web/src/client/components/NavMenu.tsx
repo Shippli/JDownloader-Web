@@ -3,7 +3,7 @@ import { useLocation } from '@solidjs/router';
 import { createContext, createEffect, on, Show, untrack, useContext } from 'solid-js';
 import { cx } from '../lib/cva';
 import { activeMenuStore } from '../stores/activeMenu';
-import { Drawer, DrawerContent, drawerItemClass, DrawerLabel } from './ui/Drawer';
+import { Drawer, DrawerContent, drawerItemClass, DrawerLabel, drawerListClass, drawerSeparatorClass } from './ui/Drawer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,7 +116,7 @@ export const NavMenu: Component<NavMenuProps> = (props) => {
                     </Show>
                   </div>
                 </Show>
-                {props.children}
+                <div class={drawerListClass}>{props.children}</div>
               </div>
             </DrawerContent>
           </Drawer>
@@ -171,7 +171,7 @@ export const NavMenuSeparator: Component = () => {
   const ctx = useContext(NavMenuContext)!;
   return (
     <Show when={ctx.mobile} fallback={<DropdownMenuSeparator />}>
-      <div class="my-1 border-t" />
+      <div class={drawerSeparatorClass} />
     </Show>
   );
 };
